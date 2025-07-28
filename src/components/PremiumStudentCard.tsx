@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Student } from "@/types/student";
 import { motion } from 'framer-motion';
-import { Eye, TrendingUp, Calendar, User, GraduationCap } from 'lucide-react';
+import { User, GraduationCap } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { useTranslation } from "@/hooks/useTranslation";
@@ -92,7 +92,7 @@ export const PremiumStudentCard = ({
                 className="absolute -bottom-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center"
                 whileHover={{ scale: 1.2 }}
               >
-                <User className="w-2 h-2 text-white" />
+                <span className="material-icons-outlined text-white text-xs">person</span>
               </motion.div>
             </motion.div>
             
@@ -105,7 +105,7 @@ export const PremiumStudentCard = ({
               </motion.h3>
               
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <GraduationCap className="w-3 h-3" />
+                <span className="material-icons-outlined text-sm">school</span>
                 <span>
                   {student.grade 
                     ? String(tDashboard('studentCard.grade')).replace('{{grade}}', student.grade.toString())
@@ -153,7 +153,7 @@ export const PremiumStudentCard = ({
                 onClick={() => onView(student)}
                 className="w-full border-primary/20 hover:bg-primary/10 hover:border-primary/40 transition-all duration-200"
               >
-                <Eye className="w-3 h-3 mr-1" />
+                <span className="material-icons-outlined text-sm mr-1">visibility</span>
                 {String(tDashboard('studentCard.viewProfile'))}
               </Button>
             </motion.div>
@@ -168,7 +168,7 @@ export const PremiumStudentCard = ({
                 onClick={() => onTrack(student)}
                 className="w-full bg-gradient-primary hover:opacity-90 transition-all duration-200"
               >
-                <TrendingUp className="w-3 h-3 mr-1" />
+                <span className="material-icons-outlined text-sm mr-1">trending_up</span>
                 {String(tDashboard('studentCard.trackNow'))}
               </Button>
             </motion.div>
