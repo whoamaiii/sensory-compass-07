@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DataVisualization } from "@/components/DataVisualization";
+import { InteractiveDataVisualization } from "@/components/InteractiveDataVisualization";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import { AdvancedSearch } from "@/components/AdvancedSearch";
 import { QuickEntryTemplates } from "@/components/QuickEntryTemplates";
@@ -15,8 +15,11 @@ import { ReportBuilder } from "@/components/ReportBuilder";
 import { useDataFiltering } from "@/hooks/useDataFiltering";
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Goal } from "@/types/student";
 import { dataStorage } from "@/lib/dataStorage";
-import { ArrowLeft, TrendingUp, Calendar, FileText, Plus, Filter, Crosshair, Zap } from "lucide-react";
+import { enhancedPatternAnalysis } from "@/lib/enhancedPatternAnalysis";
+import { exportSystem } from "@/lib/exportSystem";
+import { ArrowLeft, TrendingUp, Calendar, FileText, Plus, Filter, Crosshair, Zap, Download, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 export const StudentProfile = () => {
   const { studentId } = useParams();
@@ -122,53 +125,203 @@ export const StudentProfile = () => {
     navigate(`/track/${student.id}?template=true`);
   };
 
-  const getInsights = (emotions: EmotionEntry[], sensoryInputs: SensoryEntry[]) => {
+  const getInsights = async (emotions: EmotionEntry[], sensoryInputs: SensoryEntry[], trackingEntries: TrackingEntry[]) => {
     if (emotions.length === 0 && sensoryInputs.length === 0) {
       return [];
     }
 
-    const insights = [];
+    try {
+      // Generate enhanced insights
+      const predictiveInsights = enhancedPatternAnalysis.generatePredictiveInsights(
+        emotions,
+        sensoryInputs,
+        trackingEntries,
+        goals
+      );
 
-    // Emotion insights
-    if (emotions.length > 0) {
-      const emotionCounts = emotions.reduce((acc, emotion) => {
-        acc[emotion.emotion] = (acc[emotion.emotion] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+      const insights = [];
 
-      const mostCommon = Object.entries(emotionCounts)
-        .sort(([,a], [,b]) => b - a)[0];
-      
-      insights.push(`Most frequently observed emotion: ${mostCommon[0]} (${mostCommon[1]} times)`);
-
-      // Average intensity
-      const avgIntensity = emotions.reduce((sum, e) => sum + e.intensity, 0) / emotions.length;
-      insights.push(`Average emotion intensity: ${avgIntensity.toFixed(1)}/5`);
-    }
-
-    // Sensory insights
-    if (sensoryInputs.length > 0) {
-      const seekingCount = sensoryInputs.filter(s => s.response === 'seeking').length;
-      const avoidingCount = sensoryInputs.filter(s => s.response === 'avoiding').length;
-      
-      if (seekingCount > avoidingCount) {
-        insights.push('Tends to seek sensory input more than avoid it');
-      } else if (avoidingCount > seekingCount) {
-        insights.push('Tends to avoid sensory input more than seek it');
+      // Add predictive insights
+      for (const insight of predictiveInsights) {
+        insights.push({
+          type: insight.type,
+          text: insight.description,
+          confidence: insight.confidence > 0.8 ? 'high' : insight.confidence > 0.5 ? 'moderate' : 'low',
+          recommendations: insight.recommendations
+        });
       }
 
-      const sensoryTypes = sensoryInputs.reduce((acc, sensory) => {
-        acc[sensory.sensoryType] = (acc[sensory.sensoryType] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+      // Basic emotion insights
+      if (emotions.length > 0) {
+        const emotionCounts = emotions.reduce((acc, emotion) => {
+          acc[emotion.emotion] = (acc[emotion.emotion] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
 
-      const mostCommonSensory = Object.entries(sensoryTypes)
-        .sort(([,a], [,b]) => b - a)[0];
-      
-      insights.push(`Most tracked sensory type: ${mostCommonSensory[0]} (${mostCommonSensory[1]} entries)`);
+        const mostCommon = Object.entries(emotionCounts)
+          .sort(([,a], [,b]) => b - a)[0];
+        
+        insights.push({
+          type: 'emotion',
+          text: `Most frequently observed emotion: ${mostCommon[0]} (${mostCommon[1]} times)`,
+          confidence: 'high',
+          recommendations: []
+        });
+
+        const avgIntensity = emotions.reduce((sum, e) => sum + e.intensity, 0) / emotions.length;
+        insights.push({
+          type: 'emotion',
+          text: `Average emotion intensity: ${avgIntensity.toFixed(1)}/5`,
+          confidence: 'high',
+          recommendations: []
+        });
+      }
+
+      // Sensory insights
+      if (sensoryInputs.length > 0) {
+        const seekingCount = sensoryInputs.filter(s => s.response === 'seeking').length;
+        const avoidingCount = sensoryInputs.filter(s => s.response === 'avoiding').length;
+        
+        if (seekingCount > avoidingCount) {
+          insights.push({
+            type: 'sensory',
+            text: 'Tends to seek sensory input more than avoid it',
+            confidence: 'moderate',
+            recommendations: ['Provide structured sensory breaks', 'Use sensory tools as rewards']
+          });
+        } else if (avoidingCount > seekingCount) {
+          insights.push({
+            type: 'sensory',
+            text: 'Tends to avoid sensory input more than seek it',
+            confidence: 'moderate',
+            recommendations: ['Create quiet spaces', 'Gradual exposure to sensory activities']
+          });
+        }
+
+        const sensoryTypes = sensoryInputs.reduce((acc, sensory) => {
+          acc[sensory.sensoryType] = (acc[sensory.sensoryType] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        const mostCommonSensory = Object.entries(sensoryTypes)
+          .sort(([,a], [,b]) => b - a)[0];
+        
+        insights.push({
+          type: 'sensory',
+          text: `Most tracked sensory type: ${mostCommonSensory[0]} (${mostCommonSensory[1]} entries)`,
+          confidence: 'high',
+          recommendations: []
+        });
+      }
+
+      return insights;
+    } catch (error) {
+      console.error('Error generating insights:', error);
+      return [];
     }
+  };
 
-    return insights;
+  const handleExportData = async (format: 'pdf' | 'csv' | 'json') => {
+    if (!student) return;
+
+    try {
+      let result;
+      const exportData = {
+        student,
+        trackingEntries: filteredData.entries,
+        emotions: filteredData.emotions,
+        sensoryInputs: filteredData.sensoryInputs,
+        goals,
+        insights: await getInsights(filteredData.emotions, filteredData.sensoryInputs, filteredData.entries)
+      };
+
+      switch (format) {
+        case 'pdf':
+          const pdfBlob = await exportSystem.generatePDFReport(student, {
+            trackingEntries: filteredData.entries,
+            emotions: filteredData.emotions,
+            sensoryInputs: filteredData.sensoryInputs,
+            goals
+          }, {
+            format: 'pdf',
+            includeFields: ['all'],
+            includeCharts: true
+          });
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          const pdfLink = document.createElement('a');
+          pdfLink.href = pdfUrl;
+          pdfLink.download = student.name.replace(/\s+/g, '_') + '_report_' + new Date().toISOString().split('T')[0] + '.html';
+          pdfLink.click();
+          result = { success: true };
+          break;
+        case 'csv':
+          const csvContent = exportSystem.generateCSVExport([student], {
+            trackingEntries: filteredData.entries,
+            emotions: filteredData.emotions,
+            sensoryInputs: filteredData.sensoryInputs,
+            goals
+          }, {
+            format: 'csv',
+            includeFields: ['all']
+          });
+          const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+          const csvUrl = URL.createObjectURL(csvBlob);
+          const csvLink = document.createElement('a');
+          csvLink.href = csvUrl;
+          csvLink.download = student.name.replace(/\s+/g, '_') + '_data_' + new Date().toISOString().split('T')[0] + '.csv';
+          csvLink.click();
+          result = { success: true };
+          break;
+        case 'json':
+          const jsonContent = exportSystem.generateJSONExport([student], {
+            trackingEntries: filteredData.entries,
+            emotions: filteredData.emotions,
+            sensoryInputs: filteredData.sensoryInputs,
+            goals
+          }, {
+            format: 'json',
+            includeFields: ['students', 'trackingEntries', 'emotions', 'sensoryInputs', 'goals']
+          });
+          const jsonBlob = new Blob([jsonContent], { type: 'application/json' });
+          const jsonUrl = URL.createObjectURL(jsonBlob);
+          const jsonLink = document.createElement('a');
+          jsonLink.href = jsonUrl;
+          jsonLink.download = student.name.replace(/\s+/g, '_') + '_data_' + new Date().toISOString().split('T')[0] + '.json';
+          jsonLink.click();
+          result = { success: true };
+          break;
+      }
+
+      if (result.success) {
+        toast.success(`Data exported successfully as ${format.toUpperCase()}`);
+      } else {
+        toast.error(`Export failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Export failed. Please try again.');
+    }
+  };
+
+  const handleBackupData = async () => {
+    try {
+      const backup = exportSystem.createFullBackup([student], {
+        trackingEntries: trackingEntries,
+        emotions: allEmotions,
+        sensoryInputs: allSensoryInputs,
+        goals
+      });
+      const backupBlob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const backupUrl = URL.createObjectURL(backupBlob);
+      const backupLink = document.createElement('a');
+      backupLink.href = backupUrl;
+      backupLink.download = 'sensory_tracker_backup_' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5) + '.json';
+      backupLink.click();
+      toast.success('Backup created successfully');
+    } catch (error) {
+      console.error('Backup error:', error);
+      toast.error('Backup failed. Please try again.');
+    }
   };
 
   if (!student) {
@@ -182,7 +335,16 @@ export const StudentProfile = () => {
     );
   }
 
-  const insights = getInsights(filteredData.emotions, filteredData.sensoryInputs);
+  const [insights, setInsights] = useState<any[]>([]);
+
+  // Generate insights when filtered data changes
+  useEffect(() => {
+    const generateInsights = async () => {
+      const newInsights = await getInsights(filteredData.emotions, filteredData.sensoryInputs, filteredData.entries);
+      setInsights(newInsights);
+    };
+    generateInsights();
+  }, [filteredData]);
 
   return (
     <div className="min-h-screen bg-background font-dyslexia">
@@ -369,14 +531,29 @@ export const StudentProfile = () => {
               <CardTitle>AI Insights & Suggestions</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2">
+              <div className="space-y-4">
                 {insights.map((insight, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="text-primary font-bold">•</span>
-                    <span className="text-foreground">{insight}</span>
-                  </li>
+                  <div key={index} className="border-l-4 border-primary pl-4 py-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant={insight.confidence === 'high' ? 'default' : insight.confidence === 'moderate' ? 'secondary' : 'outline'}>
+                        {insight.confidence} confidence
+                      </Badge>
+                      <Badge variant="outline">{insight.type}</Badge>
+                    </div>
+                    <p className="text-foreground mb-2">{insight.text}</p>
+                    {insight.recommendations && insight.recommendations.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Recommendations:</p>
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          {insight.recommendations.map((rec: string, recIndex: number) => (
+                            <li key={recIndex}>• {rec}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 ))}
-              </ul>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -409,14 +586,23 @@ export const StudentProfile = () => {
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <>
-            {/* Data Visualization */}
+            {/* Interactive Data Visualization */}
             <div className="mb-8">
-              <DataVisualization
+              <InteractiveDataVisualization
                 emotions={filteredData.emotions}
                 sensoryInputs={filteredData.sensoryInputs}
+                trackingEntries={filteredData.entries}
                 studentName={student.name}
-                showTimeFilter={true}
-                selectedRange={selectedRange.label}
+              />
+            </div>
+
+            {/* Analytics Dashboard */}
+            <div className="mb-8">
+              <AnalyticsDashboard
+                student={student}
+                trackingEntries={filteredData.entries}
+                emotions={filteredData.emotions}
+                sensoryInputs={filteredData.sensoryInputs}
               />
             </div>
           </>
@@ -436,6 +622,52 @@ export const StudentProfile = () => {
 
         {activeTab === 'reports' && (
           <div className="mb-8">
+            {/* Export Controls */}
+            <Card className="mb-6 bg-gradient-card border-0 shadow-soft">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Download className="h-5 w-5" />
+                  Export Data
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleExportData('pdf')}
+                    className="font-dyslexia"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Export PDF
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleExportData('csv')}
+                    className="font-dyslexia"
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleExportData('json')}
+                    className="font-dyslexia"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export JSON
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleBackupData}
+                    className="font-dyslexia"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Create Backup
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <ReportBuilder 
               student={student}
               goals={goals}
@@ -488,17 +720,6 @@ export const StudentProfile = () => {
           </Card>
         )}
 
-        {/* Analytics Dashboard - Show on overview tab only */}
-        {activeTab === 'overview' && (
-          <div className="mb-8">
-            <AnalyticsDashboard
-              student={student}
-              trackingEntries={filteredData.entries}
-              emotions={filteredData.emotions}
-              sensoryInputs={filteredData.sensoryInputs}
-            />
-          </div>
-        )}
       </div>
     </div>
   );
