@@ -33,6 +33,7 @@ export const useAnalyticsStatus = (studentId?: string): UseAnalyticsStatusReturn
       }
     } catch (error) {
       console.error('Error loading analytics status:', error);
+      setAnalyticsStatus([]);
     } finally {
       setIsLoading(false);
     }

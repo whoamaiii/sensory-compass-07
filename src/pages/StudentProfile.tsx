@@ -134,10 +134,13 @@ export const StudentProfile = () => {
     // Debounce the insights generation to avoid excessive calls
     const timeoutId = setTimeout(() => {
       generateInsights();
-      // Ensure analytics are initialized and triggered for this student
-      if (studentId) {
+      // Only ensure analytics are initialized, don't trigger if no data
+      if (studentId && (filteredData.emotions.length > 0 || filteredData.sensoryInputs.length > 0)) {
         analyticsManager.initializeStudentAnalytics(studentId);
         analyticsManager.triggerAnalyticsForStudent(studentId);
+      } else if (studentId) {
+        // Just initialize without triggering analytics
+        analyticsManager.initializeStudentAnalytics(studentId);
       }
     }, 300);
     return () => clearTimeout(timeoutId);

@@ -16,6 +16,7 @@ import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { PremiumHeader } from "@/components/PremiumHeader";
 import { PremiumEmptyState } from "@/components/PremiumEmptyState";
 import { UniversalAnalyticsStatus } from "@/components/UniversalAnalyticsStatus";
+import { TestingDebugPanel } from "@/components/TestingDebugPanel";
 
 /**
  * Dashboard component - Main landing page showing student overview and statistics
@@ -49,12 +50,17 @@ export const Dashboard = () => {
 
     loadData();
     
-    // Initialize analytics for all existing students
+    // Initialize analytics for all existing students (only trigger if they have data)
     const initializeAnalytics = async () => {
-      await analyticsManager.triggerAnalyticsForAllStudents();
+      try {
+        // Only initialize, don't auto-trigger for empty students
+        await universalAnalyticsInitializer.initializeUniversalAnalytics();
+      } catch (error) {
+        console.error('Error initializing analytics:', error);
+      }
     };
     
-    if (!isLoading) {
+    if (!isLoading && students.length > 0) {
       initializeAnalytics();
     }
   }, [isLoading]);
@@ -255,13 +261,14 @@ export const Dashboard = () => {
           <UniversalAnalyticsStatus />
         </motion.div>
 
-        {/* Mock Data Loader - for testing */}
+        {/* Testing and Debug Tools */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 1.8 }}
-          className="mb-8"
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
         >
+          <TestingDebugPanel />
           <MockDataLoader />
         </motion.div>
 

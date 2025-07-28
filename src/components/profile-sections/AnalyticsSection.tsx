@@ -170,7 +170,9 @@ export function AnalyticsSection({
       ) : (
         <PatternDetectionEmptyState
           dataPoints={filteredData.emotions.length + filteredData.sensoryInputs.length}
-          daysWithData={Math.max(0, Math.ceil((filteredData.entries.length + filteredData.emotions.length + filteredData.sensoryInputs.length) / 3))}
+          daysWithData={Math.max(1, new Set(
+            filteredData.entries.map(e => e.timestamp.toDateString())
+          ).size)}
           onCollectData={() => window.location.href = `/track/${student.id}`}
         />
       )}

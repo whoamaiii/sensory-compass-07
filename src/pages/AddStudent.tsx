@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
 import { analyticsManager } from "@/lib/analyticsManager";
-import { universalAnalyticsInitializer } from "@/lib/universalAnalyticsInitializer";
 
 export const AddStudent = () => {
   const [name, setName] = useState('');
