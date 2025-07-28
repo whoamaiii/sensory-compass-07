@@ -23,10 +23,13 @@ import { exportSystem } from "@/lib/exportSystem";
 import { ArrowLeft, TrendingUp, Calendar, FileText, Plus, Filter, Crosshair, Zap, Download, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useTranslation } from "@/hooks/useTranslation";
+import { LanguageSettings } from "@/components/LanguageSettings";
 
 export const StudentProfile = () => {
   const { studentId } = useParams();
   const navigate = useNavigate();
+  const { tStudent, tCommon, tAnalytics, formatDate } = useTranslation();
   const [student, setStudent] = useState<Student | null>(null);
   const [trackingEntries, setTrackingEntries] = useState<TrackingEntry[]>([]);
   const [allEmotions, setAllEmotions] = useState<EmotionEntry[]>([]);
@@ -274,7 +277,7 @@ export const StudentProfile = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading student profile...</p>
+          <p className="text-muted-foreground">{String(tCommon('status.loading'))}...</p>
         </div>
       </div>
     );
@@ -286,14 +289,17 @@ export const StudentProfile = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <Button
-            variant="outline"
-            onClick={() => navigate('/')}
-            className="mb-4 font-dyslexia"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
+          <div className="flex items-center justify-between mb-4">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/')}
+              className="font-dyslexia"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              {String(tCommon('buttons.back'))}
+            </Button>
+            <LanguageSettings />
+          </div>
           
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -306,10 +312,10 @@ export const StudentProfile = () => {
                 </h1>
                 <div className="flex items-center gap-2 mt-1">
                   {student.grade && (
-                    <Badge variant="secondary">Grade {student.grade}</Badge>
+                    <Badge variant="secondary">{String(tStudent('studentCard.grade')).replace('{{grade}}', student.grade)}</Badge>
                   )}
                   <span className="text-muted-foreground">
-                    Added {student.createdAt.toLocaleDateString()}
+                    Added {formatDate(student.createdAt)}
                   </span>
                 </div>
               </div>

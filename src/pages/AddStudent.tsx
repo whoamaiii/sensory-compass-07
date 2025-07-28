@@ -7,6 +7,8 @@ import { Student } from "@/types/student";
 import { ArrowLeft, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useTranslation } from "@/hooks/useTranslation";
+import { LanguageSettings } from "@/components/LanguageSettings";
 
 export const AddStudent = () => {
   const [name, setName] = useState('');
@@ -16,12 +18,13 @@ export const AddStudent = () => {
   const [isLoading, setIsLoading] = useState(false);
   
   const navigate = useNavigate();
+  const { tStudent, tCommon } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!name.trim()) {
-      toast.error('Please enter a student name');
+      toast.error(String(tStudent('addStudent.form.name.required')));
       return;
     }
 
@@ -47,10 +50,10 @@ export const AddStudent = () => {
       // Save to localStorage
       localStorage.setItem('sensoryTracker_students', JSON.stringify(students));
       
-      toast.success(`${name} has been added successfully!`);
+      toast.success(String(tStudent('addStudent.success')));
       navigate('/');
     } catch (error) {
-      toast.error('Failed to add student. Please try again.');
+      toast.error("Failed to add student. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -61,20 +64,23 @@ export const AddStudent = () => {
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         {/* Header */}
         <div className="mb-8">
-          <Button
-            variant="outline"
-            onClick={() => navigate('/')}
-            className="mb-4 font-dyslexia"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
+          <div className="flex items-center justify-between mb-4">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/')}
+              className="font-dyslexia"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              {String(tStudent('addStudent.backToDashboard'))}
+            </Button>
+            <LanguageSettings />
+          </div>
           
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Add New Student
+            {String(tStudent('addStudent.title'))}
           </h1>
           <p className="text-muted-foreground">
-            Create a profile to start tracking sensory and emotional data
+            {String(tStudent('addStudent.description'))}
           </p>
         </div>
 
@@ -83,7 +89,7 @@ export const AddStudent = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-foreground">
               <UserPlus className="h-5 w-5" />
-              Student Information
+              {String(tStudent('profile.information'))}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -91,13 +97,13 @@ export const AddStudent = () => {
               {/* Name - Required */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Student Name *
+                  {String(tStudent('addStudent.form.name.label'))} *
                 </label>
                 <Input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter student's full name"
+                  placeholder={String(tStudent('addStudent.form.name.placeholder'))}
                   className="font-dyslexia bg-input border-border focus:ring-ring"
                   required
                 />
@@ -106,13 +112,13 @@ export const AddStudent = () => {
               {/* Grade - Optional */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Grade Level (Optional)
+                  {String(tStudent('addStudent.form.grade.label'))}
                 </label>
                 <Input
                   type="text"
                   value={grade}
                   onChange={(e) => setGrade(e.target.value)}
-                  placeholder="e.g., 3rd Grade, Pre-K, etc."
+                  placeholder={String(tStudent('addStudent.form.grade.placeholder'))}
                   className="font-dyslexia bg-input border-border focus:ring-ring"
                 />
               </div>
@@ -120,7 +126,7 @@ export const AddStudent = () => {
               {/* Date of Birth - Optional */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Date of Birth (Optional)
+                  {String(tStudent('addStudent.form.dateOfBirth.label'))}
                 </label>
                 <Input
                   type="date"
@@ -133,12 +139,12 @@ export const AddStudent = () => {
               {/* Notes - Optional */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Additional Notes (Optional)
+                  {String(tStudent('addStudent.form.notes.label'))}
                 </label>
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Any additional information about the student's needs, preferences, or background..."
+                  placeholder={String(tStudent('addStudent.form.notes.placeholder'))}
                   className="font-dyslexia bg-input border-border focus:ring-ring"
                   rows={4}
                 />
@@ -153,7 +159,7 @@ export const AddStudent = () => {
                   className="flex-1 font-dyslexia"
                   disabled={isLoading}
                 >
-                  Cancel
+                  {String(tCommon('buttons.cancel'))}
                 </Button>
                 <Button
                   type="submit"
@@ -163,12 +169,12 @@ export const AddStudent = () => {
                   {isLoading ? (
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                      Adding...
+                      {String(tCommon('status.saving'))}
                     </div>
                   ) : (
                     <>
                       <UserPlus className="h-4 w-4 mr-2" />
-                      Add Student
+                      {String(tCommon('buttons.add'))} {String(tCommon('navigation.students')).slice(0, -1)}
                     </>
                   )}
                 </Button>
@@ -179,11 +185,9 @@ export const AddStudent = () => {
 
         {/* Helper Text */}
         <div className="mt-6 p-4 bg-accent/50 rounded-lg border border-accent">
-          <h3 className="font-medium text-accent-foreground mb-2">Getting Started</h3>
+          <h3 className="font-medium text-accent-foreground mb-2">{String(tStudent('addStudent.helpText'))}</h3>
           <p className="text-sm text-accent-foreground/80">
-            Once you add a student, you'll be able to track their emotions and sensory responses 
-            throughout the day. The more data you collect, the better insights you'll get about 
-            patterns and triggers.
+            {String(tStudent('addStudent.helpText'))}
           </p>
         </div>
       </div>

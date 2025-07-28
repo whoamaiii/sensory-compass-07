@@ -39,5 +39,10 @@
     "norwegian": "Norsk bokmål",
     "english": "English",
     "changeLanguage": "Endre språk"
+  },
+  "notFound": {
+    "title": "404",
+    "subtitle": "Oops! Siden ble ikke funnet",
+    "backHome": "Tilbake til hovedsiden"
   }
 }

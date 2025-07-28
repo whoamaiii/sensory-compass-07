@@ -7,6 +7,8 @@ import { EnvironmentalTracker } from "@/components/EnvironmentalTracker";
 import { Student, EmotionEntry, SensoryEntry, TrackingEntry, EnvironmentalEntry } from "@/types/student";
 import { ArrowLeft, Save, User } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/hooks/useTranslation";
+import { LanguageSettings } from "@/components/LanguageSettings";
 
 export const TrackStudent = () => {
   const { studentId } = useParams();
@@ -16,6 +18,7 @@ export const TrackStudent = () => {
   const [sensoryInputs, setSensoryInputs] = useState<Omit<SensoryEntry, 'id' | 'timestamp'>[]>([]);
   const [environmentalData, setEnvironmentalData] = useState<Omit<EnvironmentalEntry, 'id' | 'timestamp'> | null>(null);
   const [generalNotes, setGeneralNotes] = useState('');
+  const { tTracking, tCommon } = useTranslation();
 
   useEffect(() => {
     if (!studentId) return;
@@ -31,7 +34,7 @@ export const TrackStudent = () => {
           createdAt: new Date(foundStudent.createdAt)
         });
       } else {
-        toast.error('Student not found');
+        toast.error(String(tTracking('session.validationError')));
         navigate('/');
       }
     }
@@ -39,24 +42,24 @@ export const TrackStudent = () => {
 
   const handleEmotionAdd = (emotion: Omit<EmotionEntry, 'id' | 'timestamp'>) => {
     setEmotions([...emotions, emotion]);
-    toast.success('Emotion recorded!');
+    toast.success("Emotion recorded!");
   };
 
   const handleSensoryAdd = (sensory: Omit<SensoryEntry, 'id' | 'timestamp'>) => {
     setSensoryInputs([...sensoryInputs, sensory]);
-    toast.success('Sensory input recorded!');
+    toast.success("Sensory input recorded!");
   };
 
   const handleEnvironmentalAdd = (environmental: Omit<EnvironmentalEntry, 'id' | 'timestamp'>) => {
     setEnvironmentalData(environmental);
-    toast.success('Environmental conditions recorded!');
+    toast.success("Environmental conditions recorded!");
   };
 
   const handleSaveSession = () => {
     if (!student) return;
     
     if (emotions.length === 0 && sensoryInputs.length === 0) {
-      toast.error('Please record at least one emotion or sensory input');
+      toast.error(String(tTracking('session.validationError')));
       return;
     }
 
@@ -91,7 +94,7 @@ export const TrackStudent = () => {
     entries.push(trackingEntry);
     localStorage.setItem('sensoryTracker_entries', JSON.stringify(entries));
 
-    toast.success('Tracking session saved successfully!');
+    toast.success(String(tTracking('session.sessionSaved')));
     navigate(`/student/${student.id}`);
   };
 
@@ -100,7 +103,7 @@ export const TrackStudent = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading student...</p>
+          <p className="text-muted-foreground">{String(tCommon('status.loading'))}...</p>
         </div>
       </div>
     );
@@ -111,14 +114,17 @@ export const TrackStudent = () => {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/student/${student.id}`)}
-            className="mb-4 font-dyslexia"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Profile
-          </Button>
+          <div className="flex items-center justify-between mb-4">
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/student/${student.id}`)}
+              className="font-dyslexia"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              {String(tCommon('buttons.back'))}
+            </Button>
+            <LanguageSettings />
+          </div>
           
           <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold text-lg">
@@ -126,11 +132,8 @@ export const TrackStudent = () => {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-foreground">
-                Tracking Session
+                {String(tTracking('session.title')).replace('{{studentName}}', student.name)}
               </h1>
-              <p className="text-lg text-muted-foreground">
-                {student.name}
-              </p>
             </div>
           </div>
           
@@ -141,13 +144,16 @@ export const TrackStudent = () => {
 
         {/* Session Summary */}
         <div className="mb-6 p-4 bg-primary-soft rounded-lg border border-primary/20">
+          <h3 className="text-lg font-semibold text-primary-foreground mb-2">
+            {String(tTracking('session.summary'))}
+          </h3>
           <div className="flex items-center gap-4 text-sm text-primary-foreground">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4" />
-              <span>{emotions.length} emotions recorded</span>
+              <span>{String(tTracking('session.emotionsRecorded')).replace('{{count}}', emotions.length.toString())}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span>{sensoryInputs.length} sensory inputs recorded</span>
+              <span>{String(tTracking('session.sensoryInputsRecorded')).replace('{{count}}', sensoryInputs.length.toString())}</span>
             </div>
           </div>
         </div>
@@ -177,12 +183,12 @@ export const TrackStudent = () => {
         {/* General Notes */}
         <div className="mb-8">
           <h3 className="text-lg font-semibold text-foreground mb-3">
-            Session Notes (Optional)
+            {String(tTracking('session.generalNotes'))}
           </h3>
           <textarea
             value={generalNotes}
             onChange={(e) => setGeneralNotes(e.target.value)}
-            placeholder="Any general observations about this session, environmental factors, or overall mood..."
+            placeholder={String(tTracking('session.generalNotesPlaceholder'))}
             className="w-full p-4 border border-border rounded-lg font-dyslexia bg-input focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
             rows={4}
           />
@@ -195,7 +201,7 @@ export const TrackStudent = () => {
             onClick={() => navigate(`/student/${student.id}`)}
             className="flex-1 font-dyslexia"
           >
-            Cancel Session
+            {String(tTracking('session.cancelSession'))}
           </Button>
           <Button
             onClick={handleSaveSession}
@@ -203,7 +209,7 @@ export const TrackStudent = () => {
             className="flex-1 font-dyslexia bg-gradient-primary hover:opacity-90 transition-all duration-200"
           >
             <Save className="h-4 w-4 mr-2" />
-            Save Session
+            {String(tTracking('session.saveSession'))}
           </Button>
         </div>
       </div>
