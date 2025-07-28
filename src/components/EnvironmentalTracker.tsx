@@ -16,6 +16,7 @@ import {
   Plus,
   X
 } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface EnvironmentalTrackerProps {
   onEnvironmentalAdd: (entry: Omit<EnvironmentalEntry, 'id' | 'timestamp'>) => void;
@@ -23,6 +24,7 @@ interface EnvironmentalTrackerProps {
 }
 
 export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: EnvironmentalTrackerProps) => {
+  const { tTracking, tCommon } = useTranslation();
   const [roomTemperature, setRoomTemperature] = useState<number>(22);
   const [lighting, setLighting] = useState<string>('');
   const [noiseLevel, setNoiseLevel] = useState<number>(3);
@@ -86,7 +88,7 @@ export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: Environm
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-foreground">
           <Thermometer className="h-5 w-5 text-primary" />
-          Environmental Conditions
+          {String(tTracking('environmental.title'))}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -94,7 +96,7 @@ export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: Environm
         <div className="space-y-2">
           <Label className="text-sm font-medium text-foreground flex items-center gap-2">
             <Thermometer className="h-4 w-4" />
-            Room Temperature: {roomTemperature}°C
+            {String(tTracking('environmental.temperature'))}: {roomTemperature}°C
           </Label>
           <Slider
             value={[roomTemperature]}
@@ -114,17 +116,16 @@ export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: Environm
         <div className="space-y-2">
           <Label className="text-sm font-medium text-foreground flex items-center gap-2">
             <Sun className="h-4 w-4" />
-            Lighting Conditions
+            {String(tTracking('environmental.lighting'))}
           </Label>
           <Select value={lighting} onValueChange={setLighting}>
             <SelectTrigger>
-              <SelectValue placeholder="Select lighting type" />
+              <SelectValue placeholder="Velg belysningstype" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="bright">Bright</SelectItem>
-              <SelectItem value="dim">Dim</SelectItem>
-              <SelectItem value="natural">Natural</SelectItem>
-              <SelectItem value="fluorescent">Fluorescent</SelectItem>
+              <SelectItem value="bright">{String(tTracking('environmental.lighting.bright'))}</SelectItem>
+              <SelectItem value="normal">{String(tTracking('environmental.lighting.normal'))}</SelectItem>
+              <SelectItem value="dim">{String(tTracking('environmental.lighting.dim'))}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -133,7 +134,7 @@ export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: Environm
         <div className="space-y-2">
           <Label className="text-sm font-medium text-foreground flex items-center gap-2">
             <Volume2 className="h-4 w-4" />
-            Noise Level: {noiseLevel}/5
+            {String(tTracking('environmental.noiseLevel'))}: {noiseLevel}/5
           </Label>
           <Slider
             value={[noiseLevel]}
@@ -144,117 +145,38 @@ export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: Environm
             className="w-full"
           />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Very Quiet</span>
-            <span>Very Loud</span>
+            <span>{String(tTracking('environmental.levels.low'))}</span>
+            <span>{String(tTracking('environmental.levels.high'))}</span>
           </div>
         </div>
 
-        {/* Classroom Activity */}
+        {/* Crowd Level */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-foreground flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Classroom Activity
+            {String(tTracking('environmental.crowdLevel'))}
           </Label>
           <Select value={classroomActivity} onValueChange={setClassroomActivity}>
             <SelectTrigger>
-              <SelectValue placeholder="Select current activity" />
+              <SelectValue placeholder="Velg folkemengde" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="instruction">Teacher Instruction</SelectItem>
-              <SelectItem value="transition">Transition</SelectItem>
-              <SelectItem value="free-time">Free Time</SelectItem>
-              <SelectItem value="testing">Testing/Assessment</SelectItem>
-              <SelectItem value="group-work">Group Work</SelectItem>
+              <SelectItem value="low">{String(tTracking('environmental.levels.low'))}</SelectItem>
+              <SelectItem value="moderate">{String(tTracking('environmental.levels.moderate'))}</SelectItem>
+              <SelectItem value="high">{String(tTracking('environmental.levels.high'))}</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-
-        {/* Weather */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-foreground flex items-center gap-2">
-            <Cloud className="h-4 w-4" />
-            Weather Conditions
-          </Label>
-          <Select value={weather} onValueChange={setWeather}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select weather" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="sunny">Sunny</SelectItem>
-              <SelectItem value="cloudy">Cloudy</SelectItem>
-              <SelectItem value="rainy">Rainy</SelectItem>
-              <SelectItem value="stormy">Stormy</SelectItem>
-              <SelectItem value="snowy">Snowy</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Time of Day */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-foreground">
-            Time of Day
-          </Label>
-          <Select value={timeOfDay} onValueChange={setTimeOfDay}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select time period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="morning">Morning</SelectItem>
-              <SelectItem value="afternoon">Afternoon</SelectItem>
-              <SelectItem value="evening">Evening</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Special Events */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium text-foreground">
-            Special Events/Circumstances
-          </Label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newEvent}
-              onChange={(e) => setNewEvent(e.target.value)}
-              placeholder="Add special event or circumstance"
-              className="flex-1 px-3 py-2 border border-border rounded-md text-sm bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
-              onKeyPress={(e) => e.key === 'Enter' && handleAddSpecialEvent()}
-            />
-            <Button 
-              type="button" 
-              size="sm" 
-              onClick={handleAddSpecialEvent}
-              disabled={!newEvent.trim()}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          {specialEvents.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {specialEvents.map((event, index) => (
-                <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                  {event}
-                  <button
-                    onClick={() => handleRemoveSpecialEvent(event)}
-                    className="ml-1 hover:text-destructive"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Notes */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-foreground">
-            Environmental Notes (Optional)
+            {String(tTracking('environmental.notes'))}
           </Label>
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Additional observations about the environment..."
+            placeholder={String(tTracking('environmental.notesPlaceholder'))}
             rows={3}
             className="resize-none"
           />
@@ -263,10 +185,10 @@ export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: Environm
         {/* Submit Button */}
         <Button
           onClick={handleSubmit}
-          disabled={!isFormValid}
+          disabled={!lighting}
           className="w-full"
         >
-          Record Environmental Conditions
+          {String(tCommon('buttons.save'))} {String(tTracking('environmental.title'))}
         </Button>
       </CardContent>
     </Card>

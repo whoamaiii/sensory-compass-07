@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { EmotionEntry } from "@/types/student";
 import { Heart, Frown, Angry, Smile, Zap, Sun } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface EmotionTrackerProps {
   onEmotionAdd: (emotion: Omit<EmotionEntry, 'id' | 'timestamp'>) => void;
@@ -12,15 +13,16 @@ interface EmotionTrackerProps {
 }
 
 const emotions = [
-  { type: 'happy' as const, label: 'Happy', icon: Smile, color: 'emotion-happy' },
-  { type: 'calm' as const, label: 'Calm', icon: Heart, color: 'emotion-calm' },
-  { type: 'excited' as const, label: 'Excited', icon: Zap, color: 'emotion-excited' },
-  { type: 'sad' as const, label: 'Sad', icon: Frown, color: 'emotion-sad' },
-  { type: 'anxious' as const, label: 'Anxious', icon: Sun, color: 'emotion-anxious' },
-  { type: 'angry' as const, label: 'Angry', icon: Angry, color: 'emotion-angry' },
+  { type: 'happy' as const, icon: Smile, color: 'emotion-happy' },
+  { type: 'calm' as const, icon: Heart, color: 'emotion-calm' },
+  { type: 'excited' as const, icon: Zap, color: 'emotion-excited' },
+  { type: 'sad' as const, icon: Frown, color: 'emotion-sad' },
+  { type: 'anxious' as const, icon: Sun, color: 'emotion-anxious' },
+  { type: 'angry' as const, icon: Angry, color: 'emotion-angry' },
 ];
 
 export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps) => {
+  const { tTracking, tCommon } = useTranslation();
   const [selectedEmotion, setSelectedEmotion] = useState<string>('');
   const [intensity, setIntensity] = useState<number>(3);
   const [notes, setNotes] = useState('');
@@ -59,12 +61,12 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
   return (
     <Card className="font-dyslexia bg-gradient-card border-0">
       <CardHeader>
-        <CardTitle className="text-xl text-foreground">Track Emotion</CardTitle>
+        <CardTitle className="text-xl text-foreground">{String(tTracking('emotions.title'))}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Emotion Selection */}
         <div>
-          <h3 className="text-sm font-medium text-foreground mb-3">Select Emotion</h3>
+          <h3 className="text-sm font-medium text-foreground mb-3">{String(tTracking('emotions.selectEmotion'))}</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {emotions.map((emotion) => {
               const Icon = emotion.icon;
@@ -80,7 +82,7 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
                   onClick={() => setSelectedEmotion(emotion.type)}
                 >
                   <Icon className="h-6 w-6" />
-                  <span className="text-sm">{emotion.label}</span>
+                  <span className="text-sm">{String(tTracking(`emotions.types.${emotion.type}`))}</span>
                 </Button>
               );
             })}
@@ -91,7 +93,7 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
         {selectedEmotion && (
           <div>
             <h3 className="text-sm font-medium text-foreground mb-3">
-              Intensity Level: {intensity}/5
+              {String(tTracking('emotions.intensity'))}: {intensity}/5
             </h3>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((level) => (
@@ -103,6 +105,7 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
                     intensity === level ? 'bg-gradient-primary' : ''
                   }`}
                   onClick={() => setIntensity(level)}
+                  title={String(tTracking(`emotions.intensityLevels.${level}`))}
                 >
                   {level}
                 </Button>
@@ -113,18 +116,18 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
 
         {/* Triggers */}
         <div>
-          <h3 className="text-sm font-medium text-foreground mb-3">Triggers (Optional)</h3>
+          <h3 className="text-sm font-medium text-foreground mb-3">Utløsere (Valgfritt)</h3>
           <div className="flex gap-2 mb-2">
             <input
               type="text"
               value={newTrigger}
               onChange={(e) => setNewTrigger(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleAddTrigger()}
-              placeholder="Add a trigger..."
+              placeholder="Legg til en utløser..."
               className="flex-1 px-3 py-2 border border-border rounded-lg font-dyslexia bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
             />
             <Button onClick={handleAddTrigger} size="sm" variant="outline">
-              Add
+              {String(tCommon('buttons.add'))}
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -143,11 +146,11 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
 
         {/* Notes */}
         <div>
-          <h3 className="text-sm font-medium text-foreground mb-3">Notes (Optional)</h3>
+          <h3 className="text-sm font-medium text-foreground mb-3">{String(tTracking('emotions.notes'))}</h3>
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Additional observations..."
+            placeholder="Ytterligere observasjoner..."
             className="font-dyslexia bg-input border-border focus:ring-ring"
             rows={3}
           />
@@ -158,7 +161,7 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
           disabled={!selectedEmotion}
           className="w-full font-dyslexia bg-gradient-primary hover:opacity-90 transition-all duration-200"
         >
-          Record Emotion
+          {String(tTracking('emotions.addEmotion'))}
         </Button>
       </CardContent>
     </Card>
