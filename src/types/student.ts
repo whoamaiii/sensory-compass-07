@@ -16,23 +16,28 @@ export interface Student {
 
 export interface EmotionEntry {
   id: string;
-  studentId: string;
-  emotion: 'happy' | 'sad' | 'angry' | 'calm' | 'anxious' | 'excited';
-  intensity: 1 | 2 | 3 | 4 | 5; // 1 = very low, 5 = very high
+  studentId?: string;
+  emotion: string;
+  intensity: number;
   timestamp: Date;
   notes?: string;
   triggers?: string[];
+  context?: string;
+  trigger?: string;
 }
 
 export interface SensoryEntry {
   id: string;
-  studentId: string;
-  sensoryType: 'visual' | 'auditory' | 'tactile' | 'vestibular' | 'proprioceptive';
-  response: 'seeking' | 'avoiding' | 'neutral';
-  intensity: 1 | 2 | 3 | 4 | 5;
+  studentId?: string;
+  sensoryType?: string;
+  type?: string;
+  input?: string;
+  response: string;
+  intensity?: number;
   timestamp: Date;
   notes?: string;
   environment?: string;
+  context?: string;
 }
 
 export interface TrackingEntry {
@@ -43,18 +48,20 @@ export interface TrackingEntry {
   sensoryInputs: SensoryEntry[];
   environmentalData?: EnvironmentalEntry;
   generalNotes?: string;
+  notes?: string;
   version?: number;
 }
 
 // New interfaces for enhanced functionality
 export interface EnvironmentalEntry {
-  id: string;
-  timestamp: Date;
-  roomConditions: {
+  id?: string;
+  timestamp?: Date;
+  location?: string;
+  roomConditions?: {
     temperature?: number;
     humidity?: number;
-    lighting: 'bright' | 'dim' | 'natural' | 'fluorescent';
-    noiseLevel: 1 | 2 | 3 | 4 | 5; // 1 = very quiet, 5 = very loud
+    lighting?: string;
+    noiseLevel?: number;
   };
   weather?: {
     condition: 'sunny' | 'cloudy' | 'rainy' | 'stormy' | 'snowy';

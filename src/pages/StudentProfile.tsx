@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentProfileSidebar } from "@/components/StudentProfileSidebar";
 import { DashboardSection } from "@/components/profile-sections/DashboardSection";
@@ -388,6 +389,20 @@ export const StudentProfile = () => {
             onToolSectionChange={setActiveSection}
             onSearchResults={handleSearchResults}
           />
+        );
+      case 'enhanced-tracking':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Enhanced Tracking Tools</h2>
+              <p className="text-muted-foreground">
+                Advanced data collection and smart entry tools for {student.name}
+              </p>
+            </div>
+            <div className="text-center py-8 text-muted-foreground">
+              <p>Enhanced tracking tools coming soon</p>
+            </div>
+          </div>
         );
       default:
         return null;
