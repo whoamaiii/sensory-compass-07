@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { isToday } from "date-fns";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
+import { MockDataLoader } from "@/components/MockDataLoader";
 
 /**
  * Dashboard component - Main landing page showing student overview and statistics
@@ -197,6 +198,11 @@ export const Dashboard = () => {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Mock Data Loader - for testing */}
+        <div className="mb-8">
+          <MockDataLoader />
         </div>
 
         {/* Quick Tips */}
