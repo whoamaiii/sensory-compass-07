@@ -54,6 +54,88 @@
       "emergingtTrend": "Mønster begynner å vise seg",
       "reliableInsight": "Pålitelig innsikt basert på solid data"
     },
-    "tooltip": "Klikk for å se forklaring av sikkerhetsnivå"
+    "tooltip": "Klikk for å se forklaring av sikkerhetsnivå",
+    "detailed": {
+      "title": "Detaljert Sikkerhetsanalyse"
+    },
+    "tabs": {
+      "overview": "Oversikt",
+      "calculation": "Beregning",
+      "factors": "Faktorer",
+      "education": "Forklaring"
+    },
+    "overview": {
+      "dataQuality": "Datakvalitet",
+      "timespan": "Tidsrom",
+      "patterns": "Mønstre",
+      "complete": "komplett",
+      "daysOfData": "dager med data",
+      "weakPattern": "svakt mønster",
+      "moderatePattern": "moderat mønster",
+      "strongPattern": "sterkt mønster",
+      "recommendations": "Anbefalinger for forbedring"
+    },
+    "calculation": {
+      "title": "Hvordan beregnes sikkerhetsnivået?",
+      "dataQuantity": "Antall datapunkter",
+      "timeSpan": "Tidsperiode",
+      "patternStrength": "Mønsterstyrke",
+      "overall": "Samlet sikkerhet",
+      "dataPoints": "datapunkter",
+      "days": "dager"
+    },
+    "factors": {
+      "insufficientData": {
+        "title": "Utilstrekkelige data",
+        "description": "Du har {{current}} datapunkter, men trenger minst {{needed}} for pålitelig analyse. Mer data gir bedre mønstre."
+      },
+      "sufficientData": {
+        "title": "Tilstrekkelige data",
+        "description": "Du har {{count}} datapunkter, som er nok for grunnleggende analyse."
+      },
+      "shortTimespan": {
+        "title": "Kort tidsperiode",
+        "description": "Data samlet over {{current}} dager. Anbefaler minst {{recommended}} dager for å se utviklingsmønstre."
+      },
+      "adequateTimespan": {
+        "title": "Tilstrekkelig tidsperiode",
+        "description": "Data samlet over {{days}} dager gir god innsikt i mønstre over tid."
+      },
+      "weakPattern": {
+        "title": "Svakt statistisk mønster",
+        "description": "Mønsterstyrken er {{percentage}}% (R² = {{rsquared}}). Dette betyr at mønstrene ikke er helt klare ennå."
+      },
+      "moderatePattern": {
+        "title": "Moderat statistisk mønster",
+        "description": "Mønsterstyrken er {{percentage}}% (R² = {{rsquared}}). Mønstre begynner å vise seg tydelig."
+      },
+      "strongPattern": {
+        "title": "Sterkt statistisk mønster",
+        "description": "Mønsterstyrken er {{percentage}}% (R² = {{rsquared}}). Klare og pålitelige mønstre er identifisert."
+      }
+    },
+    "recommendations": {
+      "collectMoreData": "Samle {{needed}} flere datapunkter for bedre analyse",
+      "extendTimespan": "Fortsett datainnsamling i {{additional}} dager til",
+      "improveDataConsistency": "Registrer data konsekvent hver dag",
+      "documentContext": "Noter ned situasjoner og omstendigheter rundt registreringene"
+    },
+    "education": {
+      "title": "Forstå sikkerhetsnivå",
+      "whatIsConfidence": {
+        "title": "Hva er sikkerhetsnivå?",
+        "content": "Sikkerhetsnivået viser hvor pålitelige analysene våre er. Det baseres på mengden data, tidsperioden vi har samlet over, og hvor tydelige mønstrene er."
+      },
+      "whyItMatters": {
+        "title": "Hvorfor er det viktig?",
+        "content": "Høy sikkerhet betyr at du kan stole på analysene for å ta pedagogiske beslutninger. Lav sikkerhet betyr at du bør samle mer data før du trekker konklusjoner."
+      },
+      "interpretation": {
+        "title": "Tolkning av sikkerhetsnivå",
+        "high": "Pålitelig - kan brukes til å ta informerte beslutninger",
+        "medium": "Moderat - nyttig for trender, men samle mer data",
+        "low": "Foreløpig - fortsett å samle data før konklusjoner"
+      }
+    }
   }
 }

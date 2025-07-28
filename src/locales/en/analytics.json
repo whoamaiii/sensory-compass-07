@@ -54,6 +54,88 @@
       "emergingTrend": "Pattern is beginning to emerge",
       "reliableInsight": "Reliable insight based on solid data"
     },
-    "tooltip": "Click to see confidence level explanation"
+    "tooltip": "Click to see confidence level explanation",
+    "detailed": {
+      "title": "Detailed Confidence Analysis"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "calculation": "Calculation",
+      "factors": "Factors",
+      "education": "Education"
+    },
+    "overview": {
+      "dataQuality": "Data Quality",
+      "timespan": "Timespan",
+      "patterns": "Patterns",
+      "complete": "complete",
+      "daysOfData": "days of data",
+      "weakPattern": "weak pattern",
+      "moderatePattern": "moderate pattern",
+      "strongPattern": "strong pattern",
+      "recommendations": "Improvement Recommendations"
+    },
+    "calculation": {
+      "title": "How is confidence calculated?",
+      "dataQuantity": "Number of data points",
+      "timeSpan": "Time period",
+      "patternStrength": "Pattern strength",
+      "overall": "Overall confidence",
+      "dataPoints": "data points",
+      "days": "days"
+    },
+    "factors": {
+      "insufficientData": {
+        "title": "Insufficient data",
+        "description": "You have {{current}} data points, but need at least {{needed}} for reliable analysis. More data provides better patterns."
+      },
+      "sufficientData": {
+        "title": "Sufficient data",
+        "description": "You have {{count}} data points, which is enough for basic analysis."
+      },
+      "shortTimespan": {
+        "title": "Short time period",
+        "description": "Data collected over {{current}} days. Recommend at least {{recommended}} days to see developmental patterns."
+      },
+      "adequateTimespan": {
+        "title": "Adequate time period",
+        "description": "Data collected over {{days}} days provides good insight into patterns over time."
+      },
+      "weakPattern": {
+        "title": "Weak statistical pattern",
+        "description": "Pattern strength is {{percentage}}% (R² = {{rsquared}}). This means patterns are not completely clear yet."
+      },
+      "moderatePattern": {
+        "title": "Moderate statistical pattern",
+        "description": "Pattern strength is {{percentage}}% (R² = {{rsquared}}). Patterns are beginning to show clearly."
+      },
+      "strongPattern": {
+        "title": "Strong statistical pattern",
+        "description": "Pattern strength is {{percentage}}% (R² = {{rsquared}}). Clear and reliable patterns have been identified."
+      }
+    },
+    "recommendations": {
+      "collectMoreData": "Collect {{needed}} more data points for better analysis",
+      "extendTimespan": "Continue data collection for {{additional}} more days",
+      "improveDataConsistency": "Record data consistently every day",
+      "documentContext": "Note down situations and circumstances around recordings"
+    },
+    "education": {
+      "title": "Understanding Confidence Level",
+      "whatIsConfidence": {
+        "title": "What is confidence level?",
+        "content": "Confidence level shows how reliable our analyses are. It's based on the amount of data, the time period we've collected over, and how clear the patterns are."
+      },
+      "whyItMatters": {
+        "title": "Why does it matter?",
+        "content": "High confidence means you can rely on the analyses to make educational decisions. Low confidence means you should collect more data before drawing conclusions."
+      },
+      "interpretation": {
+        "title": "Interpreting confidence levels",
+        "high": "Reliable - can be used to make informed decisions",
+        "medium": "Moderate - useful for trends, but collect more data",
+        "low": "Preliminary - continue collecting data before conclusions"
+      }
+    }
   }
 }

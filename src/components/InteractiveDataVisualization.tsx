@@ -26,6 +26,7 @@ import { EmotionEntry, SensoryEntry, TrackingEntry } from "@/types/student";
 import { enhancedPatternAnalysis, CorrelationMatrix, PredictiveInsight, AnomalyDetection } from "@/lib/enhancedPatternAnalysis";
 import { patternAnalysis, PatternResult } from "@/lib/patternAnalysis";
 import { ConfidenceIndicator } from '@/components/ConfidenceIndicator';
+import { DetailedConfidenceExplanation } from '@/components/DetailedConfidenceExplanation';
 import { differenceInDays } from 'date-fns';
 import { 
   TrendingUp, 
@@ -847,6 +848,18 @@ export const InteractiveDataVisualization = ({
         </TabsContent>
 
         <TabsContent value="patterns" className="space-y-6">
+          {/* Detailed Confidence Analysis for Teachers */}
+          <DetailedConfidenceExplanation
+            confidence={predictiveInsights.length > 0 ? predictiveInsights[0].confidence : 
+                      patterns.length > 0 ? patterns[0].confidence : 0.03}
+            dataPoints={filteredData.emotions.length + filteredData.sensoryInputs.length + filteredData.trackingEntries.length}
+            timeSpanDays={filteredData.emotions.length > 0 && filteredData.emotions[0] ? 
+              Math.abs(differenceInDays(new Date(), filteredData.emotions[0].timestamp)) : 0}
+            rSquared={predictiveInsights.length > 0 && predictiveInsights[0].prediction ? 
+              predictiveInsights[0].prediction.accuracy : 
+              patterns.length > 0 ? patterns[0].confidence : 0.03}
+          />
+          
           <Card>
             <CardHeader>
               <CardTitle>AI Pattern Recognition</CardTitle>
