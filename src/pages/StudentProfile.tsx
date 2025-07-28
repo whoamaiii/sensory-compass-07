@@ -324,7 +324,7 @@ export const StudentProfile = () => {
                     <Badge variant="secondary">{String(tStudent('studentCard.grade')).replace('{{grade}}', student.grade)}</Badge>
                   )}
                   <span className="text-muted-foreground">
-                    Added {formatDate(student.createdAt)}
+                    {String(tStudent('interface.added'))} {formatDate(student.createdAt)}
                   </span>
                 </div>
               </div>
@@ -337,7 +337,7 @@ export const StudentProfile = () => {
                 className="font-dyslexia"
               >
                 <Filter className="h-4 w-4 mr-2" />
-                {showAdvancedSearch ? "Hide Search" : "Advanced Search"}
+                {showAdvancedSearch ? String(tStudent('interface.hideSearch')) : String(tStudent('interface.advancedSearch'))}
               </Button>
               <Button
                 variant="outline"
@@ -345,14 +345,14 @@ export const StudentProfile = () => {
                 className="font-dyslexia"
               >
                 <Zap className="h-4 w-4 mr-2" />
-                {showQuickTemplates ? "Hide Templates" : "Quick Templates"}
+                {showQuickTemplates ? String(tStudent('interface.hideTemplates')) : String(tStudent('interface.quickTemplates'))}
               </Button>
               <Button
                 onClick={() => navigate(`/track/${student.id}`)}
                 className="bg-gradient-primary hover:opacity-90 font-dyslexia"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                New Session
+                {String(tStudent('interface.newSession'))}
               </Button>
             </div>
           </div>
@@ -388,7 +388,7 @@ export const StudentProfile = () => {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Filter className="h-5 w-5" />
-                Data Analysis Period
+                {String(tStudent('interface.dataAnalysisPeriod'))}
               </CardTitle>
               <Button
                 variant="outline"
@@ -396,7 +396,7 @@ export const StudentProfile = () => {
                 onClick={() => setShowComparison(!showComparison)}
                 className="font-dyslexia"
               >
-                {showComparison ? "Hide" : "Show"} Comparison
+                {showComparison ? String(tStudent('interface.hideComparison')) : String(tStudent('interface.showComparison'))}
               </Button>
             </div>
           </CardHeader>
@@ -421,39 +421,39 @@ export const StudentProfile = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="bg-gradient-card border-0 shadow-soft">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Sessions in Period</CardTitle>
+              <CardTitle className="text-sm font-medium">{String(tStudent('interface.sessionsInPeriod'))}</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">{filteredData.entries.length}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {trackingEntries.length} total sessions
+                {trackingEntries.length} {String(tStudent('interface.totalSessions'))}
               </p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-card border-0 shadow-soft">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Emotions Tracked</CardTitle>
+              <CardTitle className="text-sm font-medium">{String(tStudent('interface.emotionsTracked'))}</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">{filteredData.emotions.length}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {allEmotions.length} total emotions
+                {allEmotions.length} {String(tStudent('interface.totalEmotions'))}
               </p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-card border-0 shadow-soft">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Sensory Inputs</CardTitle>
+              <CardTitle className="text-sm font-medium">{String(tStudent('interface.sensoryInputs'))}</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">{filteredData.sensoryInputs.length}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {allSensoryInputs.length} total sensory inputs
+                {allSensoryInputs.length} {String(tStudent('interface.totalSensoryInputs'))}
               </p>
             </CardContent>
           </Card>

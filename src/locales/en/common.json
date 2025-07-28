@@ -44,5 +44,21 @@
     "title": "404",
     "subtitle": "Oops! Page not found",
     "backHome": "Return to Home"
+  },
+  "interface": {
+    "results": "Results",
+    "filters": "Filters",
+    "clearAll": "Clear All",
+    "dateRange": "Date Range",
+    "emotionTypes": "Emotion Types",
+    "sensoryTypes": "Sensory Types",
+    "goalStatus": "Goal Status",
+    "emotionIntensityRange": "Emotion Intensity Range",
+    "to": "to",
+    "search": "Search",
+    "emotion": "Emotion",
+    "sensory": "Sensory",
+    "goal": "Goal",
+    "clearAllFilters": "Clear All Filters"
   }
 }

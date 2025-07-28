@@ -137,5 +137,17 @@
         "low": "Preliminary - continue collecting data before conclusions"
       }
     }
+  },
+  "interface": {
+    "advancedSearchFiltering": "Advanced Search & Filtering",
+    "totalSessions": "Total Sessions",
+    "periodComparison": "Period Comparison",
+    "previous": "Previous",
+    "lastMonth": "Last Month",
+    "lastYear": "Last Year",
+    "keyChanges": "Key Changes",
+    "totalEmotions": "Total Emotions",
+    "avgIntensity": "Avg Intensity",
+    "seekingRatio": "Seeking Ratio"
   }
 }

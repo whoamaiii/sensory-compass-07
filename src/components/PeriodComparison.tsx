@@ -7,6 +7,7 @@ import { EmotionEntry, SensoryEntry } from "@/types/student";
 import { TimeRange } from "./DateRangeSelector";
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface PeriodComparisonProps {
   emotions: EmotionEntry[];
@@ -25,6 +26,7 @@ interface PeriodStats {
 }
 
 export const PeriodComparison = ({ emotions, sensoryInputs, currentRange, className }: PeriodComparisonProps) => {
+  const { tAnalytics, tStudent } = useTranslation();
   const [comparisonPeriod, setComparisonPeriod] = useState<"previous" | "same-last-month" | "same-last-year">("previous");
 
   const getComparisonRange = (): TimeRange => {
@@ -111,23 +113,23 @@ export const PeriodComparison = ({ emotions, sensoryInputs, currentRange, classN
 
   const comparisonMetrics = [
     {
-      label: "Total Emotions",
+      label: String(tAnalytics('interface.totalEmotions')),
       current: currentStats.emotionsCount,
       previous: comparisonStats.emotionsCount,
     },
     {
-      label: "Sensory Inputs",
+      label: String(tStudent('interface.sensoryInputs')),
       current: currentStats.sensoryCount,
       previous: comparisonStats.sensoryCount,
     },
     {
-      label: "Avg Intensity",
+      label: String(tAnalytics('interface.avgIntensity')),
       current: currentStats.avgEmotionIntensity,
       previous: comparisonStats.avgEmotionIntensity,
       format: (val: number) => val.toFixed(1)
     },
     {
-      label: "Seeking Ratio",
+      label: String(tAnalytics('interface.seekingRatio')),
       current: currentStats.seekingRatio,
       previous: comparisonStats.seekingRatio,
       format: (val: number) => `${(val * 100).toFixed(1)}%`
@@ -140,7 +142,7 @@ export const PeriodComparison = ({ emotions, sensoryInputs, currentRange, classN
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <ArrowRight className="h-5 w-5" />
-            Period Comparison
+            {String(tAnalytics('interface.periodComparison'))}
           </CardTitle>
           <div className="flex gap-2">
             <Button
@@ -149,7 +151,7 @@ export const PeriodComparison = ({ emotions, sensoryInputs, currentRange, classN
               onClick={() => setComparisonPeriod("previous")}
               className="text-xs"
             >
-              Previous
+              {String(tAnalytics('interface.previous'))}
             </Button>
             <Button
               variant={comparisonPeriod === "same-last-month" ? "default" : "outline"}
@@ -157,7 +159,7 @@ export const PeriodComparison = ({ emotions, sensoryInputs, currentRange, classN
               onClick={() => setComparisonPeriod("same-last-month")}
               className="text-xs"
             >
-              Last Month
+              {String(tAnalytics('interface.lastMonth'))}
             </Button>
             <Button
               variant={comparisonPeriod === "same-last-year" ? "default" : "outline"}
@@ -165,7 +167,7 @@ export const PeriodComparison = ({ emotions, sensoryInputs, currentRange, classN
               onClick={() => setComparisonPeriod("same-last-year")}
               className="text-xs"
             >
-              Last Year
+              {String(tAnalytics('interface.lastYear'))}
             </Button>
           </div>
         </div>
@@ -198,7 +200,7 @@ export const PeriodComparison = ({ emotions, sensoryInputs, currentRange, classN
 
         {/* Key Changes */}
         <div className="mt-6 pt-4 border-t border-border">
-          <h4 className="text-sm font-medium mb-3">Key Changes</h4>
+          <h4 className="text-sm font-medium mb-3">{String(tAnalytics('interface.keyChanges'))}</h4>
           <div className="space-y-2">
             {currentStats.mostCommonEmotion !== comparisonStats.mostCommonEmotion && (
               <div className="flex items-center gap-2 text-sm">

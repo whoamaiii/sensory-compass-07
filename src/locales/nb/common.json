@@ -44,5 +44,21 @@
     "title": "404",
     "subtitle": "Oops! Siden ble ikke funnet",
     "backHome": "Tilbake til hovedsiden"
+  },
+  "interface": {
+    "results": "Resultater",
+    "filters": "Filtre",
+    "clearAll": "Fjern alle",
+    "dateRange": "Datoområde",
+    "emotionTypes": "Følelsestyper",
+    "sensoryTypes": "Sensoriske typer",
+    "goalStatus": "Målstatus",
+    "emotionIntensityRange": "Følelsesintensitetsområde",
+    "to": "til",
+    "search": "Søk",
+    "emotion": "Følelse",
+    "sensory": "Sensorisk",
+    "goal": "Mål",
+    "clearAllFilters": "Fjern alle filtre"
   }
 }

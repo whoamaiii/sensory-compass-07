@@ -22,6 +22,7 @@ import { alertSystem } from "@/lib/alertSystem";
 import { useDataFiltering } from "@/hooks/useDataFiltering";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import { analyticsManager } from "@/lib/analyticsManager";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface AnalyticsDashboardProps {
   student: Student;
@@ -36,6 +37,7 @@ export const AnalyticsDashboard = ({
   emotions, 
   sensoryInputs 
 }: AnalyticsDashboardProps) => {
+  const { tStudent } = useTranslation();
   const [patterns, setPatterns] = useState<PatternResult[]>([]);
   const [correlations, setCorrelations] = useState<CorrelationResult[]>([]);
   const [insights, setInsights] = useState<string[]>([]);
@@ -222,7 +224,7 @@ export const AnalyticsDashboard = ({
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Emotions Tracked</p>
+                <p className="text-sm font-medium text-muted-foreground">{String(tStudent('interface.emotionsTracked'))}</p>
                 <p className="text-2xl font-bold">{filteredData.emotions.length}</p>
               </div>
               <Brain className="h-8 w-8 text-muted-foreground" />
@@ -234,7 +236,7 @@ export const AnalyticsDashboard = ({
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Sensory Inputs</p>
+                <p className="text-sm font-medium text-muted-foreground">{String(tStudent('interface.sensoryInputs'))}</p>
                 <p className="text-2xl font-bold">{filteredData.sensoryInputs.length}</p>
               </div>
               <Eye className="h-8 w-8 text-muted-foreground" />

@@ -137,5 +137,17 @@
         "low": "Foreløpig - fortsett å samle data før konklusjoner"
       }
     }
+  },
+  "interface": {
+    "advancedSearchFiltering": "Avansert søk og filtrering",
+    "totalSessions": "Totalt økter",
+    "periodComparison": "Periodesammenligning",
+    "previous": "Forrige",
+    "lastMonth": "Forrige måned",
+    "lastYear": "Forrige år",
+    "keyChanges": "Viktige endringer",
+    "totalEmotions": "Totalt følelser",
+    "avgIntensity": "Gjennomsnittlig intensitet",
+    "seekingRatio": "Søkeforhold"
   }
 }

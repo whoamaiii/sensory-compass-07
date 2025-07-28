@@ -49,5 +49,22 @@
     "vg1": "VG1",
     "vg2": "VG2",
     "vg3": "VG3"
+  },
+  "interface": {
+    "sessionsInPeriod": "Sessions in Period",
+    "emotionsTracked": "Emotions Tracked",
+    "sensoryInputs": "Sensory Inputs",
+    "newSession": "New Session",
+    "advancedSearch": "Advanced Search",
+    "hideSearch": "Hide Search",
+    "quickTemplates": "Quick Templates",
+    "hideTemplates": "Hide Templates",
+    "showComparison": "Show Comparison",
+    "hideComparison": "Hide Comparison",
+    "dataAnalysisPeriod": "Data Analysis Period",
+    "totalSessions": "total sessions",
+    "totalEmotions": "total emotions",
+    "totalSensoryInputs": "total sensory inputs",
+    "added": "Added"
   }
 }
