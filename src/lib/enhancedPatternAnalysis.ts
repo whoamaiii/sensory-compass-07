@@ -51,9 +51,9 @@ export interface CorrelationMatrix {
 }
 
 class EnhancedPatternAnalysisEngine {
-  private readonly TREND_THRESHOLD = 0.1;
-  private readonly ANOMALY_THRESHOLD = 2.0; // Standard deviations
-  private readonly MIN_SAMPLE_SIZE = 10;
+  private readonly TREND_THRESHOLD = 0.05;
+  private readonly ANOMALY_THRESHOLD = 1.5; // Standard deviations
+  private readonly MIN_SAMPLE_SIZE = 5;
 
   // Predictive Analytics
   generatePredictiveInsights(
@@ -398,12 +398,12 @@ class EnhancedPatternAnalysisEngine {
       trackingEntries: trackingEntries.filter(t => t.timestamp >= subDays(new Date(), 14))
     };
 
-    // High stress accumulation risk
+    // High stress accumulation risk - fixed for 1-5 scale
     const highStressCount = recentData.emotions.filter(e => 
-      e.intensity >= 7 && ['anxious', 'frustrated', 'overwhelmed', 'angry'].includes(e.emotion.toLowerCase())
+      e.intensity >= 4 && ['anxious', 'frustrated', 'overwhelmed', 'angry'].includes(e.emotion.toLowerCase())
     ).length;
 
-    if (highStressCount >= 5) {
+    if (highStressCount >= 3) {
       risks.push({
         type: 'risk',
         title: 'Stress Accumulation Risk',

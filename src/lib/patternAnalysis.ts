@@ -34,10 +34,10 @@ export interface TriggerAlert {
 }
 
 class PatternAnalysisEngine {
-  private readonly MIN_DATA_POINTS = 5;
-  private readonly CORRELATION_THRESHOLD = 0.3;
-  private readonly HIGH_INTENSITY_THRESHOLD = 7;
-  private readonly CONCERN_FREQUENCY_THRESHOLD = 0.4; // 40% of sessions
+  private readonly MIN_DATA_POINTS = 3;
+  private readonly CORRELATION_THRESHOLD = 0.25;
+  private readonly HIGH_INTENSITY_THRESHOLD = 4; // Fixed: emotions are 1-5 scale
+  private readonly CONCERN_FREQUENCY_THRESHOLD = 0.3; // 30% of sessions
 
   analyzeEmotionPatterns(emotions: EmotionEntry[], timeframeDays: number = 30): PatternResult[] {
     if (emotions.length < this.MIN_DATA_POINTS) return [];
@@ -49,6 +49,12 @@ class PatternAnalysisEngine {
     // Analyze high-intensity negative emotions
     const highIntensityNegative = recentEmotions.filter(e => 
       e.intensity >= this.HIGH_INTENSITY_THRESHOLD && 
+      ['anxious', 'frustrated', 'angry', 'overwhelmed', 'sad'].includes(e.emotion.toLowerCase())
+    );
+
+    // Also analyze moderate intensity patterns for better detection
+    const moderateIntensityNegative = recentEmotions.filter(e => 
+      e.intensity >= 3 && 
       ['anxious', 'frustrated', 'angry', 'overwhelmed', 'sad'].includes(e.emotion.toLowerCase())
     );
 
@@ -78,7 +84,7 @@ class PatternAnalysisEngine {
     const dominantEmotion = Object.entries(emotionCounts)
       .sort(([,a], [,b]) => b - a)[0];
 
-    if (dominantEmotion && dominantEmotion[1] / recentEmotions.length > 0.6) {
+    if (dominantEmotion && dominantEmotion[1] / recentEmotions.length > 0.4) {
       patterns.push({
         type: 'emotion',
         pattern: 'consistent-emotion',
@@ -86,6 +92,24 @@ class PatternAnalysisEngine {
         frequency: dominantEmotion[1],
         description: `Consistent ${dominantEmotion[0]} emotion pattern detected`,
         recommendations: this.getEmotionRecommendations(dominantEmotion[0]),
+        dataPoints: recentEmotions.length,
+        timeframe: `${timeframeDays} days`
+      });
+    }
+
+    // Add moderate negative emotion pattern if high intensity doesn't trigger
+    if (highIntensityNegative.length === 0 && moderateIntensityNegative.length / recentEmotions.length > 0.4) {
+      patterns.push({
+        type: 'emotion',
+        pattern: 'moderate-negative-trend',
+        confidence: moderateIntensityNegative.length / recentEmotions.length,
+        frequency: moderateIntensityNegative.length,
+        description: `Moderate negative emotions detected in ${Math.round((moderateIntensityNegative.length / recentEmotions.length) * 100)}% of recent sessions`,
+        recommendations: [
+          'Monitor for potential stress escalation',
+          'Implement preventive calming strategies',
+          'Consider environmental adjustments'
+        ],
         dataPoints: recentEmotions.length,
         timeframe: `${timeframeDays} days`
       });
@@ -250,7 +274,7 @@ class PatternAnalysisEngine {
       ['anxious', 'frustrated', 'overwhelmed', 'angry'].includes(e.emotion.toLowerCase())
     );
 
-    if (highStressEmotions.length >= 3) {
+    if (highStressEmotions.length >= 2) {
       alerts.push({
         id: crypto.randomUUID(),
         type: 'concern',
@@ -269,13 +293,13 @@ class PatternAnalysisEngine {
       });
     }
 
-    // Positive progress alert
+    // Positive progress alert - fixed for 1-5 scale
     const positiveEmotions = recentEmotions.filter(e => 
       ['happy', 'calm', 'focused', 'proud', 'content'].includes(e.emotion.toLowerCase()) &&
-      e.intensity >= 6
+      e.intensity >= 4
     );
 
-    if (positiveEmotions.length >= 5 && recentEmotions.length >= 8) {
+    if (positiveEmotions.length >= 3 && recentEmotions.length >= 5) {
       alerts.push({
         id: crypto.randomUUID(),
         type: 'improvement',
