@@ -1,0 +1,42 @@
+{
+  "dashboard": {
+    "title": "Analysedashboard",
+    "emotionTrends": "Følelsestrender",
+    "sensoryPatterns": "Sensoriske mønstre",
+    "environmentalFactors": "Miljøfaktorer",
+    "weeklyOverview": "Ukeoversikt",
+    "monthlyTrends": "Månedlige trender"
+  },
+  "charts": {
+    "emotionFrequency": "Følelsesfrekvens",
+    "sensoryDistribution": "Sensorisk fordeling",
+    "intensityLevels": "Intensitetsnivåer",
+    "dailyActivity": "Daglig aktivitet",
+    "noData": "Ingen data tilgjengelig for valgt periode"
+  },
+  "filters": {
+    "dateRange": "Datoområde",
+    "emotionType": "Følelsestype",
+    "sensoryType": "Sensorisk type",
+    "intensity": "Intensitet",
+    "all": "Alle"
+  },
+  "reports": {
+    "title": "Rapporter",
+    "generate": "Generer rapport",
+    "export": "Eksporter",
+    "summary": "Sammendrag",
+    "detailed": "Detaljert",
+    "formats": {
+      "pdf": "PDF",
+      "csv": "CSV",
+      "json": "JSON"
+    }
+  },
+  "insights": {
+    "patterns": "Mønstre oppdaget",
+    "recommendations": "Anbefalinger",
+    "alerts": "Varsler",
+    "noPatterns": "Ingen mønstre funnet ennå. Fortsett å samle data for bedre innsikt."
+  }
+}

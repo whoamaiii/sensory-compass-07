@@ -1,0 +1,28 @@
+{
+  "title": "Innstillinger",
+  "language": {
+    "title": "Språk",
+    "description": "Velg ditt foretrukne språk",
+    "norwegian": "Norsk bokmål",
+    "english": "English"
+  },
+  "preferences": {
+    "title": "Preferanser",
+    "theme": "Tema",
+    "notifications": "Varsler",
+    "dataRetention": "Dataoppbevaring"
+  },
+  "data": {
+    "title": "Databehandling",
+    "export": "Eksporter data",
+    "import": "Importer data",
+    "backup": "Sikkerhetskopi",
+    "restore": "Gjenopprett"
+  },
+  "privacy": {
+    "title": "Personvern",
+    "description": "Alle data lagres lokalt på din enhet i samsvar med FERPA-krav.",
+    "dataLocation": "Datalagring: Lokal nettleser",
+    "encryption": "Kryptering: Aktivert"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "dashboard": {
+    "title": "Analytics Dashboard",
+    "emotionTrends": "Emotion Trends",
+    "sensoryPatterns": "Sensory Patterns",
+    "environmentalFactors": "Environmental Factors",
+    "weeklyOverview": "Weekly Overview",
+    "monthlyTrends": "Monthly Trends"
+  },
+  "charts": {
+    "emotionFrequency": "Emotion Frequency",
+    "sensoryDistribution": "Sensory Distribution",
+    "intensityLevels": "Intensity Levels",
+    "dailyActivity": "Daily Activity",
+    "noData": "No data available for selected period"
+  },
+  "filters": {
+    "dateRange": "Date Range",
+    "emotionType": "Emotion Type",
+    "sensoryType": "Sensory Type",
+    "intensity": "Intensity",
+    "all": "All"
+  },
+  "reports": {
+    "title": "Reports",
+    "generate": "Generate Report",
+    "export": "Export",
+    "summary": "Summary",
+    "detailed": "Detailed",
+    "formats": {
+      "pdf": "PDF",
+      "csv": "CSV",
+      "json": "JSON"
+    }
+  },
+  "insights": {
+    "patterns": "Patterns Detected",
+    "recommendations": "Recommendations",
+    "alerts": "Alerts",
+    "noPatterns": "No patterns found yet. Keep collecting data for better insights."
+  }
+}

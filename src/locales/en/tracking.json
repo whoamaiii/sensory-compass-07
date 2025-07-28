@@ -1,0 +1,103 @@
+{
+  "session": {
+    "title": "Tracking Session for {{studentName}}",
+    "summary": "Session Summary",
+    "emotionsRecorded": "{{count}} emotion recorded",
+    "emotionsRecorded_plural": "{{count}} emotions recorded",
+    "sensoryInputsRecorded": "{{count}} sensory input recorded",
+    "sensoryInputsRecorded_plural": "{{count}} sensory inputs recorded",
+    "generalNotes": "General Notes",
+    "generalNotesPlaceholder": "Add any additional notes about this session...",
+    "saveSession": "Save Session",
+    "cancelSession": "Cancel Session",
+    "validationError": "Please record at least one emotion or sensory input before saving the session.",
+    "sessionSaved": "Session saved successfully!"
+  },
+  "emotions": {
+    "title": "Emotions",
+    "addEmotion": "Add Emotion",
+    "selectEmotion": "Select emotion",
+    "intensity": "Intensity",
+    "duration": "Duration",
+    "notes": "Notes",
+    "types": {
+      "happy": "Happy",
+      "sad": "Sad",
+      "angry": "Angry",
+      "anxious": "Anxious",
+      "excited": "Excited",
+      "frustrated": "Frustrated",
+      "calm": "Calm",
+      "overwhelmed": "Overwhelmed",
+      "focused": "Focused",
+      "confused": "Confused"
+    },
+    "intensityLevels": {
+      "1": "Very mild",
+      "2": "Mild",
+      "3": "Moderate",
+      "4": "Strong",
+      "5": "Very strong"
+    },
+    "durations": {
+      "brief": "Brief (< 5 min)",
+      "moderate": "Moderate (5-15 min)",
+      "extended": "Extended (15-30 min)",
+      "prolonged": "Prolonged (> 30 min)"
+    }
+  },
+  "sensory": {
+    "title": "Sensory Input",
+    "addInput": "Add Sensory Input",
+    "selectType": "Select type",
+    "response": "Response",
+    "intensity": "Intensity",
+    "notes": "Notes",
+    "types": {
+      "visual": "Visual",
+      "auditory": "Auditory",
+      "tactile": "Tactile",
+      "proprioceptive": "Proprioceptive",
+      "vestibular": "Vestibular",
+      "gustatory": "Gustatory",
+      "olfactory": "Olfactory"
+    },
+    "responses": {
+      "seeking": "Seeking",
+      "avoiding": "Avoiding",
+      "neutral": "Neutral",
+      "overwhelmed": "Overwhelmed"
+    },
+    "intensityLevels": {
+      "1": "Very low",
+      "2": "Low",
+      "3": "Moderate",
+      "4": "High",
+      "5": "Very high"
+    }
+  },
+  "environmental": {
+    "title": "Environmental Data",
+    "noiseLevel": "Noise Level",
+    "lighting": "Lighting",
+    "crowdLevel": "Crowd Level",
+    "temperature": "Temperature",
+    "notes": "Environmental Notes",
+    "notesPlaceholder": "Describe environmental factors that may affect the student...",
+    "levels": {
+      "low": "Low",
+      "moderate": "Moderate",
+      "high": "High"
+    },
+    "lighting": {
+      "dim": "Dim",
+      "normal": "Normal",
+      "bright": "Bright"
+    },
+    "temperature": {
+      "cool": "Cool",
+      "comfortable": "Comfortable",
+      "warm": "Warm"
+    }
+  }
+}

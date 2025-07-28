@@ -1,0 +1,43 @@
+{
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "back": "Back",
+    "close": "Close",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "submit": "Submit"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "students": "Students",
+    "tracking": "Tracking",
+    "analytics": "Analytics",
+    "settings": "Settings",
+    "reports": "Reports"
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This week",
+    "thisMonth": "This month",
+    "lastWeek": "Last week",
+    "lastMonth": "Last month"
+  },
+  "status": {
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "error": "Error",
+    "success": "Success",
+    "empty": "No data available"
+  },
+  "language": {
+    "norwegian": "Norsk bokmål",
+    "english": "English",
+    "changeLanguage": "Change language"
+  }
+}

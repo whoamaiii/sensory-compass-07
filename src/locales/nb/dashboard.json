@@ -1,0 +1,28 @@
+{
+  "title": "SensoryTracker - Spesialundervisning",
+  "subtitle": "Spor sensorisk inngang og følelser for spesialundervisningselever",
+  "stats": {
+    "totalStudents": "Totalt antall elever",
+    "todaysEntries": "Dagens registreringer",
+    "totalEntries": "Totale registreringer"
+  },
+  "emptyState": {
+    "title": "Ingen elever lagt til ennå",
+    "description": "Kom i gang ved å legge til din første elev for å spore sensorisk og emosjonell data.",
+    "addFirstStudent": "Legg til første elev"
+  },
+  "quickTips": {
+    "title": "Hurtigtips",
+    "tip1": "Logg data jevnlig for bedre mønstergjenkjenning",
+    "tip2": "Bruk miljødata for å identifisere utløsere",
+    "tip3": "Se rapporter for trender og fremgang"
+  },
+  "studentCard": {
+    "grade": "Klasse {{grade}}",
+    "noGrade": "Ingen klasse",
+    "lastTracked": "Sist sporet: {{date}}",
+    "neverTracked": "Aldri sporet",
+    "viewProfile": "Se profil",
+    "trackNow": "Spor nå"
+  }
+}

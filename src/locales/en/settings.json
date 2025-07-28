@@ -1,0 +1,28 @@
+{
+  "title": "Settings",
+  "language": {
+    "title": "Language",
+    "description": "Choose your preferred language",
+    "norwegian": "Norsk bokmål",
+    "english": "English"
+  },
+  "preferences": {
+    "title": "Preferences",
+    "theme": "Theme",
+    "notifications": "Notifications",
+    "dataRetention": "Data Retention"
+  },
+  "data": {
+    "title": "Data Management",
+    "export": "Export Data",
+    "import": "Import Data",
+    "backup": "Backup",
+    "restore": "Restore"
+  },
+  "privacy": {
+    "title": "Privacy",
+    "description": "All data is stored locally on your device in compliance with FERPA requirements.",
+    "dataLocation": "Data Storage: Local Browser",
+    "encryption": "Encryption: Enabled"
+  }
+}

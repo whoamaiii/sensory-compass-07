@@ -1,0 +1,28 @@
+{
+  "title": "SensoryTracker - Special Education",
+  "subtitle": "Track sensory input and emotions for special education students",
+  "stats": {
+    "totalStudents": "Total Students",
+    "todaysEntries": "Today's Entries",
+    "totalEntries": "Total Entries"
+  },
+  "emptyState": {
+    "title": "No students added yet",
+    "description": "Get started by adding your first student to track their sensory and emotional data.",
+    "addFirstStudent": "Add First Student"
+  },
+  "quickTips": {
+    "title": "Quick Tips",
+    "tip1": "Log data regularly for better pattern recognition",
+    "tip2": "Use environmental data to identify triggers",
+    "tip3": "Review reports for trends and progress"
+  },
+  "studentCard": {
+    "grade": "Grade {{grade}}",
+    "noGrade": "No grade",
+    "lastTracked": "Last tracked: {{date}}",
+    "neverTracked": "Never tracked",
+    "viewProfile": "View Profile",
+    "trackNow": "Track Now"
+  }
+}

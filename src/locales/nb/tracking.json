@@ -1,0 +1,103 @@
+{
+  "session": {
+    "title": "Sporingsøkt for {{studentName}}",
+    "summary": "Øktoversikt",
+    "emotionsRecorded": "{{count}} følelse registrert",
+    "emotionsRecorded_plural": "{{count}} følelser registrert",
+    "sensoryInputsRecorded": "{{count}} sensorisk inngang registrert",
+    "sensoryInputsRecorded_plural": "{{count}} sensoriske innganger registrert",
+    "generalNotes": "Generelle notater",
+    "generalNotesPlaceholder": "Legg til eventuelle tilleggsnotater om denne økten...",
+    "saveSession": "Lagre økt",
+    "cancelSession": "Avbryt økt",
+    "validationError": "Vennligst registrer minst en følelse eller sensorisk inngang før du lagrer økten.",
+    "sessionSaved": "Økt lagret vellykket!"
+  },
+  "emotions": {
+    "title": "Følelser",
+    "addEmotion": "Legg til følelse",
+    "selectEmotion": "Velg følelse",
+    "intensity": "Intensitet",
+    "duration": "Varighet",
+    "notes": "Notater",
+    "types": {
+      "happy": "Glad",
+      "sad": "Trist",
+      "angry": "Sint",
+      "anxious": "Engstelig",
+      "excited": "Begeistret",
+      "frustrated": "Frustrert",
+      "calm": "Rolig",
+      "overwhelmed": "Overveldet",
+      "focused": "Fokusert",
+      "confused": "Forvirret"
+    },
+    "intensityLevels": {
+      "1": "Svært mild",
+      "2": "Mild",
+      "3": "Moderat",
+      "4": "Sterk",
+      "5": "Svært sterk"
+    },
+    "durations": {
+      "brief": "Kort (< 5 min)",
+      "moderate": "Moderat (5-15 min)",
+      "extended": "Utvidet (15-30 min)",
+      "prolonged": "Langvarig (> 30 min)"
+    }
+  },
+  "sensory": {
+    "title": "Sensorisk inngang",
+    "addInput": "Legg til sensorisk inngang",
+    "selectType": "Velg type",
+    "response": "Respons",
+    "intensity": "Intensitet",
+    "notes": "Notater",
+    "types": {
+      "visual": "Visuell",
+      "auditory": "Auditiv",
+      "tactile": "Taktil",
+      "proprioceptive": "Proprioseptiv",
+      "vestibular": "Vestibulær",
+      "gustatory": "Smak",
+      "olfactory": "Lukt"
+    },
+    "responses": {
+      "seeking": "Søkende",
+      "avoiding": "Unngående",
+      "neutral": "Nøytral",
+      "overwhelmed": "Overveldet"
+    },
+    "intensityLevels": {
+      "1": "Svært lav",
+      "2": "Lav",
+      "3": "Moderat",
+      "4": "Høy",
+      "5": "Svært høy"
+    }
+  },
+  "environmental": {
+    "title": "Miljødata",
+    "noiseLevel": "Støynivå",
+    "lighting": "Belysning",
+    "crowdLevel": "Folkemengde",
+    "temperature": "Temperatur",
+    "notes": "Miljønotater",
+    "notesPlaceholder": "Beskriv miljøfaktorer som kan påvirke eleven...",
+    "levels": {
+      "low": "Lav",
+      "moderate": "Moderat",
+      "high": "Høy"
+    },
+    "lighting": {
+      "dim": "Dempet",
+      "normal": "Normal",
+      "bright": "Lys"
+    },
+    "temperature": {
+      "cool": "Kjølig",
+      "comfortable": "Behagelig",
+      "warm": "Varm"
+    }
+  }
+}

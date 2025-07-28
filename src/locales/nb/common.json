@@ -1,0 +1,43 @@
+{
+  "buttons": {
+    "save": "Lagre",
+    "cancel": "Avbryt",
+    "delete": "Slett",
+    "edit": "Rediger",
+    "add": "Legg til",
+    "back": "Tilbake",
+    "close": "Lukk",
+    "confirm": "Bekreft",
+    "loading": "Laster...",
+    "submit": "Send inn"
+  },
+  "navigation": {
+    "dashboard": "Hovedside",
+    "students": "Elever",
+    "tracking": "Sporing",
+    "analytics": "Analyse",
+    "settings": "Innstillinger",
+    "reports": "Rapporter"
+  },
+  "time": {
+    "today": "I dag",
+    "yesterday": "I går",
+    "thisWeek": "Denne uken",
+    "thisMonth": "Denne måneden",
+    "lastWeek": "Forrige uke",
+    "lastMonth": "Forrige måned"
+  },
+  "status": {
+    "loading": "Laster...",
+    "saving": "Lagrer...",
+    "saved": "Lagret",
+    "error": "Feil",
+    "success": "Suksess",
+    "empty": "Ingen data tilgjengelig"
+  },
+  "language": {
+    "norwegian": "Norsk bokmål",
+    "english": "English",
+    "changeLanguage": "Endre språk"
+  }
+}
