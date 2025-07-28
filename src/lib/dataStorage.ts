@@ -421,6 +421,50 @@ export class DataStorageManager {
       totalSize
     };
   }
+
+  /**
+   * Delete a student and all their associated data
+   */
+  deleteStudent(studentId: string): void {
+    try {
+      console.log(`Deleting student ${studentId} and all associated data`);
+      
+      // Remove student from students list
+      const students = this.getStudents().filter(s => s.id !== studentId);
+      this.saveAll(STORAGE_KEYS.STUDENTS, students);
+      
+      // Remove all tracking entries for this student
+      const entries = this.getTrackingEntries().filter(e => e.studentId !== studentId);
+      this.saveAll(STORAGE_KEYS.TRACKING_ENTRIES, entries);
+      
+      // Remove goals for this student
+      const goals = this.getGoals().filter(g => g.studentId !== studentId);
+      this.saveAll(STORAGE_KEYS.GOALS, goals);
+      
+      // Remove interventions for this student  
+      const interventions = this.getInterventions().filter(i => i.studentId !== studentId);
+      this.saveAll(STORAGE_KEYS.INTERVENTIONS, interventions);
+      
+      // Remove alerts for this student
+      const alerts = this.getAlerts().filter(a => a.studentId !== studentId);
+      this.saveAll(STORAGE_KEYS.ALERTS, alerts);
+      
+      // Remove correlations for this student
+      const correlations = this.getCorrelations().filter(c => c.studentId !== studentId);
+      this.saveAll(STORAGE_KEYS.CORRELATIONS, correlations);
+      
+      // Update storage index - remove the student entry
+      if (this.storageIndex.students) {
+        delete this.storageIndex.students[studentId];
+      }
+      this.saveStorageIndex();
+      
+      console.log(`Successfully deleted student ${studentId} and all associated data`);
+    } catch (error) {
+      console.error('Error deleting student:', error);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance

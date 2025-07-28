@@ -1,276 +1,316 @@
-import { Student, TrackingEntry, EmotionEntry, SensoryEntry, EnvironmentalEntry } from '@/types/student';
+import { Student, TrackingEntry, EmotionEntry, SensoryEntry, EnvironmentalEntry, Goal } from '@/types/student';
 import { dataStorage } from './dataStorage';
 
-/**
- * Mock Data Generator for testing pattern analysis and correlations
- * Generates realistic tracking data for 3 students over 3-6 months
- */
-
-// Helper function to generate random dates
-function getRandomDate(daysAgo: number, variance: number = 0): Date {
+// Helper function to get a random date within the last N days
+const getRandomDate = (daysAgo: number, variance: number = 0): Date => {
   const baseDate = new Date();
   baseDate.setDate(baseDate.getDate() - daysAgo);
+  
   if (variance > 0) {
-    baseDate.setHours(baseDate.getHours() + Math.random() * variance - variance / 2);
+    const varianceMs = variance * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+    const randomOffset = (Math.random() - 0.5) * 2 * varianceMs;
+    baseDate.setTime(baseDate.getTime() + randomOffset);
   }
+  
   return baseDate;
-}
+};
 
-// Generate trend with clear pattern for better confidence
-function generateTrendValue(baseValue: number, dayIndex: number, trendStrength: number = 0.1): number {
+// Helper function to generate trending values
+const generateTrendValue = (baseValue: number, dayIndex: number, trendStrength: number = 0.1): number => {
   const trend = trendStrength * dayIndex;
-  const noise = (Math.random() - 0.5) * 0.5;
-  return Math.max(1, Math.min(5, Math.round(baseValue + trend + noise)));
-}
+  const noise = (Math.random() - 0.5) * 0.3;
+  const result = Math.max(1, Math.min(5, baseValue + trend + noise));
+  return Math.round(result);
+};
 
-// Generate emotion entry
-function generateEmotionEntry(studentId: string, timestamp: Date, emotionBias?: string): EmotionEntry {
-  const emotions: EmotionEntry['emotion'][] = ['happy', 'sad', 'angry', 'calm', 'anxious', 'excited'];
-  const triggers = ['noise', 'transition', 'new activity', 'crowded space', 'bright lights', 'schedule change'];
+// Generate realistic emotion entry
+const generateEmotionEntry = (studentId: string, timestamp: Date, emotionBias?: string): EmotionEntry => {
+  const emotions = ['happy', 'sad', 'anxious', 'calm', 'excited', 'frustrated', 'content'];
+  const biasedEmotion = emotionBias || emotions[Math.floor(Math.random() * emotions.length)];
   
-  let emotion: EmotionEntry['emotion'] = (emotionBias as EmotionEntry['emotion']) || emotions[Math.floor(Math.random() * emotions.length)];
-  let intensity = Math.ceil(Math.random() * 5) as 1 | 2 | 3 | 4 | 5;
+  // Generate intensity based on emotion type
+  const intensityMap: Record<string, [number, number]> = {
+    'happy': [3, 5],
+    'sad': [2, 4],
+    'anxious': [3, 5],
+    'calm': [2, 4],
+    'excited': [4, 5],
+    'frustrated': [3, 5],
+    'content': [2, 4]
+  };
   
-  // Adjust intensity based on emotion
-  if (emotion === 'anxious' || emotion === 'angry') {
-    intensity = Math.max(3, intensity) as 1 | 2 | 3 | 4 | 5;
-  } else if (emotion === 'calm') {
-    intensity = Math.min(3, intensity) as 1 | 2 | 3 | 4 | 5;
-  }
-
+  const [minIntensity, maxIntensity] = intensityMap[biasedEmotion] || [2, 4];
+  const intensity = Math.floor(Math.random() * (maxIntensity - minIntensity + 1)) + minIntensity;
+  
   return {
     id: `emotion_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     studentId,
-    emotion,
-    intensity,
     timestamp,
-    notes: Math.random() > 0.7 ? `Observed during ${triggers[Math.floor(Math.random() * triggers.length)]}` : undefined,
-    triggers: Math.random() > 0.6 ? [triggers[Math.floor(Math.random() * triggers.length)]] : undefined
+    emotion: biasedEmotion,
+    intensity,
+    triggers: Math.random() > 0.7 ? ['environmental change', 'social interaction'] : [],
+    notes: Math.random() > 0.8 ? `Student seemed ${biasedEmotion} during this period` : ''
   };
-}
+};
 
-// Generate sensory entry
-function generateSensoryEntry(studentId: string, timestamp: Date, seekingBias?: boolean): SensoryEntry {
-  const sensoryTypes: SensoryEntry['sensoryType'][] = ['visual', 'auditory', 'tactile', 'vestibular', 'proprioceptive'];
-  const responses: SensoryEntry['response'][] = ['seeking', 'avoiding', 'neutral'];
-  const environments = ['classroom', 'hallway', 'cafeteria', 'playground', 'therapy room'];
+// Generate realistic sensory entry
+const generateSensoryEntry = (studentId: string, timestamp: Date, seeking?: boolean): SensoryEntry => {
+  const sensoryTypes = ['visual', 'auditory', 'tactile', 'vestibular', 'proprioceptive'];
+  const type = sensoryTypes[Math.floor(Math.random() * sensoryTypes.length)];
   
-  let response = seekingBias !== undefined 
-    ? (seekingBias ? 'seeking' : 'avoiding')
-    : responses[Math.floor(Math.random() * responses.length)];
+  // Determine response based on seeking behavior
+  const responses = seeking ? ['seeking', 'engaging', 'exploring'] : ['avoiding', 'withdrawing', 'defensive'];
+  const response = responses[Math.floor(Math.random() * responses.length)];
   
-  let intensity = Math.ceil(Math.random() * 5) as 1 | 2 | 3 | 4 | 5;
+  const intensity = Math.floor(Math.random() * 5) + 1;
   
-  // Adjust intensity based on response
-  if (response === 'seeking' || response === 'avoiding') {
-    intensity = Math.max(3, intensity) as 1 | 2 | 3 | 4 | 5;
-  }
-
   return {
     id: `sensory_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     studentId,
-    sensoryType: sensoryTypes[Math.floor(Math.random() * sensoryTypes.length)],
+    timestamp,
+    type,
+    sensoryType: type,
     response,
     intensity,
-    timestamp,
-    notes: Math.random() > 0.7 ? `Behavior observed in ${environments[Math.floor(Math.random() * environments.length)]}` : undefined,
-    environment: environments[Math.floor(Math.random() * environments.length)]
+    notes: Math.random() > 0.8 ? `${type} input was ${response}` : ''
   };
-}
+};
 
 // Generate environmental entry
-function generateEnvironmentalEntry(timestamp: Date, correlationFactors?: { noise?: boolean; bright?: boolean }): EnvironmentalEntry {
-  const weatherConditions: EnvironmentalEntry['weather']['condition'][] = ['sunny', 'cloudy', 'rainy', 'stormy', 'snowy'];
-  const activities: EnvironmentalEntry['classroom']['activity'][] = ['instruction', 'transition', 'free-time', 'testing', 'group-work'];
-  const lightingTypes: EnvironmentalEntry['roomConditions']['lighting'][] = ['bright', 'dim', 'natural', 'fluorescent'];
+const generateEnvironmentalEntry = (timestamp: Date, correlationFactors?: { noise?: boolean; bright?: boolean }): EnvironmentalEntry => {
+  const factors = correlationFactors || {};
   
-  // Apply correlation factors if provided
-  let noiseLevel = Math.ceil(Math.random() * 5) as 1 | 2 | 3 | 4 | 5;
-  let lighting = lightingTypes[Math.floor(Math.random() * lightingTypes.length)];
-  
-  if (correlationFactors?.noise) {
-    noiseLevel = Math.max(4, noiseLevel) as 1 | 2 | 3 | 4 | 5;
-  }
-  if (correlationFactors?.bright) {
-    lighting = 'bright';
-  }
-
-  const hour = timestamp.getHours();
-  const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
-
   return {
     id: `env_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     timestamp,
+    location: ['classroom', 'library', 'cafeteria', 'playground', 'hallway'][Math.floor(Math.random() * 5)],
+    socialContext: ['individual work', 'group activity', 'instruction', 'transition'][Math.floor(Math.random() * 4)],
     roomConditions: {
-      temperature: 20 + Math.random() * 8, // 20-28°C
-      humidity: 40 + Math.random() * 30, // 40-70%
-      lighting,
-      noiseLevel
+      noiseLevel: factors.noise !== undefined ? (factors.noise ? 4 : 2) : Math.floor(Math.random() * 5) + 1,
+      lighting: factors.bright !== undefined ? (factors.bright ? 'bright' : 'dim') : ['bright', 'moderate', 'dim'][Math.floor(Math.random() * 3)],
+      temperature: Math.floor(Math.random() * 10) + 18, // 18-28°C
+      humidity: Math.floor(Math.random() * 20) + 40 // 40-60%
     },
     weather: {
-      condition: weatherConditions[Math.floor(Math.random() * weatherConditions.length)],
-      temperature: 5 + Math.random() * 25, // 5-30°C
-      pressure: 990 + Math.random() * 40 // 990-1030 hPa
+      condition: ['sunny', 'cloudy', 'rainy', 'stormy', 'snowy'][Math.floor(Math.random() * 5)] as any,
+      temperature: Math.floor(Math.random() * 15) + 10, // 10-25°C
+      pressure: Math.floor(Math.random() * 50) + 1000 // 1000-1050 hPa
     },
     classroom: {
-      activity: activities[Math.floor(Math.random() * activities.length)],
-      studentCount: 12 + Math.floor(Math.random() * 16), // 12-28 students
-      timeOfDay: timeOfDay as 'morning' | 'afternoon' | 'evening'
+      activity: ['instruction', 'transition', 'free-time', 'testing', 'group-work'][Math.floor(Math.random() * 5)] as any,
+      studentCount: Math.floor(Math.random() * 20) + 10, // 10-30 students
+      timeOfDay: ['morning', 'afternoon', 'evening'][Math.floor(Math.random() * 3)] as any
     },
-    notes: Math.random() > 0.8 ? 'Special classroom event or activity' : undefined
+    notes: Math.random() > 0.9 ? 'Notable environmental conditions' : ''
   };
-}
+};
 
-// Generate tracking entry
-function generateTrackingEntry(student: Student, daysAgo: number, scenario: 'emma' | 'lars' | 'astrid'): TrackingEntry {
-  const timestamp = getRandomDate(daysAgo, 4); // Add some time variance
-  const emotions: EmotionEntry[] = [];
-  const sensoryInputs: SensoryEntry[] = [];
+// Generate tracking entry for a student based on scenario
+const generateTrackingEntry = (student: Student, daysAgo: number, scenario: 'emma' | 'lars' | 'astrid'): TrackingEntry => {
+  const timestamp = getRandomDate(daysAgo, 0.5);
   
-  // Generate 1-3 emotion entries per tracking session
-  const emotionCount = Math.ceil(Math.random() * 3);
-  for (let i = 0; i < emotionCount; i++) {
-    let emotionBias: string | undefined;
-    
-    // Apply scenario-specific emotion patterns
-    if (scenario === 'emma') {
-      // Mild anxiety patterns, mostly positive
-      emotionBias = Math.random() > 0.7 ? 'anxious' : (Math.random() > 0.4 ? 'calm' : 'happy');
-    } else if (scenario === 'lars') {
-      // More intense emotions, sensory challenges
-      emotionBias = Math.random() > 0.6 ? (Math.random() > 0.5 ? 'anxious' : 'angry') : 'calm';
-    } else if (scenario === 'astrid') {
-      // Improving over time - less anxiety as days go by with clearer trends
-      const dayIndex = 120 - daysAgo; // Convert to progressive index
-      const baseValue = 2; // Start from moderate
-      const intensity = generateTrendValue(baseValue, dayIndex, 0.02); // Gradual improvement
-      emotionBias = intensity >= 4 ? 'happy' : intensity >= 3 ? 'calm' : 'anxious';
-    }
-    
-    emotions.push(generateEmotionEntry(student.id, timestamp, emotionBias));
-  }
-  
-  // Generate 1-4 sensory entries per tracking session
-  const sensoryCount = Math.ceil(Math.random() * 4);
-  for (let i = 0; i < sensoryCount; i++) {
-    let seekingBias: boolean | undefined;
-    
-    // Apply scenario-specific sensory patterns
-    if (scenario === 'lars') {
-      // High sensory-seeking behavior
-      seekingBias = Math.random() > 0.3;
-    }
-    
-    sensoryInputs.push(generateSensoryEntry(student.id, timestamp, seekingBias));
-  }
-  
-  // Generate environmental data with some correlations
-  let correlationFactors: { noise?: boolean; bright?: boolean } = {};
-  
-  // Create correlations for anxiety -> noise
-  if (emotions.some(e => e.emotion === 'anxious' && e.intensity >= 4)) {
-    correlationFactors.noise = Math.random() > 0.3; // 70% chance of high noise when anxious
-  }
-  
-  // Create correlations for bright light -> better mood
-  if (emotions.some(e => e.emotion === 'happy' || e.emotion === 'calm')) {
-    correlationFactors.bright = Math.random() > 0.4; // 60% chance of bright lighting when positive
-  }
-
-  return {
-    id: `tracking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  const entry: TrackingEntry = {
+    id: `tracking_${student.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     studentId: student.id,
     timestamp,
-    emotions,
-    sensoryInputs,
-    environmentalData: generateEnvironmentalEntry(timestamp, correlationFactors),
-    generalNotes: Math.random() > 0.8 ? 'Additional observations from today' : undefined,
-    version: 1
+    emotions: [],
+    sensoryInputs: [],
+    environmentalData: generateEnvironmentalEntry(timestamp),
+    notes: ''
   };
-}
+
+  // Generate scenario-specific data
+  switch (scenario) {
+    case 'emma': // Mild anxiety patterns with improvement over time
+      {
+        const dayIndex = Math.max(0, 90 - daysAgo); // 90 days of improvement
+        const anxietyLevel = Math.max(1, 4 - (dayIndex * 0.02)); // Gradual improvement
+        
+        entry.emotions.push(generateEmotionEntry(student.id, timestamp, 
+          Math.random() > anxietyLevel / 5 ? 'calm' : 'anxious'));
+        
+        // Add sensory seeking behaviors that correlate with emotions
+        entry.sensoryInputs.push(generateSensoryEntry(student.id, timestamp, 
+          entry.emotions[0].emotion === 'anxious'));
+        
+        if (Math.random() > 0.7) {
+          entry.emotions.push(generateEmotionEntry(student.id, timestamp, 'content'));
+        }
+      }
+      break;
+      
+    case 'lars': // Sensory processing challenges
+      {
+        // Lars has consistent sensory challenges with tactile sensitivity
+        entry.sensoryInputs.push(generateSensoryEntry(student.id, timestamp, false)); // Often avoiding
+        
+        if (Math.random() > 0.5) {
+          entry.sensoryInputs.push(generateSensoryEntry(student.id, timestamp, true)); // Sometimes seeking
+        }
+        
+        // Emotions often correlate with sensory state
+        const sensoryIntensity = entry.sensoryInputs[0].intensity || 3;
+        const emotionType = sensoryIntensity > 3 ? 
+          (Math.random() > 0.6 ? 'frustrated' : 'anxious') : 
+          (Math.random() > 0.5 ? 'calm' : 'content');
+          
+        entry.emotions.push(generateEmotionEntry(student.id, timestamp, emotionType));
+        
+        // Environmental correlation - noise affects Lars significantly
+        if (entry.environmentalData?.roomConditions?.noiseLevel && entry.environmentalData.roomConditions.noiseLevel > 3) {
+          entry.emotions.push(generateEmotionEntry(student.id, timestamp, 'overwhelmed'));
+        }
+      }
+      break;
+      
+    case 'astrid': // Steady improvement and positive patterns
+      {
+        const dayIndex = Math.max(0, 120 - daysAgo); // 120 days of data
+        const progressFactor = dayIndex / 120;
+        
+        // Astrid shows steady emotional improvement
+        const emotionTypes = progressFactor > 0.7 ? 
+          ['happy', 'content', 'excited'] : 
+          progressFactor > 0.4 ? 
+            ['calm', 'content', 'happy'] : 
+            ['anxious', 'sad', 'frustrated'];
+            
+        const selectedEmotion = emotionTypes[Math.floor(Math.random() * emotionTypes.length)];
+        entry.emotions.push(generateEmotionEntry(student.id, timestamp, selectedEmotion));
+        
+        // Sensory seeking increases with confidence
+        const seekingProbability = 0.3 + (progressFactor * 0.4);
+        entry.sensoryInputs.push(generateSensoryEntry(student.id, timestamp, 
+          Math.random() < seekingProbability));
+        
+        // Occasionally add multiple entries for comprehensive tracking
+        if (Math.random() > 0.6) {
+          entry.emotions.push(generateEmotionEntry(student.id, timestamp));
+        }
+      }
+      break;
+  }
+
+  // Add notes based on the generated data
+  if (entry.emotions.length > 1 || entry.sensoryInputs.length > 1) {
+    entry.notes = `Complex session with multiple ${entry.emotions.length > 1 ? 'emotional states' : 'sensory needs'}`;
+  }
+
+  return entry;
+};
 
 // Generate mock students
-export function generateMockStudents(): Student[] {
-  const now = new Date();
-  
-  return [
+export const generateMockStudents = (): Student[] => {
+  const createMockGoal = (studentId: string, title: string, description: string): Goal => ({
+    id: `goal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    studentId,
+    title,
+    description,
+    category: 'sensory' as const,
+    targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
+    createdDate: new Date(),
+    status: 'active' as const,
+    measurableObjective: description,
+    currentProgress: Math.floor(Math.random() * 50) + 25, // 25-75% progress
+    milestones: [],
+    interventions: [],
+    dataPoints: []
+  });
+
+  const students: Student[] = [
     {
       id: 'mock_emma_001',
       name: 'Emma Larsen',
-      grade: '3rd Grade',
-      dateOfBirth: '2015-09-15',
-      notes: 'Bright student with occasional anxiety during transitions. Responds well to visual schedules.',
-      createdAt: new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000), // 6 months ago
-      lastUpdated: now,
+      grade: '8',
+      dateOfBirth: new Date('2011-03-15').toISOString().split('T')[0],
+      notes: 'Mild anxiety, responds well to sensory breaks',
+      iepGoals: [
+        createMockGoal('mock_emma_001', 'Reduce anxiety episodes', 'Reduce anxiety episodes through sensory regulation'),
+        createMockGoal('mock_emma_001', 'Improve emotional self-awareness', 'Improve emotional self-awareness through tracking')
+      ],
+      createdAt: new Date('2024-01-15'),
+      lastUpdated: new Date(),
       version: 1
     },
     {
-      id: 'mock_lars_002', 
+      id: 'mock_lars_002',
       name: 'Lars Andersen',
-      grade: '2nd Grade',
-      dateOfBirth: '2016-03-22',
-      notes: 'Energetic student with sensory processing challenges. Seeks proprioceptive input regularly.',
-      createdAt: new Date(now.getTime() - 150 * 24 * 60 * 60 * 1000), // 5 months ago
-      lastUpdated: now,
+      grade: '6',
+      dateOfBirth: new Date('2013-08-22').toISOString().split('T')[0],
+      notes: 'Sensory processing disorder, tactile defensiveness',
+      iepGoals: [
+        createMockGoal('mock_lars_002', 'Increase tactile tolerance', 'Increase tactile tolerance through gradual exposure'),
+        createMockGoal('mock_lars_002', 'Develop sensory self-regulation', 'Develop sensory self-regulation strategies')
+      ],
+      createdAt: new Date('2024-02-01'),
+      lastUpdated: new Date(),
       version: 1
     },
     {
       id: 'mock_astrid_003',
-      name: 'Astrid Nilsen',
-      grade: '4th Grade', 
-      dateOfBirth: '2014-11-08',
-      notes: 'Shows steady improvement in emotional regulation. Benefits from calm, structured environment.',
-      createdAt: new Date(now.getTime() - 120 * 24 * 60 * 60 * 1000), // 4 months ago
-      lastUpdated: now,
+      name: 'Astrid Berg',
+      grade: '9',
+      dateOfBirth: new Date('2010-11-08').toISOString().split('T')[0],
+      notes: 'ADHD, benefits from sensory input for focus',
+      iepGoals: [
+        createMockGoal('mock_astrid_003', 'Improve attention span', 'Improve attention span through sensory strategies'),
+        createMockGoal('mock_astrid_003', 'Develop independent self-regulation', 'Develop independent self-regulation skills')
+      ],
+      createdAt: new Date('2024-01-20'),
+      lastUpdated: new Date(),
       version: 1
     }
   ];
-}
+
+  return students;
+};
 
 // Generate tracking data for a student
-export function generateTrackingDataForStudent(student: Student, scenario: 'emma' | 'lars' | 'astrid'): TrackingEntry[] {
+const generateTrackingDataForStudent = (student: Student, scenario: 'emma' | 'lars' | 'astrid'): TrackingEntry[] => {
   const entries: TrackingEntry[] = [];
-  const totalDays = scenario === 'emma' ? 180 : scenario === 'lars' ? 150 : 120; // Different timeframes
+  const totalDays = Math.floor(Math.random() * 60) + 30; // 30-90 days of data
   
-  // Generate entries with realistic gaps (3-7 entries per week)
-  for (let day = totalDays; day >= 0; day--) {
-    // Skip some days (weekends, holidays, sick days)
-    if (Math.random() > 0.65) continue; // ~35% of days have entries
+  for (let i = 0; i < totalDays; i++) {
+    // Generate 1-3 entries per day with some days having no entries
+    const entriesPerDay = Math.random() > 0.3 ? Math.floor(Math.random() * 3) + 1 : 0;
     
-    entries.push(generateTrackingEntry(student, day, scenario));
+    for (let j = 0; j < entriesPerDay; j++) {
+      const daysAgo = i + (j * 0.3); // Spread entries throughout the day
+      entries.push(generateTrackingEntry(student, daysAgo, scenario));
+    }
   }
   
-  return entries;
-}
+  return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+};
 
-// Main function to generate all mock data
-export function generateAllMockData(): { students: Student[]; trackingEntries: TrackingEntry[] } {
+// Generate all mock data
+export const generateAllMockData = (): { students: Student[]; trackingEntries: TrackingEntry[] } => {
   const students = generateMockStudents();
   const trackingEntries: TrackingEntry[] = [];
   
-  // Generate tracking data for each student
-  students.forEach(student => {
-    let scenario: 'emma' | 'lars' | 'astrid';
-    if (student.id.includes('emma')) scenario = 'emma';
-    else if (student.id.includes('lars')) scenario = 'lars';
-    else scenario = 'astrid';
-    
+  const scenarios: Array<'emma' | 'lars' | 'astrid'> = ['emma', 'lars', 'astrid'];
+  
+  students.forEach((student, index) => {
+    const scenario = scenarios[index];
     const studentEntries = generateTrackingDataForStudent(student, scenario);
     trackingEntries.push(...studentEntries);
   });
   
   return { students, trackingEntries };
-}
+};
 
-// Load mock data into storage
 export function loadMockDataToStorage(): void {
-  const { students, trackingEntries } = generateAllMockData();
+  console.log('MockDataGenerator: Starting to load mock data...');
   
-  // Clear existing mock data first
+  // Clear only existing mock data first
   clearMockDataFromStorage();
+  
+  const { students, trackingEntries } = generateAllMockData();
+  console.log('MockDataGenerator: Generated', students.length, 'students and', trackingEntries.length, 'tracking entries');
   
   // Save students
   students.forEach(student => {
+    console.log('MockDataGenerator: Saving student', student.name);
     dataStorage.saveStudent(student);
   });
   
@@ -278,35 +318,31 @@ export function loadMockDataToStorage(): void {
   trackingEntries.forEach(entry => {
     dataStorage.saveTrackingEntry(entry);
   });
-}
-
-// Load universal mock data for any student
-export function loadUniversalMockDataForStudent(student: Student): void {
-  const { generateUniversalMockDataForStudent } = require('./universalDataGenerator');
-  const trackingEntries = generateUniversalMockDataForStudent(student);
   
-  // Save tracking entries
-  trackingEntries.forEach((entry: any) => {
-    dataStorage.saveTrackingEntry(entry);
-  });
+  console.log('MockDataGenerator: Mock data loaded successfully');
+  console.log('MockDataGenerator: Storage stats after loading:', dataStorage.getStorageStats());
 }
 
-// Clear mock data from storage
 export function clearMockDataFromStorage(): void {
-  const students = dataStorage.getStudents();
-  const trackingEntries = dataStorage.getTrackingEntries();
+  console.log('MockDataGenerator: Clearing mock data...');
   
-  // Remove mock students and their data
-  students.forEach(student => {
-    if (student.id.startsWith('mock_')) {
-      // Remove student's tracking entries
-      const studentEntries = trackingEntries.filter(entry => entry.studentId === student.id);
-      // Note: DataStorageManager doesn't have delete methods, so we'll need to work around this
-      // For now, we'll implement clearAllData and reload non-mock data
-    }
-  });
+  const allStudents = dataStorage.getStudents();
+  const allEntries = dataStorage.getTrackingEntries();
   
-  // For simplicity, we'll clear all data when clearing mock data
-  // In a real implementation, we'd want more granular deletion
+  console.log('MockDataGenerator: Found', allStudents.length, 'students,', allEntries.length, 'entries');
+  
+  // Filter out mock data
+  const nonMockStudents = allStudents.filter(student => !student.id.startsWith('mock_'));
+  const nonMockEntries = allEntries.filter(entry => !entry.studentId.startsWith('mock_'));
+  
+  console.log('MockDataGenerator: Keeping', nonMockStudents.length, 'non-mock students,', nonMockEntries.length, 'non-mock entries');
+  
+  // Clear all data and re-save only non-mock data
   dataStorage.clearAllData();
+  
+  // Restore non-mock data
+  nonMockStudents.forEach(student => dataStorage.saveStudent(student));
+  nonMockEntries.forEach(entry => dataStorage.saveTrackingEntry(entry));
+  
+  console.log('MockDataGenerator: Mock data cleared, preserved existing data');
 }

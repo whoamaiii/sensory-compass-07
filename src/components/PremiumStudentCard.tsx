@@ -2,19 +2,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Student } from "@/types/student";
 import { motion } from 'framer-motion';
-import { User, GraduationCap } from 'lucide-react';
+import { User, GraduationCap, Trash2 } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { useTranslation } from "@/hooks/useTranslation";
 import { Progress } from "@/components/ui/progress";
 import { cn } from '@/lib/utils';
+import { dataStorage } from '@/lib/dataStorage';
+import { toast } from 'sonner';
 
 interface PremiumStudentCardProps {
   student: Student;
   onView: (student: Student) => void;
   onTrack: (student: Student) => void;
+  onDelete?: (student: Student) => void;
   index: number;
 }
 
@@ -22,9 +26,32 @@ export const PremiumStudentCard = ({
   student, 
   onView, 
   onTrack, 
+  onDelete,
   index 
 }: PremiumStudentCardProps) => {
   const { tDashboard } = useTranslation();
+
+  const handleDeleteStudent = async () => {
+    try {
+      dataStorage.deleteStudent(student.id);
+      toast.success(`${student.name} has been deleted successfully`);
+      
+      // Trigger storage event to refresh Dashboard
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'sensoryTracker_students',
+        newValue: JSON.stringify(dataStorage.getStudents())
+      }));
+      
+      // Call onDelete callback if provided
+      if (onDelete) {
+        onDelete(student);
+      }
+    } catch (error) {
+      toast.error('Failed to delete student', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  };
 
   // Mock progress data - in real app this would come from tracking data
   const progressPercentage = Math.floor(Math.random() * 100);
@@ -168,6 +195,38 @@ export const PremiumStudentCard = ({
               <span className="material-icons-outlined text-sm mr-1">trending_up</span>
               {String(tDashboard('studentCard.trackNow'))}
             </Button>
+            
+            {/* Delete Button */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => e.stopPropagation()}
+                  className="border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/40"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Student</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete {student.name}? This will permanently delete all their tracking data, goals, and associated records. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleDeleteStudent}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Student
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </CardContent>
 
