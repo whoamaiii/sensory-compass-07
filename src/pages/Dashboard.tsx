@@ -1,25 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Student, TrackingEntry } from "@/types/student";
-import { Users, TrendingUp, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { isToday } from "date-fns";
 import { useTranslation } from "@/hooks/useTranslation";
-import { MockDataLoader } from "@/components/MockDataLoader";
-import { AnalyticsStatusIndicator } from "@/components/AnalyticsStatusIndicator";
-import { analyticsManager } from "@/lib/analyticsManager";
-import { universalAnalyticsInitializer } from "@/lib/universalAnalyticsInitializer";
-import { motion } from 'framer-motion';
-import { PremiumStatsCard } from "@/components/PremiumStatsCard";
-import { PremiumStudentCard } from "@/components/PremiumStudentCard";
-import { FloatingActionButton } from "@/components/FloatingActionButton";
-import { PremiumHeader } from "@/components/PremiumHeader";
-import { PremiumEmptyState } from "@/components/PremiumEmptyState";
-import { UniversalAnalyticsStatus } from "@/components/UniversalAnalyticsStatus";
-import { TestingDebugPanel } from "@/components/TestingDebugPanel";
+import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { LanguageSettings } from "@/components/LanguageSettings";
 
 /**
- * Dashboard component - Main landing page showing student overview and statistics
+ * Dashboard component - Main landing page with modern glassmorphism design
  * @returns React component displaying students list and tracking statistics
  */
 export const Dashboard = () => {
@@ -49,21 +39,7 @@ export const Dashboard = () => {
     };
 
     loadData();
-    
-    // Initialize analytics for all existing students (only trigger if they have data)
-    const initializeAnalytics = async () => {
-      try {
-        // Only initialize, don't auto-trigger for empty students
-        await universalAnalyticsInitializer.initializeUniversalAnalytics();
-      } catch (error) {
-        console.error('Error initializing analytics:', error);
-      }
-    };
-    
-    if (!isLoading && students.length > 0) {
-      initializeAnalytics();
-    }
-  }, [isLoading]);
+  }, []);
 
   /**
    * Calculate statistics from all tracking data
@@ -96,249 +72,207 @@ export const Dashboard = () => {
     return { todayEntries: todayCount, totalEntries: totalCount };
   }, [students]);
 
-  const handleViewStudent = (student: Student) => {
-    navigate(`/student/${student.id}`);
-  };
-
-  const handleTrackStudent = (student: Student) => {
-    navigate(`/track/${student.id}`);
-  };
-
   const handleAddStudent = () => {
     navigate('/add-student');
   };
 
+  const handleNewEntry = () => {
+    if (students.length > 0) {
+      navigate(`/track/${students[0].id}`);
+    } else {
+      navigate('/add-student');
+    }
+  };
+
+  const handleExportReport = () => {
+    // TODO: Implement export functionality
+    console.log('Export report functionality to be implemented');
+  };
+
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="min-h-screen bg-background font-dyslexia relative overflow-hidden"
-    >
-      {/* Decorative background elements */}
-      <motion.div
-        className="absolute top-20 right-20 w-72 h-72 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-full blur-3xl"
-        animate={{
-          scale: [1, 1.1, 1],
-          opacity: [0.3, 0.5, 0.3]
-        }}
-        transition={{
-          duration: 8,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-      />
+    <div className="main-container min-h-screen relative">
+      {/* Animated glow background */}
+      <div className="glow-bg"></div>
       
-      <motion.div
-        className="absolute bottom-20 left-20 w-96 h-96 bg-gradient-to-br from-accent/5 to-primary/5 rounded-full blur-3xl"
-        animate={{
-          scale: [1.1, 1, 1.1],
-          opacity: [0.4, 0.6, 0.4]
-        }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2
-        }}
-      />
-
-      <div className="container mx-auto px-4 py-8 relative z-10">
-        {/* Premium Header */}
-        <PremiumHeader 
-          title={String(tDashboard('title'))}
-          subtitle={String(tDashboard('subtitle'))}
-        />
-
-        {/* Premium Stats Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12"
-        >
-          <PremiumStatsCard
-            title={String(tDashboard('stats.totalStudents'))}
-            value={isLoading ? 0 : students.length}
-            icon={Users}
-            index={0}
-            isLoading={isLoading}
-            loadingText={String(tCommon('status.loading'))}
-            trend={{ value: 12, isPositive: true }}
-          />
+      <div className="relative z-10 min-h-screen px-4 py-8 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           
-          <PremiumStatsCard
-            title={String(tDashboard('stats.todaysEntries'))}
-            value={isLoading ? 0 : todayEntries}
-            icon={Calendar}
-            index={1}
-            isLoading={isLoading}
-            loadingText={String(tCommon('status.loading'))}
-            trend={{ value: 8, isPositive: true }}
-          />
-          
-          <PremiumStatsCard
-            title={String(tDashboard('stats.totalEntries'))}
-            value={isLoading ? 0 : totalEntries}
-            icon={TrendingUp}
-            index={2}
-            isLoading={isLoading}
-            loadingText={String(tCommon('status.loading'))}
-            trend={{ value: 5, isPositive: false }}
-          />
-        </motion.div>
-
-        {/* Analytics Status for All Students */}
-        {students.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
-            className="mb-8"
-          >
-            <AnalyticsStatusIndicator showDetails={false} />
-          </motion.div>
-        )}
-
-        {/* Students Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 1 }}
-          className="mb-8"
-        >
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 1.2 }}
-            className="flex items-center justify-between mb-8"
-          >
-            <h2 className="text-3xl font-semibold text-foreground flex items-center gap-3">
-              <motion.span
-                className="w-1 h-8 bg-gradient-primary rounded-full"
-                initial={{ scaleY: 0 }}
-                animate={{ scaleY: 1 }}
-                transition={{ duration: 0.6, delay: 1.4 }}
-              />
-              {String(tCommon('navigation.students'))}
-            </h2>
-          </motion.div>
-
-          {students.length === 0 ? (
-            <PremiumEmptyState
-              title={String(tDashboard('emptyState.title'))}
-              description={String(tDashboard('emptyState.description'))}
-              buttonText={String(tDashboard('emptyState.addFirstStudent'))}
-              onAddStudent={handleAddStudent}
-            />
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 1.4 }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            >
-              {students.map((student, index) => (
-                <PremiumStudentCard
-                  key={student.id}
-                  student={student}
-                  onView={handleViewStudent}
-                  onTrack={handleTrackStudent}
-                  index={index}
-                />
-              ))}
-            </motion.div>
-          )}
-        </motion.div>
-
-        {/* Universal Analytics Status */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 1.6 }}
-          className="mb-8"
-        >
-          <UniversalAnalyticsStatus />
-        </motion.div>
-
-        {/* Testing and Debug Tools */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 1.8 }}
-          className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
-        >
-          <TestingDebugPanel />
-          <MockDataLoader />
-        </motion.div>
-
-        {/* Premium Quick Tips */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 1.8 }}
-          className="mb-16"
-        >
-          <Card className="bg-gradient-calm border-0 shadow-soft overflow-hidden relative group">
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-              initial={false}
-            />
-            
-            <CardHeader className="relative z-10">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 2 }}
-                className="flex items-center gap-2"
+          {/* Header */}
+          <header className="flex justify-between items-center mb-16 animate-fade-in">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight text-foreground">
+                Sensory<span className="text-primary">Tracker</span> - {String(tDashboard('title')).split(' - ')[1]}
+              </h1>
+              <p className="mt-3 text-lg text-muted-foreground">
+                {String(tDashboard('subtitle'))}
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="hidden sm:flex items-center justify-center group"
               >
-                <motion.span
-                  animate={{ rotate: [0, 10, -10, 0] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  className="text-2xl"
-                >
-                  💡
-                </motion.span>
-                <CardTitle className="text-foreground text-xl">
-                  {String(tDashboard('quickTips.title'))}
-                </CardTitle>
-              </motion.div>
-            </CardHeader>
-            
-            <CardContent className="relative z-10">
-              <motion.ul className="space-y-3">
-                {[
-                  String(tDashboard('quickTips.tip1')),
-                  String(tDashboard('quickTips.tip2')),
-                  String(tDashboard('quickTips.tip3'))
-                ].map((tip, index) => (
-                  <motion.li
-                    key={index}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.4, delay: 2.2 + (index * 0.1) }}
-                    className="flex items-start gap-3 text-foreground"
-                  >
-                    <motion.span
-                      className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ 
-                        duration: 2,
-                        repeat: Infinity,
-                        delay: index * 0.3
-                      }}
-                    />
-                    <span className="leading-relaxed">{tip}</span>
-                  </motion.li>
-                ))}
-              </motion.ul>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+                <span className="material-icons-outlined mr-2 text-base transition-transform group-hover:rotate-12">
+                  help_outline
+                </span>
+                Hjelp & Støtte
+              </Button>
+              <LanguageSettings />
+            </div>
+          </header>
 
-      {/* Floating Action Button */}
-      <FloatingActionButton onClick={handleAddStudent} />
-    </motion.div>
+          <main>
+            {/* Overview section with buttons */}
+            <div 
+              className="flex justify-between items-center mb-8 animate-fade-in" 
+              style={{ animationDelay: '0.2s' }}
+            >
+              <h2 className="text-3xl font-bold tracking-tight text-foreground">Oversikt</h2>
+              <div className="flex items-center space-x-4">
+                <Button 
+                  variant="outline" 
+                  onClick={handleExportReport}
+                  className="flex items-center justify-center group"
+                >
+                  <span className="material-icons-outlined mr-2 text-base">file_download</span>
+                  Eksporter Rapport
+                </Button>
+                <Button 
+                  variant="default" 
+                  onClick={handleNewEntry}
+                  size="lg"
+                  className="flex items-center justify-center group"
+                >
+                  <span className="material-icons-outlined mr-2 text-base group-hover:animate-bounce">add</span>
+                  Ny Registrering
+                </Button>
+              </div>
+            </div>
+
+            {/* Stats cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+              <Card 
+                className="animate-fade-in" 
+                style={{ animationDelay: '0.3s' }}
+              >
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-medium text-muted-foreground">
+                    {String(tDashboard('stats.totalStudents'))}
+                  </h3>
+                  <div className="icon-bg p-2 rounded-lg">
+                    <span className="material-icons-outlined text-primary">groups</span>
+                  </div>
+                </div>
+                <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" style={{ animationDelay: '0.4s' }}>
+                  <AnimatedCounter value={isLoading ? 0 : students.length} />
+                </p>
+                <div className="flex items-center text-sm mt-3">
+                  <span className="material-icons-outlined text-green-400 text-base mr-1">arrow_upward</span>
+                  <span className="text-green-400">12%</span>
+                  <span className="ml-1 text-muted-foreground">fra forrige uke</span>
+                </div>
+              </Card>
+
+              <Card 
+                className="animate-fade-in" 
+                style={{ animationDelay: '0.4s' }}
+              >
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-medium text-muted-foreground">
+                    {String(tDashboard('stats.todaysEntries'))}
+                  </h3>
+                  <div className="icon-bg p-2 rounded-lg">
+                    <span className="material-icons-outlined text-primary">edit_calendar</span>
+                  </div>
+                </div>
+                <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" style={{ animationDelay: '0.5s' }}>
+                  <AnimatedCounter value={isLoading ? 0 : todayEntries} />
+                </p>
+                <div className="flex items-center text-sm mt-3">
+                  <span className="material-icons-outlined text-green-400 text-base mr-1">arrow_upward</span>
+                  <span className="text-green-400">8%</span>
+                  <span className="ml-1 text-muted-foreground">fra forrige uke</span>
+                </div>
+              </Card>
+
+              <Card 
+                className="animate-fade-in" 
+                style={{ animationDelay: '0.5s' }}
+              >
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg font-medium text-muted-foreground">
+                    {String(tDashboard('stats.totalEntries'))}
+                  </h3>
+                  <div className="icon-bg p-2 rounded-lg">
+                    <span className="material-icons-outlined text-primary">bar_chart</span>
+                  </div>
+                </div>
+                <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" style={{ animationDelay: '0.6s' }}>
+                  <AnimatedCounter value={isLoading ? 0 : totalEntries} />
+                </p>
+                <div className="flex items-center text-sm mt-3">
+                  <span className="material-icons-outlined text-red-400 text-base mr-1">arrow_downward</span>
+                  <span className="text-red-400">5%</span>
+                  <span className="ml-1 text-muted-foreground">fra forrige uke</span>
+                </div>
+              </Card>
+            </div>
+
+            {/* Students section */}
+            <div>
+              <div 
+                className="flex justify-between items-center mb-8 text-foreground animate-fade-in" 
+                style={{ animationDelay: '0.6s' }}
+              >
+                <h2 className="text-3xl font-bold tracking-tight">Elever</h2>
+                <Button 
+                  variant="default" 
+                  onClick={handleAddStudent}
+                  size="lg"
+                  className="flex items-center justify-center group"
+                >
+                  <span className="material-icons-outlined mr-2 group-hover:animate-bounce transition-transform">add</span>
+                  Legg til elev
+                </Button>
+              </div>
+
+              {/* Empty state or student list */}
+              <div 
+                className="relative glass-card rounded-3xl p-8 text-center min-h-[400px] flex flex-col justify-center items-center overflow-hidden animate-fade-in"
+                style={{ animationDelay: '0.7s' }}
+              >
+                {/* Decorative SVG elements */}
+                <div className="absolute top-10 right-10 opacity-10 transition-transform duration-500 hover:scale-110">
+                  <svg fill="none" height="100" viewBox="0 0 24 24" width="100" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.5 12C16.5 14.4853 14.4853 16.5 12 16.5C9.51472 16.5 7.5 14.4853 7.5 12C7.5 9.51472 9.51472 7.5 12 7.5C14.4853 7.5 16.5 9.51472 16.5 12Z" stroke="hsl(var(--primary))" strokeWidth="1.5"></path>
+                    <path d="M19.5 17.5714C19.5 19.961 17.2687 21.5 15.4286 21.5C13.5884 21.5 11.8333 20.3571 10.7143 19.2857M4.5 17.5714C4.5 19.961 6.73134 21.5 8.57143 21.5C10.4116 21.5 12.1667 20.3571 13.2857 19.2857M13.2857 19.2857C14.0714 18.5 14.0714 17.2143 13.2857 16.4286M10.7143 19.2857C9.92857 18.5 9.92857 17.2143 10.7143 16.4286M13.2857 16.4286C12.5 15.6429 11.5 15.6429 10.7143 16.4286M12 7.5C10.7143 4.5 8.57143 2.5 6 2.5M12 7.5C13.2857 4.5 15.4286 2.5 18 2.5" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
+                  </svg>
+                </div>
+                
+                <div className="absolute bottom-10 left-10 opacity-5 -rotate-12 transition-transform duration-500 hover:scale-110 hover:-rotate-6">
+                  <svg fill="none" height="120" viewBox="0 0 24 24" width="120" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.5 12C16.5 14.4853 14.4853 16.5 12 16.5C9.51472 16.5 7.5 14.4853 7.5 12C7.5 9.51472 9.51472 7.5 12 7.5C14.4853 7.5 16.5 9.51472 16.5 12Z" stroke="hsl(var(--primary))" strokeWidth="1.5"></path>
+                    <path d="M19.5 17.5714C19.5 19.961 17.2687 21.5 15.4286 21.5C13.5884 21.5 11.8333 20.3571 10.7143 19.2857M4.5 17.5714C4.5 19.961 6.73134 21.5 8.57143 21.5C10.4116 21.5 12.1667 20.3571 13.2857 19.2857M13.2857 19.2857C14.0714 18.5 14.0714 17.2143 13.2857 16.4286M10.7143 19.2857C9.92857 18.5 9.92857 17.2143 10.7143 16.4286M13.2857 16.4286C12.5 15.6429 11.5 15.6429 10.7143 16.4286M12 7.5C10.7143 4.5 8.57143 2.5 6 2.5M12 7.5C13.2857 4.5 15.4286 2.5 18 2.5" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
+                  </svg>
+                </div>
+
+                <div className="relative z-10 flex flex-col items-center">
+                  <div className="flex items-center justify-center w-24 h-24 bg-primary/10 rounded-full mb-6 border border-primary/20 transition-transform duration-300 hover:scale-110">
+                    <span className="material-icons-outlined text-primary text-5xl transition-transform duration-300 group-hover:rotate-6">groups</span>
+                  </div>
+                  <h3 className="text-2xl font-semibold text-foreground">
+                    {String(tDashboard('emptyState.title'))}
+                  </h3>
+                  <p className="mt-3 max-w-md text-base text-muted-foreground">
+                    {String(tDashboard('emptyState.description'))}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
   );
 };
