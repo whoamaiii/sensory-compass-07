@@ -13,7 +13,7 @@ import { ReportBuilder } from "@/components/ReportBuilder";
 import { useDataFiltering } from "@/hooks/useDataFiltering";
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Goal } from "@/types/student";
 import { dataStorage } from "@/lib/dataStorage";
-import { ArrowLeft, TrendingUp, Calendar, FileText, Plus, Filter, Target } from "lucide-react";
+import { ArrowLeft, TrendingUp, Calendar, FileText, Plus, Filter, Crosshair } from "lucide-react";
 import { toast } from "sonner";
 
 export const StudentProfile = () => {
@@ -316,7 +316,7 @@ export const StudentProfile = () => {
           <div className="flex space-x-1 bg-muted p-1 rounded-lg">
             {[
               { id: 'overview', label: 'Overview', icon: TrendingUp },
-              { id: 'goals', label: 'IEP Goals', icon: Target },
+              { id: 'goals', label: 'IEP Goals', icon: Crosshair },
               { id: 'progress', label: 'Progress', icon: Calendar },
               { id: 'reports', label: 'Reports', icon: FileText }
             ].map(tab => (
