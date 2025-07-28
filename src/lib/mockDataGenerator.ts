@@ -280,6 +280,17 @@ export function loadMockDataToStorage(): void {
   });
 }
 
+// Load universal mock data for any student
+export function loadUniversalMockDataForStudent(student: Student): void {
+  const { generateUniversalMockDataForStudent } = require('./universalDataGenerator');
+  const trackingEntries = generateUniversalMockDataForStudent(student);
+  
+  // Save tracking entries
+  trackingEntries.forEach((entry: any) => {
+    dataStorage.saveTrackingEntry(entry);
+  });
+}
+
 // Clear mock data from storage
 export function clearMockDataFromStorage(): void {
   const students = dataStorage.getStudents();

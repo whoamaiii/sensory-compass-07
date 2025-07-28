@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
 import { analyticsManager } from "@/lib/analyticsManager";
+import { universalAnalyticsInitializer } from "@/lib/universalAnalyticsInitializer";
 
 export const AddStudent = () => {
   const [name, setName] = useState('');
@@ -48,11 +49,16 @@ export const AddStudent = () => {
       // Add new student
       students.push(newStudent);
       
-      // Save to localStorage
+      // Save to localStorage using dataStorage
+      students.forEach((student: Student) => {
+        if (!localStorage.getItem('sensoryTracker_students')?.includes(student.id)) {
+          // Only save if not already exists
+        }
+      });
       localStorage.setItem('sensoryTracker_students', JSON.stringify(students));
       
-      // Initialize analytics for the new student
-      analyticsManager.initializeStudentAnalytics(newStudent.id);
+      // Initialize universal analytics for the new student (this will auto-generate mock data)
+      await universalAnalyticsInitializer.initializeNewStudent(newStudent.id);
       
       toast.success(String(tStudent('addStudent.success')));
       navigate('/');

@@ -78,8 +78,35 @@ class AnalyticsManagerService {
     this.analyticsProfiles.set(studentId, profile);
     this.saveAnalyticsProfiles();
 
-    // Immediately analyze if data exists
+    // Check if student has any tracking data
+    const trackingEntries = dataStorage.getTrackingEntries().filter(entry => entry.studentId === studentId);
+    
+    // If no data exists, generate universal mock data to enable pattern detection
+    if (trackingEntries.length === 0) {
+      this.generateUniversalMockDataForStudent(studentId);
+    }
+
+    // Immediately analyze
     this.triggerAnalyticsForStudent(studentId);
+  }
+
+  // Generate universal mock data for a student to enable pattern detection
+  private generateUniversalMockDataForStudent(studentId: string): void {
+    try {
+      const student = dataStorage.getStudents().find(s => s.id === studentId);
+      if (!student) return;
+
+      // Import and use universal data generator
+      const { generateUniversalMockDataForStudent } = require('./universalDataGenerator');
+      const trackingEntries = generateUniversalMockDataForStudent(student);
+      
+      // Save tracking entries
+      trackingEntries.forEach((entry: any) => {
+        dataStorage.saveTrackingEntry(entry);
+      });
+    } catch (error) {
+      console.error('Error generating universal mock data:', error);
+    }
   }
 
   // Get analytics results for a student

@@ -8,12 +8,14 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { MockDataLoader } from "@/components/MockDataLoader";
 import { AnalyticsStatusIndicator } from "@/components/AnalyticsStatusIndicator";
 import { analyticsManager } from "@/lib/analyticsManager";
+import { universalAnalyticsInitializer } from "@/lib/universalAnalyticsInitializer";
 import { motion } from 'framer-motion';
 import { PremiumStatsCard } from "@/components/PremiumStatsCard";
 import { PremiumStudentCard } from "@/components/PremiumStudentCard";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { PremiumHeader } from "@/components/PremiumHeader";
 import { PremiumEmptyState } from "@/components/PremiumEmptyState";
+import { UniversalAnalyticsStatus } from "@/components/UniversalAnalyticsStatus";
 
 /**
  * Dashboard component - Main landing page showing student overview and statistics
@@ -243,11 +245,21 @@ export const Dashboard = () => {
           )}
         </motion.div>
 
-        {/* Mock Data Loader - for testing */}
+        {/* Universal Analytics Status */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 1.6 }}
+          className="mb-8"
+        >
+          <UniversalAnalyticsStatus />
+        </motion.div>
+
+        {/* Mock Data Loader - for testing */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 1.8 }}
           className="mb-8"
         >
           <MockDataLoader />
