@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataVisualization } from "@/components/DataVisualization";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
+import { AdvancedSearch } from "@/components/AdvancedSearch";
+import { QuickEntryTemplates } from "@/components/QuickEntryTemplates";
 import { DateRangeSelector, TimeRange } from "@/components/DateRangeSelector";
 import { PeriodComparison } from "@/components/PeriodComparison";
 import { GoalManager } from "@/components/GoalManager";
@@ -13,7 +15,7 @@ import { ReportBuilder } from "@/components/ReportBuilder";
 import { useDataFiltering } from "@/hooks/useDataFiltering";
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Goal } from "@/types/student";
 import { dataStorage } from "@/lib/dataStorage";
-import { ArrowLeft, TrendingUp, Calendar, FileText, Plus, Filter, Crosshair } from "lucide-react";
+import { ArrowLeft, TrendingUp, Calendar, FileText, Plus, Filter, Crosshair, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 export const StudentProfile = () => {
@@ -25,6 +27,15 @@ export const StudentProfile = () => {
   const [allSensoryInputs, setAllSensoryInputs] = useState<SensoryEntry[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showComparison, setShowComparison] = useState(false);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [showQuickTemplates, setShowQuickTemplates] = useState(false);
+  const [searchResults, setSearchResults] = useState<{
+    students: Student[];
+    entries: TrackingEntry[];
+    emotions: EmotionEntry[];
+    sensoryInputs: SensoryEntry[];
+    goals: Goal[];
+  } | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'goals' | 'progress' | 'reports'>('overview');
 
   const { selectedRange, filteredData, handleRangeChange } = useDataFiltering(
@@ -92,6 +103,23 @@ export const StudentProfile = () => {
     const allGoals = dataStorage.getGoals();
     const studentGoals = allGoals.filter(goal => goal.studentId === studentId);
     setGoals(studentGoals);
+  };
+
+  const handleSearchResults = (results: {
+    students: Student[];
+    entries: TrackingEntry[];
+    emotions: EmotionEntry[];
+    sensoryInputs: SensoryEntry[];
+    goals: Goal[];
+  }) => {
+    setSearchResults(results);
+  };
+
+  const handleQuickTemplateApply = (emotions: Partial<EmotionEntry>[], sensoryInputs: Partial<SensoryEntry>[]) => {
+    // Navigate to tracking page with pre-filled data
+    localStorage.setItem('quickTemplate_emotions', JSON.stringify(emotions));
+    localStorage.setItem('quickTemplate_sensoryInputs', JSON.stringify(sensoryInputs));
+    navigate(`/track/${student.id}?template=true`);
   };
 
   const getInsights = (emotions: EmotionEntry[], sensoryInputs: SensoryEntry[]) => {
@@ -190,15 +218,57 @@ export const StudentProfile = () => {
               </div>
             </div>
             
-            <Button
-              onClick={() => navigate(`/track/${student.id}`)}
-              className="bg-gradient-primary hover:opacity-90 font-dyslexia"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Session
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+                className="font-dyslexia"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                {showAdvancedSearch ? "Hide Search" : "Advanced Search"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowQuickTemplates(!showQuickTemplates)}
+                className="font-dyslexia"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                {showQuickTemplates ? "Hide Templates" : "Quick Templates"}
+              </Button>
+              <Button
+                onClick={() => navigate(`/track/${student.id}`)}
+                className="bg-gradient-primary hover:opacity-90 font-dyslexia"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Session
+              </Button>
+            </div>
           </div>
         </div>
+
+        {/* Advanced Search */}
+        {showAdvancedSearch && (
+          <div className="mb-8">
+            <AdvancedSearch
+              students={[student]}
+              trackingEntries={trackingEntries}
+              emotions={allEmotions}
+              sensoryInputs={allSensoryInputs}
+              goals={goals}
+              onResultsChange={handleSearchResults}
+            />
+          </div>
+        )}
+
+        {/* Quick Entry Templates */}
+        {showQuickTemplates && (
+          <div className="mb-8">
+            <QuickEntryTemplates
+              studentId={student.id}
+              onApplyTemplate={handleQuickTemplateApply}
+            />
+          </div>
+        )}
 
         {/* Time Range Selector */}
         <Card className="mb-8 bg-gradient-card border-0 shadow-soft">
