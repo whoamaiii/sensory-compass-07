@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { InteractiveDataVisualization } from "@/components/InteractiveDataVisualization";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import { AdvancedSearch } from "@/components/AdvancedSearch";
 import { QuickEntryTemplates } from "@/components/QuickEntryTemplates";
@@ -11,8 +10,12 @@ import { DateRangeSelector, TimeRange } from "@/components/DateRangeSelector";
 import { PeriodComparison } from "@/components/PeriodComparison";
 import { GoalManager } from "@/components/GoalManager";
 import { ProgressDashboard } from "@/components/ProgressDashboard";
-import { ReportBuilder } from "@/components/ReportBuilder";
+import { LazyInteractiveDataVisualization } from "@/components/lazy/LazyInteractiveDataVisualization";
+import { LazyReportBuilder } from "@/components/lazy/LazyReportBuilder";
+import { PaginatedSessionsList } from "@/components/PaginatedSessionsList";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useDataFiltering } from "@/hooks/useDataFiltering";
+import { useOptimizedInsights } from "@/hooks/useOptimizedInsights";
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Goal } from "@/types/student";
 import { dataStorage } from "@/lib/dataStorage";
 import { enhancedPatternAnalysis } from "@/lib/enhancedPatternAnalysis";
@@ -40,13 +43,21 @@ export const StudentProfile = () => {
     goals: Goal[];
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'goals' | 'progress' | 'reports'>('overview');
-  const [insights, setInsights] = useState<any[]>([]);
-
   const { selectedRange, filteredData, handleRangeChange } = useDataFiltering(
     trackingEntries,
     allEmotions,
     allSensoryInputs
   );
+
+  // Use optimized insights hook with caching
+  const { getInsights, getCorrelationMatrix, getAnomalies, cacheStats } = useOptimizedInsights(
+    filteredData.emotions,
+    filteredData.sensoryInputs,
+    filteredData.entries
+  );
+
+  const [insights, setInsights] = useState<any>(null);
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
 
   useEffect(() => {
     if (!studentId) return;
@@ -102,24 +113,32 @@ export const StudentProfile = () => {
     loadGoals();
   }, [studentId, navigate]);
 
-  // Generate insights when filtered data changes
+  // Generate insights when filtered data changes (optimized with caching)
   useEffect(() => {
     const generateInsights = async () => {
       if (filteredData.emotions.length === 0 && filteredData.sensoryInputs.length === 0 && filteredData.entries.length === 0) {
-        setInsights([]);
+        setInsights(null);
+        setIsLoadingInsights(false);
         return;
       }
       
+      setIsLoadingInsights(true);
       try {
-        const newInsights = await getInsights(filteredData.emotions, filteredData.sensoryInputs, filteredData.entries);
+        const newInsights = await getInsights();
         setInsights(newInsights);
       } catch (error) {
         console.error('Error generating insights:', error);
-        setInsights([]);
+        setInsights(null);
+        toast.error("Failed to generate insights");
+      } finally {
+        setIsLoadingInsights(false);
       }
     };
-    generateInsights();
-  }, [filteredData.emotions.length, filteredData.sensoryInputs.length, filteredData.entries.length]);
+    
+    // Debounce the insights generation to avoid excessive calls
+    const timeoutId = setTimeout(generateInsights, 300);
+    return () => clearTimeout(timeoutId);
+  }, [filteredData.emotions.length, filteredData.sensoryInputs.length, filteredData.entries.length, getInsights]);
 
   const loadGoals = () => {
     if (!studentId) return;
@@ -145,101 +164,7 @@ export const StudentProfile = () => {
     navigate(`/track/${student.id}?template=true`);
   };
 
-  const getInsights = async (emotions: EmotionEntry[], sensoryInputs: SensoryEntry[], trackingEntries: TrackingEntry[]) => {
-    if (emotions.length === 0 && sensoryInputs.length === 0) {
-      return [];
-    }
-
-    try {
-      // Generate enhanced insights
-      const predictiveInsights = enhancedPatternAnalysis.generatePredictiveInsights(
-        emotions,
-        sensoryInputs,
-        trackingEntries,
-        goals
-      );
-
-      const insights = [];
-
-      // Add predictive insights
-      for (const insight of predictiveInsights) {
-        insights.push({
-          type: insight.type,
-          text: insight.description,
-          confidence: insight.confidence > 0.8 ? 'high' : insight.confidence > 0.5 ? 'moderate' : 'low',
-          recommendations: insight.recommendations
-        });
-      }
-
-      // Basic emotion insights
-      if (emotions.length > 0) {
-        const emotionCounts = emotions.reduce((acc, emotion) => {
-          acc[emotion.emotion] = (acc[emotion.emotion] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-
-        const mostCommon = Object.entries(emotionCounts)
-          .sort(([,a], [,b]) => b - a)[0];
-        
-        insights.push({
-          type: 'emotion',
-          text: `Most frequently observed emotion: ${mostCommon[0]} (${mostCommon[1]} times)`,
-          confidence: 'high',
-          recommendations: []
-        });
-
-        const avgIntensity = emotions.reduce((sum, e) => sum + e.intensity, 0) / emotions.length;
-        insights.push({
-          type: 'emotion',
-          text: `Average emotion intensity: ${avgIntensity.toFixed(1)}/5`,
-          confidence: 'high',
-          recommendations: []
-        });
-      }
-
-      // Sensory insights
-      if (sensoryInputs.length > 0) {
-        const seekingCount = sensoryInputs.filter(s => s.response === 'seeking').length;
-        const avoidingCount = sensoryInputs.filter(s => s.response === 'avoiding').length;
-        
-        if (seekingCount > avoidingCount) {
-          insights.push({
-            type: 'sensory',
-            text: 'Tends to seek sensory input more than avoid it',
-            confidence: 'moderate',
-            recommendations: ['Provide structured sensory breaks', 'Use sensory tools as rewards']
-          });
-        } else if (avoidingCount > seekingCount) {
-          insights.push({
-            type: 'sensory',
-            text: 'Tends to avoid sensory input more than seek it',
-            confidence: 'moderate',
-            recommendations: ['Create quiet spaces', 'Gradual exposure to sensory activities']
-          });
-        }
-
-        const sensoryTypes = sensoryInputs.reduce((acc, sensory) => {
-          acc[sensory.sensoryType] = (acc[sensory.sensoryType] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-
-        const mostCommonSensory = Object.entries(sensoryTypes)
-          .sort(([,a], [,b]) => b - a)[0];
-        
-        insights.push({
-          type: 'sensory',
-          text: `Most tracked sensory type: ${mostCommonSensory[0]} (${mostCommonSensory[1]} entries)`,
-          confidence: 'high',
-          recommendations: []
-        });
-      }
-
-      return insights;
-    } catch (error) {
-      console.error('Error generating insights:', error);
-      return [];
-    }
-  };
+  // Removed duplicate getInsights function - now using useOptimizedInsights hook
 
   const handleExportData = async (format: 'pdf' | 'csv' | 'json') => {
     if (!student) return;
@@ -252,7 +177,7 @@ export const StudentProfile = () => {
         emotions: filteredData.emotions,
         sensoryInputs: filteredData.sensoryInputs,
         goals,
-        insights: await getInsights(filteredData.emotions, filteredData.sensoryInputs, filteredData.entries)
+        insights: await getInsights()
       };
 
       switch (format) {
@@ -535,14 +460,14 @@ export const StudentProfile = () => {
         )}
 
         {/* Insights */}
-        {insights.length > 0 && (
+        {insights && insights.basic && insights.basic.length > 0 && (
           <Card className="mb-8 bg-gradient-calm border-0 shadow-soft">
             <CardHeader>
               <CardTitle>AI Insights & Suggestions</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {insights.map((insight, index) => (
+                {insights.basic.map((insight, index) => (
                   <div key={index} className="border-l-4 border-primary pl-4 py-2">
                     <div className="flex items-center justify-between mb-2">
                       <Badge variant={insight.confidence === 'high' ? 'default' : insight.confidence === 'moderate' ? 'secondary' : 'outline'}>
@@ -597,14 +522,16 @@ export const StudentProfile = () => {
         {activeTab === 'overview' && (
           <>
             {/* Interactive Data Visualization */}
-            <div className="mb-8">
-              <InteractiveDataVisualization
-                emotions={filteredData.emotions}
-                sensoryInputs={filteredData.sensoryInputs}
-                trackingEntries={filteredData.entries}
-                studentName={student.name}
-              />
-            </div>
+            <ErrorBoundary>
+              <div className="mb-8">
+                <LazyInteractiveDataVisualization
+                  emotions={filteredData.emotions}
+                  sensoryInputs={filteredData.sensoryInputs}
+                  trackingEntries={filteredData.entries}
+                  studentName={student.name}
+                />
+              </div>
+            </ErrorBoundary>
 
             {/* Analytics Dashboard */}
             <div className="mb-8">
@@ -678,56 +605,23 @@ export const StudentProfile = () => {
               </CardContent>
             </Card>
 
-            <ReportBuilder 
-              student={student}
-              goals={goals}
-              trackingEntries={filteredData.entries}
-              emotions={filteredData.emotions}
-              sensoryInputs={filteredData.sensoryInputs}
-            />
+            <ErrorBoundary>
+              <LazyReportBuilder 
+                student={student}
+                goals={goals}
+                trackingEntries={filteredData.entries}
+                emotions={filteredData.emotions}
+                sensoryInputs={filteredData.sensoryInputs}
+              />
+            </ErrorBoundary>
           </div>
         )}
 
         {/* Recent Sessions - Only show on overview tab */}
         {activeTab === 'overview' && filteredData.entries.length > 0 && (
-          <Card className="bg-gradient-card border-0 shadow-soft">
-            <CardHeader>
-              <CardTitle>Sessions in Selected Period</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {filteredData.entries.slice(0, 10).map((entry) => (
-                  <div key={entry.id} className="border-l-4 border-primary pl-4 py-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-foreground">
-                        {entry.timestamp.toLocaleDateString()} at {entry.timestamp.toLocaleTimeString()}
-                      </span>
-                      <div className="flex gap-2">
-                        <Badge variant="outline">
-                          {entry.emotions.length} emotions
-                        </Badge>
-                        <Badge variant="outline">
-                          {entry.sensoryInputs.length} sensory
-                        </Badge>
-                      </div>
-                    </div>
-                    {entry.generalNotes && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {entry.generalNotes}
-                      </p>
-                    )}
-                  </div>
-                ))}
-                {filteredData.entries.length > 10 && (
-                  <div className="text-center pt-4">
-                    <p className="text-sm text-muted-foreground">
-                      Showing 10 of {filteredData.entries.length} sessions in this period
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <ErrorBoundary>
+            <PaginatedSessionsList sessions={filteredData.entries} />
+          </ErrorBoundary>
         )}
 
       </div>

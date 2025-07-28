@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { isWithinInterval, subDays, startOfDay, endOfDay } from "date-fns";
 import { EmotionEntry, SensoryEntry, TrackingEntry } from "@/types/student";
 import { TimeRange } from "@/components/DateRangeSelector";
@@ -14,29 +14,45 @@ export const useDataFiltering = (
     label: "Last 30 days"
   });
 
+  // Memoize the filtering logic with better performance
   const filteredData = useMemo(() => {
-    const filteredEntries = trackingEntries.filter(entry =>
-      isWithinInterval(entry.timestamp, { start: selectedRange.start, end: selectedRange.end })
-    );
+    // Early return if no data
+    if (trackingEntries.length === 0 && allEmotions.length === 0 && allSensoryInputs.length === 0) {
+      return {
+        entries: [],
+        emotions: [],
+        sensoryInputs: []
+      };
+    }
 
-    const filteredEmotions = allEmotions.filter(emotion =>
-      isWithinInterval(emotion.timestamp, { start: selectedRange.start, end: selectedRange.end })
-    );
+    const { start, end } = selectedRange;
+    
+    // Use more efficient filtering with early returns
+    const filteredEntries = trackingEntries.filter(entry => {
+      const timestamp = entry.timestamp;
+      return timestamp >= start && timestamp <= end;
+    });
 
-    const filteredSensoryInputs = allSensoryInputs.filter(sensory =>
-      isWithinInterval(sensory.timestamp, { start: selectedRange.start, end: selectedRange.end })
-    );
+    const filteredEmotions = allEmotions.filter(emotion => {
+      const timestamp = emotion.timestamp;
+      return timestamp >= start && timestamp <= end;
+    });
+
+    const filteredSensoryInputs = allSensoryInputs.filter(sensory => {
+      const timestamp = sensory.timestamp;
+      return timestamp >= start && timestamp <= end;
+    });
 
     return {
       entries: filteredEntries,
       emotions: filteredEmotions,
       sensoryInputs: filteredSensoryInputs
     };
-  }, [trackingEntries, allEmotions, allSensoryInputs, selectedRange]);
+  }, [trackingEntries, allEmotions, allSensoryInputs, selectedRange.start, selectedRange.end]);
 
-  const handleRangeChange = (newRange: TimeRange) => {
+  const handleRangeChange = useCallback((newRange: TimeRange) => {
     setSelectedRange(newRange);
-  };
+  }, []);
 
   return {
     selectedRange,
