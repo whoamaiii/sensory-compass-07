@@ -425,7 +425,7 @@ export class DataStorageManager {
   /**
    * Delete a student and all their associated data
    */
-  deleteStudent(studentId: string): void {
+  public deleteStudent(studentId: string): void {
     try {
       console.log(`Deleting student ${studentId} and all associated data`);
       

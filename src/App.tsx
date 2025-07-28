@@ -8,26 +8,29 @@ import { AddStudent } from "./pages/AddStudent";
 import { StudentProfile } from "./pages/StudentProfile";
 import { TrackStudent } from "./pages/TrackStudent";
 import NotFound from "./pages/NotFound";
+import { ErrorWrapper } from "./components/ErrorWrapper";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/add-student" element={<AddStudent />} />
-          <Route path="/student/:studentId" element={<StudentProfile />} />
-          <Route path="/track/:studentId" element={<TrackStudent />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorWrapper>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/add-student" element={<AddStudent />} />
+            <Route path="/student/:studentId" element={<StudentProfile />} />
+            <Route path="/track/:studentId" element={<TrackStudent />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorWrapper>
 );
 
 export default App;
