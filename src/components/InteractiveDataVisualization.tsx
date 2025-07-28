@@ -25,6 +25,8 @@ import {
 import { EmotionEntry, SensoryEntry, TrackingEntry } from "@/types/student";
 import { enhancedPatternAnalysis, CorrelationMatrix, PredictiveInsight, AnomalyDetection } from "@/lib/enhancedPatternAnalysis";
 import { patternAnalysis, PatternResult } from "@/lib/patternAnalysis";
+import { ConfidenceIndicator } from '@/components/ConfidenceIndicator';
+import { differenceInDays } from 'date-fns';
 import { 
   TrendingUp, 
   BarChart3, 
@@ -572,24 +574,29 @@ export const InteractiveDataVisualization = ({
                           {insight.description}
                         </p>
 
-                        {insight.prediction && (
-                          <div className="mb-2">
-                            <p className="text-sm font-medium mb-1">Prediction:</p>
-                            <div className="flex items-center gap-2 text-sm">
-                              {insight.prediction.trend === 'increasing' ? (
-                                <TrendingUp className="h-4 w-4 text-green-500" />
-                              ) : insight.prediction.trend === 'decreasing' ? (
-                                <TrendingDown className="h-4 w-4 text-red-500" />
-                              ) : (
-                                <Activity className="h-4 w-4 text-blue-500" />
-                              )}
-                              <span className="capitalize">{insight.prediction.trend}</span>
-                              <span className="text-muted-foreground">
-                                (Accuracy: {Math.round(insight.prediction.accuracy * 100)}%)
-                              </span>
-                            </div>
-                          </div>
-                        )}
+                         {insight.prediction && (
+                           <div className="mb-2">
+                             <p className="text-sm font-medium mb-1">Prediction:</p>
+                             <div className="flex items-center gap-2 text-sm">
+                               {insight.prediction.trend === 'increasing' ? (
+                                 <TrendingUp className="h-4 w-4 text-green-500" />
+                               ) : insight.prediction.trend === 'decreasing' ? (
+                                 <TrendingDown className="h-4 w-4 text-red-500" />
+                               ) : (
+                                 <Activity className="h-4 w-4 text-blue-500" />
+                               )}
+                               <span className="capitalize">{insight.prediction.trend}</span>
+                               <ConfidenceIndicator 
+                                 confidence={insight.prediction.accuracy}
+                                 dataPoints={filteredData.emotions.length + filteredData.sensoryInputs.length}
+                                 timeSpanDays={filteredData.emotions.length > 0 && filteredData.emotions[0] ? 
+                                   Math.abs(differenceInDays(new Date(), filteredData.emotions[0].timestamp)) : 0}
+                                 rSquared={insight.prediction.accuracy}
+                                 className="ml-1"
+                               />
+                             </div>
+                           </div>
+                         )}
 
                         {insight.recommendations.length > 0 && (
                           <div className="space-y-1">

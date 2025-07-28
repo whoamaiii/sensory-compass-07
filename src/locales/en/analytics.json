@@ -38,5 +38,22 @@
     "recommendations": "Recommendations",
     "alerts": "Alerts",
     "noPatterns": "No patterns found yet. Keep collecting data for better insights."
+  },
+  "confidence": {
+    "low": "Low confidence",
+    "medium": "Medium confidence", 
+    "high": "High confidence",
+    "explanations": {
+      "insufficientData": "Insufficient data points ({{count}} of {{minimum}} needed)",
+      "shortTimespan": "Short data span ({{days}} days, recommend {{recommended}}+ days)",
+      "weakPattern": "Weak pattern detected (R² = {{rsquared}})",
+      "moderatePattern": "Moderate pattern with increasing clarity",
+      "strongPattern": "Strong statistical pattern (R² = {{rsquared}})",
+      "excellentData": "Excellent data with clear patterns",
+      "needMoreData": "Collect more data over time for better analysis",
+      "emergingTrend": "Pattern is beginning to emerge",
+      "reliableInsight": "Reliable insight based on solid data"
+    },
+    "tooltip": "Click to see confidence level explanation"
   }
 }

@@ -16,6 +16,13 @@ function getRandomDate(daysAgo: number, variance: number = 0): Date {
   return baseDate;
 }
 
+// Generate trend with clear pattern for better confidence
+function generateTrendValue(baseValue: number, dayIndex: number, trendStrength: number = 0.1): number {
+  const trend = trendStrength * dayIndex;
+  const noise = (Math.random() - 0.5) * 0.5;
+  return Math.max(1, Math.min(5, Math.round(baseValue + trend + noise)));
+}
+
 // Generate emotion entry
 function generateEmotionEntry(studentId: string, timestamp: Date, emotionBias?: string): EmotionEntry {
   const emotions: EmotionEntry['emotion'][] = ['happy', 'sad', 'angry', 'calm', 'anxious', 'excited'];
@@ -133,9 +140,11 @@ function generateTrackingEntry(student: Student, daysAgo: number, scenario: 'emm
       // More intense emotions, sensory challenges
       emotionBias = Math.random() > 0.6 ? (Math.random() > 0.5 ? 'anxious' : 'angry') : 'calm';
     } else if (scenario === 'astrid') {
-      // Improving over time - less anxiety as days go by
-      const improvementFactor = Math.max(0, 1 - (daysAgo / 180)); // Improvement over 6 months
-      emotionBias = Math.random() > (0.8 - improvementFactor * 0.5) ? 'happy' : 'calm';
+      // Improving over time - less anxiety as days go by with clearer trends
+      const dayIndex = 120 - daysAgo; // Convert to progressive index
+      const baseValue = 2; // Start from moderate
+      const intensity = generateTrendValue(baseValue, dayIndex, 0.02); // Gradual improvement
+      emotionBias = intensity >= 4 ? 'happy' : intensity >= 3 ? 'calm' : 'anxious';
     }
     
     emotions.push(generateEmotionEntry(student.id, timestamp, emotionBias));

@@ -38,5 +38,22 @@
     "recommendations": "Anbefalinger",
     "alerts": "Varsler",
     "noPatterns": "Ingen mønstre funnet ennå. Fortsett å samle data for bedre innsikt."
+  },
+  "confidence": {
+    "low": "Lav sikkerhet",
+    "medium": "Middels sikkerhet",
+    "high": "Høy sikkerhet",
+    "explanations": {
+      "insufficientData": "For få datapunkter ({{count}} av {{minimum}} nødvendig)",
+      "shortTimespan": "Kort dataspenn ({{days}} dager, anbefaler {{recommended}}+ dager)",
+      "weakPattern": "Svakt mønster oppdaget (R² = {{rsquared}})",
+      "moderatePattern": "Moderat mønster med økende klarhet",
+      "strongPattern": "Sterkt statistisk mønster (R² = {{rsquared}})",
+      "excellentData": "Utmerkede data med klare mønstre",
+      "needMoreData": "Samle mer data over tid for bedre analyse",
+      "emergingtTrend": "Mønster begynner å vise seg",
+      "reliableInsight": "Pålitelig innsikt basert på solid data"
+    },
+    "tooltip": "Klikk for å se forklaring av sikkerhetsnivå"
   }
 }

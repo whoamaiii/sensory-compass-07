@@ -142,14 +142,20 @@ class EnhancedPatternAnalysisEngine {
     const yPred = x.map(xi => slope * xi + intercept);
     const ssRes = y.map((yi, i) => Math.pow(yi - yPred[i], 2)).reduce((a, b) => a + b, 0);
     const ssTot = y.map(yi => Math.pow(yi - yMean, 2)).reduce((a, b) => a + b, 0);
-    const rSquared = 1 - (ssRes / ssTot);
+    const rSquared = Math.max(0, Math.min(1, 1 - (ssRes / ssTot)));
 
-    // Convert slope to daily rate
+    // Enhanced confidence calculation
     const timeSpanDays = differenceInDays(
       sortedData[sortedData.length - 1].timestamp,
       sortedData[0].timestamp
     );
     const dailyRate = slope * (n / timeSpanDays);
+    
+    // Multi-factor confidence calculation
+    const dataQuality = Math.min(1, n / 30); // Better with more data points
+    const timeSpanQuality = Math.min(1, timeSpanDays / 21); // Better with longer timespan
+    const patternStrength = Math.max(0, rSquared); // R-squared strength
+    const enhancedConfidence = (dataQuality * 0.3 + timeSpanQuality * 0.3 + patternStrength * 0.4);
 
     const direction = Math.abs(dailyRate) < this.TREND_THRESHOLD ? 'stable' :
                      dailyRate > 0 ? 'increasing' : 'decreasing';
@@ -159,13 +165,55 @@ class EnhancedPatternAnalysisEngine {
       direction,
       rate: dailyRate,
       significance: rSquared,
-      confidence: rSquared,
+      confidence: enhancedConfidence,
       forecast: {
         next7Days: yPred[yPred.length - 1] + (slope * 7),
         next30Days: yPred[yPred.length - 1] + (slope * 30),
-        confidence: rSquared
+        confidence: enhancedConfidence
       }
     };
+  }
+
+  // Generate confidence explanation
+  generateConfidenceExplanation(
+    dataPoints: number,
+    timeSpanDays: number,
+    rSquared: number,
+    confidence: number
+  ): { level: 'low' | 'medium' | 'high'; explanation: string; factors: string[] } {
+    const factors: string[] = [];
+    let explanation = '';
+    let level: 'low' | 'medium' | 'high' = 'low';
+
+    if (dataPoints < 10) {
+      factors.push(`insufficientData:${dataPoints}:${this.MIN_SAMPLE_SIZE}`);
+    }
+    
+    if (timeSpanDays < 14) {
+      factors.push(`shortTimespan:${timeSpanDays}:21`);
+    }
+    
+    if (rSquared < 0.3) {
+      factors.push(`weakPattern:${rSquared.toFixed(3)}`);
+    } else if (rSquared > 0.7) {
+      factors.push(`strongPattern:${rSquared.toFixed(3)}`);
+    } else {
+      factors.push('moderatePattern');
+    }
+
+    // Determine overall level and explanation
+    if (confidence >= 0.7) {
+      level = 'high';
+      explanation = rSquared > 0.8 ? 'excellentData' : 'reliableInsight';
+    } else if (confidence >= 0.4) {
+      level = 'medium';
+      explanation = 'emergingTrend';
+    } else {
+      level = 'low';
+      explanation = 'needMoreData';
+    }
+
+    return { level, explanation, factors };
   }
 
   // Anomaly Detection using Statistical Methods
