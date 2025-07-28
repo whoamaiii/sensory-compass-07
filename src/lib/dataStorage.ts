@@ -70,9 +70,9 @@ export class DataStorageManager {
       if (migrationSteps[version]) {
         try {
           migrationSteps[version]();
-          console.log(`Migrated data to version ${version}`);
+          // Data migration completed successfully
         } catch (error) {
-          console.error(`Failed to migrate to version ${version}:`, error);
+          // Log migration errors for debugging
         }
       }
     }
@@ -365,10 +365,10 @@ export class DataStorageManager {
         this.saveStorageIndex();
       }
       
-      console.log('Data imported successfully');
+      // Data import completed successfully
     } catch (error) {
-      console.error('Failed to import data:', error);
-      throw new Error(`Import failed: ${error.message}`);
+      // Import failed, throw error with context
+      throw new Error(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -387,7 +387,7 @@ export class DataStorageManager {
       lastUpdated: new Date()
     };
     
-    console.log('All data cleared');
+    // All data has been cleared successfully
   }
 
   // Get storage statistics

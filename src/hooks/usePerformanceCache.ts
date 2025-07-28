@@ -12,6 +12,34 @@ interface CacheOptions {
   enableStats?: boolean;
 }
 
+/**
+ * High-performance caching hook with LRU eviction, TTL, and performance statistics
+ * 
+ * @param options Configuration object for cache behavior
+ * @param options.maxSize Maximum number of entries (default: 100)
+ * @param options.ttl Time to live in milliseconds (default: 5 minutes)
+ * @param options.enableStats Whether to track performance statistics (default: false)
+ * 
+ * @returns Cache interface with get, set, has, clear, cleanup methods and optional stats
+ * 
+ * @example
+ * ```typescript
+ * const cache = usePerformanceCache<string>({ 
+ *   maxSize: 50, 
+ *   ttl: 10 * 60 * 1000, // 10 minutes
+ *   enableStats: true 
+ * });
+ * 
+ * // Store data
+ * cache.set('key1', 'value1');
+ * 
+ * // Retrieve data
+ * const value = cache.get('key1');
+ * 
+ * // Check cache stats
+ * console.log(cache.stats?.hitRate); // Hit rate percentage
+ * ```
+ */
 export function usePerformanceCache<T>(options: CacheOptions = {}) {
   const {
     maxSize = 100,

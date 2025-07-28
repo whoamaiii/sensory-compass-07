@@ -1,26 +1,74 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StudentCard } from "@/components/StudentCard";
-import { Student } from "@/types/student";
+import { Student, TrackingEntry } from "@/types/student";
 import { Plus, Users, TrendingUp, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { isToday } from "date-fns";
 
+/**
+ * Dashboard component - Main landing page showing student overview and statistics
+ * @returns React component displaying students list and tracking statistics
+ */
 export const Dashboard = () => {
   const [students, setStudents] = useState<Student[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Load students from localStorage
-    const storedStudents = localStorage.getItem('sensoryTracker_students');
-    if (storedStudents) {
-      const parsed = JSON.parse(storedStudents);
-      setStudents(parsed.map((s: any) => ({
-        ...s,
-        createdAt: new Date(s.createdAt)
-      })));
-    }
+    const loadData = () => {
+      try {
+        // Load students from localStorage
+        const storedStudents = localStorage.getItem('sensoryTracker_students');
+        if (storedStudents) {
+          const parsed = JSON.parse(storedStudents);
+          setStudents(parsed.map((s: any) => ({
+            ...s,
+            createdAt: new Date(s.createdAt)
+          })));
+        }
+      } catch (error) {
+        // Handle parsing errors gracefully
+        setStudents([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
+
+  /**
+   * Calculate statistics from all tracking data
+   */
+  const { todayEntries, totalEntries } = useMemo(() => {
+    if (students.length === 0) {
+      return { todayEntries: 0, totalEntries: 0 };
+    }
+
+    let todayCount = 0;
+    let totalCount = 0;
+
+    students.forEach(student => {
+      try {
+        const trackingData = localStorage.getItem(`sensoryTracker_tracking_${student.id}`);
+        if (trackingData) {
+          const entries: TrackingEntry[] = JSON.parse(trackingData).map((entry: any) => ({
+            ...entry,
+            timestamp: new Date(entry.timestamp)
+          }));
+
+          totalCount += entries.length;
+          todayCount += entries.filter(entry => isToday(entry.timestamp)).length;
+        }
+      } catch (error) {
+        // Skip invalid entries
+      }
+    });
+
+    return { todayEntries: todayCount, totalEntries: totalCount };
+  }, [students]);
 
   const handleViewStudent = (student: Student) => {
     navigate(`/student/${student.id}`);
@@ -33,9 +81,6 @@ export const Dashboard = () => {
   const handleAddStudent = () => {
     navigate('/add-student');
   };
-
-  const todayEntries = 0; // This would come from tracking data
-  const totalEntries = 0; // This would come from tracking data
 
   return (
     <div className="min-h-screen bg-background font-dyslexia">
@@ -58,7 +103,9 @@ export const Dashboard = () => {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{students.length}</div>
+              <div className="text-2xl font-bold text-primary">
+                {isLoading ? "..." : students.length}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Active in your program
               </p>
@@ -71,7 +118,9 @@ export const Dashboard = () => {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{todayEntries}</div>
+              <div className="text-2xl font-bold text-primary">
+                {isLoading ? "..." : todayEntries}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Tracking sessions today
               </p>
@@ -84,7 +133,9 @@ export const Dashboard = () => {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{totalEntries}</div>
+              <div className="text-2xl font-bold text-primary">
+                {isLoading ? "..." : totalEntries}
+              </div>
               <p className="text-xs text-muted-foreground">
                 All time data points
               </p>
