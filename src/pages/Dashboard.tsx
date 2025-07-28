@@ -1,16 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { StudentCard } from "@/components/StudentCard";
 import { Student, TrackingEntry } from "@/types/student";
-import { Plus, Users, TrendingUp, Calendar } from "lucide-react";
+import { Users, TrendingUp, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { isToday } from "date-fns";
 import { useTranslation } from "@/hooks/useTranslation";
-import { LanguageSettings } from "@/components/LanguageSettings";
 import { MockDataLoader } from "@/components/MockDataLoader";
 import { AnalyticsStatusIndicator } from "@/components/AnalyticsStatusIndicator";
 import { analyticsManager } from "@/lib/analyticsManager";
+import { motion } from 'framer-motion';
+import { PremiumStatsCard } from "@/components/PremiumStatsCard";
+import { PremiumStudentCard } from "@/components/PremiumStudentCard";
+import { FloatingActionButton } from "@/components/FloatingActionButton";
+import { PremiumHeader } from "@/components/PremiumHeader";
+import { PremiumEmptyState } from "@/components/PremiumEmptyState";
 
 /**
  * Dashboard component - Main landing page showing student overview and statistics
@@ -98,145 +101,225 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background font-dyslexia">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-4xl font-bold text-foreground mb-2">
-                {String(tDashboard('title'))}
-              </h1>
-              <p className="text-lg text-muted-foreground">
-                {String(tDashboard('subtitle'))}
-              </p>
-            </div>
-            <LanguageSettings />
-          </div>
-        </div>
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="min-h-screen bg-background font-dyslexia relative overflow-hidden"
+    >
+      {/* Decorative background elements */}
+      <motion.div
+        className="absolute top-20 right-20 w-72 h-72 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-full blur-3xl"
+        animate={{
+          scale: [1, 1.1, 1],
+          opacity: [0.3, 0.5, 0.3]
+        }}
+        transition={{
+          duration: 8,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+      />
+      
+      <motion.div
+        className="absolute bottom-20 left-20 w-96 h-96 bg-gradient-to-br from-accent/5 to-primary/5 rounded-full blur-3xl"
+        animate={{
+          scale: [1.1, 1, 1.1],
+          opacity: [0.4, 0.6, 0.4]
+        }}
+        transition={{
+          duration: 10,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 2
+        }}
+      />
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-gradient-card border-0 shadow-soft">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{String(tDashboard('stats.totalStudents'))}</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">
-                {isLoading ? String(tCommon('status.loading')) : students.length}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {String(tDashboard('stats.totalStudents'))}
-              </p>
-            </CardContent>
-          </Card>
+      <div className="container mx-auto px-4 py-8 relative z-10">
+        {/* Premium Header */}
+        <PremiumHeader 
+          title={String(tDashboard('title'))}
+          subtitle={String(tDashboard('subtitle'))}
+        />
 
-          <Card className="bg-gradient-card border-0 shadow-soft">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{String(tDashboard('stats.todaysEntries'))}</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">
-                {isLoading ? String(tCommon('status.loading')) : todayEntries}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {String(tDashboard('stats.todaysEntries'))}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-0 shadow-soft">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{String(tDashboard('stats.totalEntries'))}</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">
-                {isLoading ? String(tCommon('status.loading')) : totalEntries}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {String(tDashboard('stats.totalEntries'))}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Premium Stats Cards */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12"
+        >
+          <PremiumStatsCard
+            title={String(tDashboard('stats.totalStudents'))}
+            value={isLoading ? 0 : students.length}
+            icon={Users}
+            index={0}
+            isLoading={isLoading}
+            loadingText={String(tCommon('status.loading'))}
+            trend={{ value: 12, isPositive: true }}
+          />
+          
+          <PremiumStatsCard
+            title={String(tDashboard('stats.todaysEntries'))}
+            value={isLoading ? 0 : todayEntries}
+            icon={Calendar}
+            index={1}
+            isLoading={isLoading}
+            loadingText={String(tCommon('status.loading'))}
+            trend={{ value: 8, isPositive: true }}
+          />
+          
+          <PremiumStatsCard
+            title={String(tDashboard('stats.totalEntries'))}
+            value={isLoading ? 0 : totalEntries}
+            icon={TrendingUp}
+            index={2}
+            isLoading={isLoading}
+            loadingText={String(tCommon('status.loading'))}
+            trend={{ value: 5, isPositive: false }}
+          />
+        </motion.div>
 
         {/* Analytics Status for All Students */}
         {students.length > 0 && (
-          <div className="mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
+            className="mb-8"
+          >
             <AnalyticsStatusIndicator showDetails={false} />
-          </div>
+          </motion.div>
         )}
 
         {/* Students Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold text-foreground">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 1 }}
+          className="mb-8"
+        >
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 1.2 }}
+            className="flex items-center justify-between mb-8"
+          >
+            <h2 className="text-3xl font-semibold text-foreground flex items-center gap-3">
+              <motion.span
+                className="w-1 h-8 bg-gradient-primary rounded-full"
+                initial={{ scaleY: 0 }}
+                animate={{ scaleY: 1 }}
+                transition={{ duration: 0.6, delay: 1.4 }}
+              />
               {String(tCommon('navigation.students'))}
             </h2>
-            <Button 
-              onClick={handleAddStudent}
-              className="bg-gradient-primary hover:opacity-90 font-dyslexia transition-all duration-200"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              {String(tCommon('buttons.add'))} {String(tCommon('navigation.students')).slice(0, -1)}
-            </Button>
-          </div>
+          </motion.div>
 
           {students.length === 0 ? (
-            <Card className="bg-gradient-card border-0 shadow-soft">
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <Users className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-xl font-semibold text-foreground mb-2">
-                  {String(tDashboard('emptyState.title'))}
-                </h3>
-                <p className="text-muted-foreground text-center mb-6 max-w-md">
-                  {String(tDashboard('emptyState.description'))}
-                </p>
-                <Button 
-                  onClick={handleAddStudent}
-                  className="bg-gradient-primary hover:opacity-90 font-dyslexia"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {String(tDashboard('emptyState.addFirstStudent'))}
-                </Button>
-              </CardContent>
-            </Card>
+            <PremiumEmptyState
+              title={String(tDashboard('emptyState.title'))}
+              description={String(tDashboard('emptyState.description'))}
+              buttonText={String(tDashboard('emptyState.addFirstStudent'))}
+              onAddStudent={handleAddStudent}
+            />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {students.map((student) => (
-                <StudentCard
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 1.4 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {students.map((student, index) => (
+                <PremiumStudentCard
                   key={student.id}
                   student={student}
                   onView={handleViewStudent}
                   onTrack={handleTrackStudent}
+                  index={index}
                 />
               ))}
-            </div>
+            </motion.div>
           )}
-        </div>
+        </motion.div>
 
         {/* Mock Data Loader - for testing */}
-        <div className="mb-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 1.6 }}
+          className="mb-8"
+        >
           <MockDataLoader />
-        </div>
+        </motion.div>
 
-        {/* Quick Tips */}
-        <Card className="bg-gradient-calm border-0 shadow-soft">
-          <CardHeader>
-            <CardTitle className="text-foreground">💡 {String(tDashboard('quickTips.title'))}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm text-foreground">
-              <li>• {String(tDashboard('quickTips.tip1'))}</li>
-              <li>• {String(tDashboard('quickTips.tip2'))}</li>
-              <li>• {String(tDashboard('quickTips.tip3'))}</li>
-            </ul>
-          </CardContent>
-        </Card>
+        {/* Premium Quick Tips */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 1.8 }}
+          className="mb-16"
+        >
+          <Card className="bg-gradient-calm border-0 shadow-soft overflow-hidden relative group">
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+              initial={false}
+            />
+            
+            <CardHeader className="relative z-10">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 2 }}
+                className="flex items-center gap-2"
+              >
+                <motion.span
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  className="text-2xl"
+                >
+                  💡
+                </motion.span>
+                <CardTitle className="text-foreground text-xl">
+                  {String(tDashboard('quickTips.title'))}
+                </CardTitle>
+              </motion.div>
+            </CardHeader>
+            
+            <CardContent className="relative z-10">
+              <motion.ul className="space-y-3">
+                {[
+                  String(tDashboard('quickTips.tip1')),
+                  String(tDashboard('quickTips.tip2')),
+                  String(tDashboard('quickTips.tip3'))
+                ].map((tip, index) => (
+                  <motion.li
+                    key={index}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: 2.2 + (index * 0.1) }}
+                    className="flex items-start gap-3 text-foreground"
+                  >
+                    <motion.span
+                      className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ 
+                        duration: 2,
+                        repeat: Infinity,
+                        delay: index * 0.3
+                      }}
+                    />
+                    <span className="leading-relaxed">{tip}</span>
+                  </motion.li>
+                ))}
+              </motion.ul>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
-    </div>
+
+      {/* Floating Action Button */}
+      <FloatingActionButton onClick={handleAddStudent} />
+    </motion.div>
   );
 };
