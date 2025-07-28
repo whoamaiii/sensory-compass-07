@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from '@/lib/utils';
 import { dataStorage } from '@/lib/dataStorage';
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 interface PremiumStudentCardProps {
   student: Student;
@@ -55,13 +55,26 @@ export const PremiumStudentCard = ({
     }
   };
 
-  // Mock progress data - in real app this would come from tracking data
-  const progressPercentage = Math.floor(Math.random() * 100);
-  const isActiveToday = Math.random() > 0.5;
-  const entriesThisWeek = Math.floor(Math.random() * 10);
+  // Generate consistent mock data based on student ID to prevent changes on re-render
+  const mockData = useMemo(() => {
+    // Use student ID as seed for consistent values
+    const seed = student.id.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+    
+    // Seeded random function
+    const seededRandom = (n: number) => {
+      const x = Math.sin(seed + n) * 10000;
+      return x - Math.floor(x);
+    };
+    
+    return {
+      progressPercentage: Math.floor(seededRandom(1) * 100),
+      isActiveToday: seededRandom(2) > 0.5,
+      entriesThisWeek: Math.floor(seededRandom(3) * 10),
+      lastTracked: new Date(Date.now() - seededRandom(4) * 7 * 24 * 60 * 60 * 1000)
+    };
+  }, [student.id]);
   
-  // Get last tracking date (mock for now)
-  const lastTracked = new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000);
+  const { progressPercentage, isActiveToday, entriesThisWeek, lastTracked } = mockData;
   const lastTrackedText = isToday(lastTracked) 
     ? "I dag" 
     : format(lastTracked, 'dd. MMM', { locale: nb });
