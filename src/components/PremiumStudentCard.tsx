@@ -54,10 +54,10 @@ export const PremiumStudentCard = ({
       }}
       className="group"
     >
-      <Card className="relative overflow-hidden bg-gradient-card border-0 shadow-soft hover:shadow-elegant transition-all duration-500 cursor-pointer">
+      <Card className="relative overflow-hidden bg-gradient-card border-0 shadow-soft hover:shadow-elegant transition-all duration-500">
         {/* Background gradient animation */}
         <motion.div
-          className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+          className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
           initial={false}
         />
         
@@ -76,7 +76,7 @@ export const PremiumStudentCard = ({
           />
         )}
         
-        <CardContent className="p-6">
+        <CardContent className="relative z-10 p-6">
           {/* Header with Avatar and Basic Info */}
           <div className="flex items-start gap-4 mb-4">
             <motion.div
@@ -141,43 +141,39 @@ export const PremiumStudentCard = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2">
-            <motion.div 
-              className="flex-1"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+          <div className="relative z-20 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('View button clicked for student:', student.name);
+                onView(student);
+              }}
+              className="flex-1 border-primary/20 hover:bg-primary/10 hover:border-primary/40 transition-all duration-200"
             >
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onView(student)}
-                className="w-full border-primary/20 hover:bg-primary/10 hover:border-primary/40 transition-all duration-200"
-              >
-                <span className="material-icons-outlined text-sm mr-1">visibility</span>
-                {String(tDashboard('studentCard.viewProfile'))}
-              </Button>
-            </motion.div>
+              <span className="material-icons-outlined text-sm mr-1">visibility</span>
+              {String(tDashboard('studentCard.viewProfile'))}
+            </Button>
             
-            <motion.div 
-              className="flex-1"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('Track button clicked for student:', student.name);
+                onTrack(student);
+              }}
+              className="flex-1 bg-gradient-primary hover:opacity-90 transition-all duration-200"
             >
-              <Button
-                size="sm"
-                onClick={() => onTrack(student)}
-                className="w-full bg-gradient-primary hover:opacity-90 transition-all duration-200"
-              >
-                <span className="material-icons-outlined text-sm mr-1">trending_up</span>
-                {String(tDashboard('studentCard.trackNow'))}
-              </Button>
-            </motion.div>
+              <span className="material-icons-outlined text-sm mr-1">trending_up</span>
+              {String(tDashboard('studentCard.trackNow'))}
+            </Button>
           </div>
         </CardContent>
 
         {/* Subtle shine effect */}
         <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 -skew-x-12"
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 -skew-x-12 pointer-events-none"
           animate={{
             x: [-100, 300],
             transition: {
