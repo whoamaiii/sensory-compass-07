@@ -98,6 +98,21 @@
       "cool": "Cool",
       "comfortable": "Comfortable",
       "warm": "Warm"
-    }
+    },
+    "weather": "Weather",
+    "weatherOptions": {
+      "sunny": "Sunny",
+      "cloudy": "Cloudy", 
+      "rainy": "Rainy",
+      "snowy": "Snowy"
+    },
+    "timeOfDay": "Time of Day",
+    "timeOfDayOptions": {
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening"
+    },
+    "specialEvents": "Special Events",
+    "specialEventsPlaceholder": "Add special events or circumstances..."
   }
 }

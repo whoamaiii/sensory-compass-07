@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
 import { analyticsManager } from "@/lib/analyticsManager";
+import { dataStorage } from "@/lib/dataStorage";
 
 export const AddStudent = () => {
   const [name, setName] = useState('');
@@ -41,20 +42,8 @@ export const AddStudent = () => {
         createdAt: new Date(),
       };
 
-      // Load existing students
-      const storedStudents = localStorage.getItem('sensoryTracker_students');
-      const students = storedStudents ? JSON.parse(storedStudents) : [];
-      
-      // Add new student
-      students.push(newStudent);
-      
-      // Save to localStorage using dataStorage
-      students.forEach((student: Student) => {
-        if (!localStorage.getItem('sensoryTracker_students')?.includes(student.id)) {
-          // Only save if not already exists
-        }
-      });
-      localStorage.setItem('sensoryTracker_students', JSON.stringify(students));
+      // Save student using proper dataStorage method
+      dataStorage.saveStudent(newStudent);
       
       // Initialize analytics infrastructure only (no mock data generation)
       analyticsManager.initializeStudentAnalytics(newStudent.id);

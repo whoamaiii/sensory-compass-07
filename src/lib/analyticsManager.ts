@@ -79,7 +79,6 @@ class AnalyticsManagerService {
     this.saveAnalyticsProfiles();
 
     // Analytics is initialized - will show empty state until real data is collected
-    console.log(`Analytics initialized for student ${studentId} - ready for data collection`);
   }
 
   // Generate universal mock data for a student to enable pattern detection

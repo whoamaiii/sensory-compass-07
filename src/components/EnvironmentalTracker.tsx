@@ -120,7 +120,7 @@ export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: Environm
           </Label>
           <Select value={lighting} onValueChange={setLighting}>
             <SelectTrigger>
-              <SelectValue placeholder="Velg belysningstype" />
+              <SelectValue placeholder={String(tTracking('environmental.lighting'))} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="bright">{String(tTracking('environmental.lighting.bright'))}</SelectItem>
@@ -158,7 +158,7 @@ export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: Environm
           </Label>
           <Select value={classroomActivity} onValueChange={setClassroomActivity}>
             <SelectTrigger>
-              <SelectValue placeholder="Velg folkemengde" />
+              <SelectValue placeholder={String(tTracking('environmental.crowdLevel'))} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="low">{String(tTracking('environmental.levels.low'))}</SelectItem>
@@ -182,10 +182,79 @@ export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: Environm
           />
         </div>
 
+        {/* Weather */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+            <Cloud className="h-4 w-4" />
+            {String(tTracking('environmental.weather'))}
+          </Label>
+          <Select value={weather} onValueChange={setWeather}>
+            <SelectTrigger>
+              <SelectValue placeholder={String(tTracking('environmental.weather'))} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sunny">{String(tTracking('environmental.weatherOptions.sunny'))}</SelectItem>
+              <SelectItem value="cloudy">{String(tTracking('environmental.weatherOptions.cloudy'))}</SelectItem>
+              <SelectItem value="rainy">{String(tTracking('environmental.weatherOptions.rainy'))}</SelectItem>
+              <SelectItem value="snowy">{String(tTracking('environmental.weatherOptions.snowy'))}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Time of Day */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-foreground">
+            {String(tTracking('environmental.timeOfDay'))}
+          </Label>
+          <Select value={timeOfDay} onValueChange={setTimeOfDay}>
+            <SelectTrigger>
+              <SelectValue placeholder={String(tTracking('environmental.timeOfDay'))} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="morning">{String(tTracking('environmental.timeOfDayOptions.morning'))}</SelectItem>
+              <SelectItem value="afternoon">{String(tTracking('environmental.timeOfDayOptions.afternoon'))}</SelectItem>
+              <SelectItem value="evening">{String(tTracking('environmental.timeOfDayOptions.evening'))}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Special Events */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-foreground">
+            {String(tTracking('environmental.specialEvents'))}
+          </Label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newEvent}
+              onChange={(e) => setNewEvent(e.target.value)}
+              placeholder={String(tTracking('environmental.specialEventsPlaceholder'))}
+              className="flex-1 px-3 py-2 border border-border rounded-md bg-input text-sm"
+              onKeyPress={(e) => e.key === 'Enter' && handleAddSpecialEvent()}
+            />
+            <Button onClick={handleAddSpecialEvent} size="sm" type="button">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          {specialEvents.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {specialEvents.map((event, index) => (
+                <Badge key={index} variant="secondary" className="flex items-center gap-2">
+                  {event}
+                  <X 
+                    className="h-3 w-3 cursor-pointer" 
+                    onClick={() => handleRemoveSpecialEvent(event)}
+                  />
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Submit Button */}
         <Button
           onClick={handleSubmit}
-          disabled={!lighting}
+          disabled={!isFormValid}
           className="w-full"
         >
           {String(tCommon('buttons.save'))} {String(tTracking('environmental.title'))}

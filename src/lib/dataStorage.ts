@@ -427,7 +427,7 @@ export class DataStorageManager {
    */
   public deleteStudent(studentId: string): void {
     try {
-      console.log(`Deleting student ${studentId} and all associated data`);
+      
       
       // Remove student from students list
       const students = this.getStudents().filter(s => s.id !== studentId);
@@ -459,7 +459,7 @@ export class DataStorageManager {
       }
       this.saveStorageIndex();
       
-      console.log(`Successfully deleted student ${studentId} and all associated data`);
+      
     } catch (error) {
       console.error('Error deleting student:', error);
       throw error;

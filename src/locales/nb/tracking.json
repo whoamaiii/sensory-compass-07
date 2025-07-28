@@ -98,6 +98,21 @@
       "cool": "Kjølig",
       "comfortable": "Behagelig",
       "warm": "Varm"
-    }
+    },
+    "weather": "Vær",
+    "weatherOptions": {
+      "sunny": "Solrikt",
+      "cloudy": "Overskyet", 
+      "rainy": "Regnværd",
+      "snowy": "Snøværd"
+    },
+    "timeOfDay": "Tid på dagen",
+    "timeOfDayOptions": {
+      "morning": "Morgen",
+      "afternoon": "Ettermiddag",
+      "evening": "Kveld"
+    },
+    "specialEvents": "Spesielle hendelser",
+    "specialEventsPlaceholder": "Legg til spesielle hendelser eller omstendigheter..."
   }
 }

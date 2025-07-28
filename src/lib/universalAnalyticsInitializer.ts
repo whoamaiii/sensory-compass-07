@@ -24,7 +24,7 @@ export class UniversalAnalyticsInitializer {
     if (this.initialized) return;
 
     try {
-      console.log('Initializing universal analytics system...');
+      
       
       // Get all existing students
       const students = dataStorage.getStudents();
@@ -35,7 +35,7 @@ export class UniversalAnalyticsInitializer {
       }
       
       this.initialized = true;
-      console.log(`Universal analytics initialized for ${students.length} students`);
+      
     } catch (error) {
       console.error('Error initializing universal analytics:', error);
     }
@@ -49,7 +49,7 @@ export class UniversalAnalyticsInitializer {
       // Initialize analytics infrastructure only
       analyticsManager.initializeStudentAnalytics(studentId);
       
-      console.log(`Analytics infrastructure initialized for student: ${studentId}`);
+      
     } catch (error) {
       console.error(`Error ensuring analytics for student ${studentId}:`, error);
     }
