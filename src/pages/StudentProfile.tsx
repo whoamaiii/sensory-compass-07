@@ -25,6 +25,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
+import { AnalyticsStatusIndicator } from "@/components/AnalyticsStatusIndicator";
+import { analyticsManager } from "@/lib/analyticsManager";
 
 export const StudentProfile = () => {
   const { studentId } = useParams();
@@ -139,9 +141,16 @@ export const StudentProfile = () => {
     };
     
     // Debounce the insights generation to avoid excessive calls
-    const timeoutId = setTimeout(generateInsights, 300);
+    const timeoutId = setTimeout(() => {
+      generateInsights();
+      // Ensure analytics are initialized and triggered for this student
+      if (studentId) {
+        analyticsManager.initializeStudentAnalytics(studentId);
+        analyticsManager.triggerAnalyticsForStudent(studentId);
+      }
+    }, 300);
     return () => clearTimeout(timeoutId);
-  }, [filteredData.emotions.length, filteredData.sensoryInputs.length, filteredData.entries.length, getInsights]);
+  }, [filteredData.emotions.length, filteredData.sensoryInputs.length, filteredData.entries.length, getInsights, studentId]);
 
   const loadGoals = () => {
     if (!studentId) return;
@@ -399,6 +408,14 @@ export const StudentProfile = () => {
             />
           </CardContent>
         </Card>
+
+        {/* Analytics Status */}
+        <div className="mb-8">
+          <AnalyticsStatusIndicator 
+            studentId={student.id} 
+            showDetails={true}
+          />
+        </div>
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

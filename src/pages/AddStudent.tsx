@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
+import { analyticsManager } from "@/lib/analyticsManager";
 
 export const AddStudent = () => {
   const [name, setName] = useState('');
@@ -49,6 +50,9 @@ export const AddStudent = () => {
       
       // Save to localStorage
       localStorage.setItem('sensoryTracker_students', JSON.stringify(students));
+      
+      // Initialize analytics for the new student
+      analyticsManager.initializeStudentAnalytics(newStudent.id);
       
       toast.success(String(tStudent('addStudent.success')));
       navigate('/');

@@ -9,6 +9,7 @@ import { ArrowLeft, Save, User } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
+import { analyticsManager } from "@/lib/analyticsManager";
 
 export const TrackStudent = () => {
   const { studentId } = useParams();
@@ -93,6 +94,9 @@ export const TrackStudent = () => {
     const entries = storedEntries ? JSON.parse(storedEntries) : [];
     entries.push(trackingEntry);
     localStorage.setItem('sensoryTracker_entries', JSON.stringify(entries));
+
+    // Trigger analytics update for this student
+    analyticsManager.triggerAnalyticsForStudent(student.id);
 
     toast.success(String(tTracking('session.sessionSaved')));
     navigate(`/student/${student.id}`);

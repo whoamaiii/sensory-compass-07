@@ -21,6 +21,7 @@ import { patternAnalysis, PatternResult, CorrelationResult } from "@/lib/pattern
 import { alertSystem } from "@/lib/alertSystem";
 import { useDataFiltering } from "@/hooks/useDataFiltering";
 import { startOfDay, endOfDay, subDays } from "date-fns";
+import { analyticsManager } from "@/lib/analyticsManager";
 
 interface AnalyticsDashboardProps {
   student: Student;
@@ -48,7 +49,9 @@ export const AnalyticsDashboard = ({
 
   useEffect(() => {
     analyzePatterns();
-  }, [filteredData]);
+    // Ensure analytics are initialized for this student
+    analyticsManager.initializeStudentAnalytics(student.id);
+  }, [filteredData, student.id]);
 
   const analyzePatterns = async () => {
     setIsAnalyzing(true);

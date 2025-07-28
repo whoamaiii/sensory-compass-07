@@ -9,6 +9,8 @@ import { isToday } from "date-fns";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
 import { MockDataLoader } from "@/components/MockDataLoader";
+import { AnalyticsStatusIndicator } from "@/components/AnalyticsStatusIndicator";
+import { analyticsManager } from "@/lib/analyticsManager";
 
 /**
  * Dashboard component - Main landing page showing student overview and statistics
@@ -41,7 +43,16 @@ export const Dashboard = () => {
     };
 
     loadData();
-  }, []);
+    
+    // Initialize analytics for all existing students
+    const initializeAnalytics = async () => {
+      await analyticsManager.triggerAnalyticsForAllStudents();
+    };
+    
+    if (!isLoading) {
+      initializeAnalytics();
+    }
+  }, [isLoading]);
 
   /**
    * Calculate statistics from all tracking data
@@ -151,6 +162,13 @@ export const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Analytics Status for All Students */}
+        {students.length > 0 && (
+          <div className="mb-8">
+            <AnalyticsStatusIndicator showDetails={false} />
+          </div>
+        )}
 
         {/* Students Section */}
         <div className="mb-8">
