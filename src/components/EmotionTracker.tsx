@@ -1,0 +1,166 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { EmotionEntry } from "@/types/student";
+import { Heart, Frown, Angry, Smile, Zap, Sun } from "lucide-react";
+
+interface EmotionTrackerProps {
+  onEmotionAdd: (emotion: Omit<EmotionEntry, 'id' | 'timestamp'>) => void;
+  studentId: string;
+}
+
+const emotions = [
+  { type: 'happy' as const, label: 'Happy', icon: Smile, color: 'emotion-happy' },
+  { type: 'calm' as const, label: 'Calm', icon: Heart, color: 'emotion-calm' },
+  { type: 'excited' as const, label: 'Excited', icon: Zap, color: 'emotion-excited' },
+  { type: 'sad' as const, label: 'Sad', icon: Frown, color: 'emotion-sad' },
+  { type: 'anxious' as const, label: 'Anxious', icon: Sun, color: 'emotion-anxious' },
+  { type: 'angry' as const, label: 'Angry', icon: Angry, color: 'emotion-angry' },
+];
+
+export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps) => {
+  const [selectedEmotion, setSelectedEmotion] = useState<string>('');
+  const [intensity, setIntensity] = useState<number>(3);
+  const [notes, setNotes] = useState('');
+  const [triggers, setTriggers] = useState<string[]>([]);
+  const [newTrigger, setNewTrigger] = useState('');
+
+  const handleAddTrigger = () => {
+    if (newTrigger.trim() && !triggers.includes(newTrigger.trim())) {
+      setTriggers([...triggers, newTrigger.trim()]);
+      setNewTrigger('');
+    }
+  };
+
+  const handleRemoveTrigger = (trigger: string) => {
+    setTriggers(triggers.filter(t => t !== trigger));
+  };
+
+  const handleSubmit = () => {
+    if (!selectedEmotion) return;
+
+    onEmotionAdd({
+      studentId,
+      emotion: selectedEmotion as EmotionEntry['emotion'],
+      intensity: intensity as EmotionEntry['intensity'],
+      notes: notes.trim() || undefined,
+      triggers: triggers.length > 0 ? triggers : undefined,
+    });
+
+    // Reset form
+    setSelectedEmotion('');
+    setIntensity(3);
+    setNotes('');
+    setTriggers([]);
+  };
+
+  return (
+    <Card className="font-dyslexia bg-gradient-card border-0">
+      <CardHeader>
+        <CardTitle className="text-xl text-foreground">Track Emotion</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Emotion Selection */}
+        <div>
+          <h3 className="text-sm font-medium text-foreground mb-3">Select Emotion</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {emotions.map((emotion) => {
+              const Icon = emotion.icon;
+              return (
+                <Button
+                  key={emotion.type}
+                  variant={selectedEmotion === emotion.type ? "default" : "outline"}
+                  className={`h-20 flex-col gap-2 font-dyslexia transition-all duration-200 ${
+                    selectedEmotion === emotion.type 
+                      ? 'bg-gradient-primary shadow-medium' 
+                      : 'hover:scale-105'
+                  }`}
+                  onClick={() => setSelectedEmotion(emotion.type)}
+                >
+                  <Icon className="h-6 w-6" />
+                  <span className="text-sm">{emotion.label}</span>
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Intensity Scale */}
+        {selectedEmotion && (
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-3">
+              Intensity Level: {intensity}/5
+            </h3>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((level) => (
+                <Button
+                  key={level}
+                  variant={intensity === level ? "default" : "outline"}
+                  size="sm"
+                  className={`w-12 h-12 rounded-full font-dyslexia ${
+                    intensity === level ? 'bg-gradient-primary' : ''
+                  }`}
+                  onClick={() => setIntensity(level)}
+                >
+                  {level}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Triggers */}
+        <div>
+          <h3 className="text-sm font-medium text-foreground mb-3">Triggers (Optional)</h3>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              value={newTrigger}
+              onChange={(e) => setNewTrigger(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleAddTrigger()}
+              placeholder="Add a trigger..."
+              className="flex-1 px-3 py-2 border border-border rounded-lg font-dyslexia bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
+            />
+            <Button onClick={handleAddTrigger} size="sm" variant="outline">
+              Add
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {triggers.map((trigger) => (
+              <Badge
+                key={trigger}
+                variant="secondary"
+                className="font-dyslexia cursor-pointer"
+                onClick={() => handleRemoveTrigger(trigger)}
+              >
+                {trigger} ×
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <h3 className="text-sm font-medium text-foreground mb-3">Notes (Optional)</h3>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Additional observations..."
+            className="font-dyslexia bg-input border-border focus:ring-ring"
+            rows={3}
+          />
+        </div>
+
+        <Button 
+          onClick={handleSubmit}
+          disabled={!selectedEmotion}
+          className="w-full font-dyslexia bg-gradient-primary hover:opacity-90 transition-all duration-200"
+        >
+          Record Emotion
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
