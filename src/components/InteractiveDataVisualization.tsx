@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { 
   LineChart, 
   Line, 
@@ -22,7 +23,8 @@ import {
   ComposedChart
 } from 'recharts';
 import { EmotionEntry, SensoryEntry, TrackingEntry } from "@/types/student";
-import { enhancedPatternAnalysis, CorrelationMatrix } from "@/lib/enhancedPatternAnalysis";
+import { enhancedPatternAnalysis, CorrelationMatrix, PredictiveInsight, AnomalyDetection } from "@/lib/enhancedPatternAnalysis";
+import { patternAnalysis, PatternResult } from "@/lib/patternAnalysis";
 import { 
   TrendingUp, 
   BarChart3, 
@@ -32,7 +34,13 @@ import {
   Eye,
   Brain,
   Thermometer,
-  Volume2
+  Volume2,
+  AlertTriangle,
+  CheckCircle,
+  TrendingDown,
+  Lightbulb,
+  Shield,
+  Clock
 } from "lucide-react";
 import { format, subDays, isWithinInterval } from "date-fns";
 
@@ -56,6 +64,10 @@ export const InteractiveDataVisualization = ({
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('30d');
   const [selectedEmotions, setSelectedEmotions] = useState<string[]>(['all']);
   const [correlationMatrix, setCorrelationMatrix] = useState<CorrelationMatrix | null>(null);
+  const [patterns, setPatterns] = useState<PatternResult[]>([]);
+  const [predictiveInsights, setPredictiveInsights] = useState<PredictiveInsight[]>([]);
+  const [anomalies, setAnomalies] = useState<AnomalyDetection[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Filter data based on time range
   const filteredData = useMemo(() => {
@@ -137,13 +149,52 @@ export const InteractiveDataVisualization = ({
     );
   }, [filteredData]);
 
-  // Generate correlation matrix on component mount
-  useMemo(() => {
-    if (trackingEntries.length >= 10) {
-      const matrix = enhancedPatternAnalysis.generateCorrelationMatrix(trackingEntries);
-      setCorrelationMatrix(matrix);
-    }
-  }, [trackingEntries]);
+  // Pattern analysis effect
+  useEffect(() => {
+    const analyzePatterns = async () => {
+      if (filteredData.emotions.length === 0 && filteredData.sensoryInputs.length === 0) return;
+      
+      setIsAnalyzing(true);
+      
+      try {
+        // Basic pattern analysis
+        const emotionPatterns = patternAnalysis.analyzeEmotionPatterns(filteredData.emotions);
+        const sensoryPatterns = patternAnalysis.analyzeSensoryPatterns(filteredData.sensoryInputs);
+        const allPatterns = [...emotionPatterns, ...sensoryPatterns];
+        setPatterns(allPatterns);
+
+        // Enhanced pattern analysis
+        if (filteredData.trackingEntries.length >= 5) {
+          const insights = enhancedPatternAnalysis.generatePredictiveInsights(
+            filteredData.emotions,
+            filteredData.sensoryInputs,
+            filteredData.trackingEntries,
+            [] // No goals for now
+          );
+          setPredictiveInsights(insights);
+
+          const detectedAnomalies = enhancedPatternAnalysis.detectAnomalies(
+            filteredData.emotions,
+            filteredData.sensoryInputs,
+            filteredData.trackingEntries
+          );
+          setAnomalies(detectedAnomalies);
+        }
+
+        // Generate correlation matrix
+        if (filteredData.trackingEntries.length >= 10) {
+          const matrix = enhancedPatternAnalysis.generateCorrelationMatrix(filteredData.trackingEntries);
+          setCorrelationMatrix(matrix);
+        }
+      } catch (error) {
+        console.error('Pattern analysis failed:', error);
+      } finally {
+        setIsAnalyzing(false);
+      }
+    };
+
+    analyzePatterns();
+  }, [filteredData]);
 
   // Get unique emotions for filter
   const uniqueEmotions = useMemo(() => {
@@ -403,6 +454,205 @@ export const InteractiveDataVisualization = ({
     );
   };
 
+  const getPatternIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'emotion': return <Brain className="h-4 w-4" />;
+      case 'sensory': return <Eye className="h-4 w-4" />;
+      case 'environmental': return <Thermometer className="h-4 w-4" />;
+      default: return <Activity className="h-4 w-4" />;
+    }
+  };
+
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 0.8) return 'text-green-600 bg-green-50 border-green-200';
+    if (confidence >= 0.6) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    return 'text-red-600 bg-red-50 border-red-200';
+  };
+
+  const renderPatternAnalysis = () => {
+    if (isAnalyzing) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center space-y-4">
+            <Activity className="h-16 w-16 mx-auto animate-pulse text-primary" />
+            <p>Analyzing patterns...</p>
+            <Progress value={66} className="w-48" />
+          </div>
+        </div>
+      );
+    }
+
+    if (patterns.length === 0 && predictiveInsights.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-64 text-muted-foreground">
+          <div className="text-center">
+            <Zap className="h-16 w-16 mx-auto mb-4 opacity-50" />
+            <p>No patterns detected yet</p>
+            <p className="text-sm">Need more data for pattern analysis</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {/* Detected Patterns */}
+        {patterns.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Detected Patterns ({patterns.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {patterns.map((pattern, index) => (
+                <Card key={index} className="bg-gradient-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      {getPatternIcon(pattern.type)}
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium capitalize">{pattern.type} Pattern</h4>
+                          <Badge className={getConfidenceColor(pattern.confidence)}>
+                            {Math.round(pattern.confidence * 100)}% confident
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Frequency: {pattern.frequency} occurrences
+                        </p>
+                        {pattern.recommendations.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">Recommendations:</p>
+                            {pattern.recommendations.slice(0, 2).map((rec, i) => (
+                              <p key={i} className="text-xs text-muted-foreground flex items-start gap-1">
+                                <Lightbulb className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                {rec}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Predictive Insights */}
+        {predictiveInsights.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Predictive Insights ({predictiveInsights.length})
+            </h3>
+            <div className="space-y-4">
+              {predictiveInsights.map((insight, index) => (
+                <Card key={index} className="bg-gradient-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                        {insight.severity === 'high' ? (
+                          <AlertTriangle className="h-5 w-5 text-red-500" />
+                        ) : insight.severity === 'medium' ? (
+                          <Clock className="h-5 w-5 text-yellow-500" />
+                        ) : (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium">{insight.title}</h4>
+                          <Badge variant="outline">
+                            {Math.round(insight.confidence * 100)}% confidence
+                          </Badge>
+                        </div>
+                        
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {insight.description}
+                        </p>
+
+                        {insight.prediction && (
+                          <div className="mb-2">
+                            <p className="text-sm font-medium mb-1">Prediction:</p>
+                            <div className="flex items-center gap-2 text-sm">
+                              {insight.prediction.trend === 'increasing' ? (
+                                <TrendingUp className="h-4 w-4 text-green-500" />
+                              ) : insight.prediction.trend === 'decreasing' ? (
+                                <TrendingDown className="h-4 w-4 text-red-500" />
+                              ) : (
+                                <Activity className="h-4 w-4 text-blue-500" />
+                              )}
+                              <span className="capitalize">{insight.prediction.trend}</span>
+                              <span className="text-muted-foreground">
+                                (Accuracy: {Math.round(insight.prediction.accuracy * 100)}%)
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {insight.recommendations.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">Recommendations:</p>
+                            {insight.recommendations.slice(0, 3).map((rec, i) => (
+                              <p key={i} className="text-xs text-muted-foreground flex items-start gap-1">
+                                <Lightbulb className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                {rec}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
+                        {insight.severity && (
+                          <div className="mt-2 pt-2 border-t border-border">
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Shield className="h-3 w-3" />
+                              Severity: <span className="font-medium capitalize">{insight.severity}</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Anomalies */}
+        {anomalies.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Detected Anomalies ({anomalies.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {anomalies.map((anomaly, index) => (
+                <Card key={index} className="bg-gradient-card border-orange-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="font-medium mb-1">{anomaly.type} Anomaly</h4>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Severity: <span className="font-medium capitalize">{anomaly.severity}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(anomaly.timestamp, 'MMM dd, yyyy')}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6 font-dyslexia">
       {/* Controls */}
@@ -592,17 +842,10 @@ export const InteractiveDataVisualization = ({
         <TabsContent value="patterns" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Pattern Recognition</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                AI-detected patterns in behavioral data
-              </p>
+              <CardTitle>AI Pattern Recognition</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Zap className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <p>Advanced pattern recognition coming soon</p>
-                <p className="text-sm">This will include ML-powered insights and predictions</p>
-              </div>
+              {renderPatternAnalysis()}
             </CardContent>
           </Card>
         </TabsContent>
