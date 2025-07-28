@@ -57,8 +57,8 @@ export const AddStudent = () => {
       });
       localStorage.setItem('sensoryTracker_students', JSON.stringify(students));
       
-      // Initialize universal analytics for the new student (this will auto-generate mock data)
-      await universalAnalyticsInitializer.initializeNewStudent(newStudent.id);
+      // Initialize analytics infrastructure only (no mock data generation)
+      analyticsManager.initializeStudentAnalytics(newStudent.id);
       
       toast.success(String(tStudent('addStudent.success')));
       navigate('/');

@@ -42,27 +42,24 @@ export class UniversalAnalyticsInitializer {
   }
 
   /**
-   * Ensure a specific student has analytics and pattern detection enabled
+   * Ensure a specific student has analytics infrastructure enabled (no auto-data generation)
    */
   async ensureStudentHasAnalytics(studentId: string): Promise<void> {
     try {
-      // Initialize analytics (this will auto-generate mock data if needed)
+      // Initialize analytics infrastructure only
       analyticsManager.initializeStudentAnalytics(studentId);
       
-      // Trigger analytics to ensure patterns are detected
-      await analyticsManager.triggerAnalyticsForStudent(studentId);
-      
-      console.log(`Analytics ensured for student: ${studentId}`);
+      console.log(`Analytics infrastructure initialized for student: ${studentId}`);
     } catch (error) {
       console.error(`Error ensuring analytics for student ${studentId}:`, error);
     }
   }
 
   /**
-   * Initialize analytics for a new student
+   * Initialize analytics infrastructure for a new student (no auto-data generation)
    */
-  async initializeNewStudent(studentId: string): Promise<void> {
-    await this.ensureStudentHasAnalytics(studentId);
+  initializeNewStudentAnalytics(studentId: string): void {
+    analyticsManager.initializeStudentAnalytics(studentId);
   }
 
   /**

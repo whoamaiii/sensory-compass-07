@@ -78,16 +78,8 @@ class AnalyticsManagerService {
     this.analyticsProfiles.set(studentId, profile);
     this.saveAnalyticsProfiles();
 
-    // Check if student has any tracking data
-    const trackingEntries = dataStorage.getTrackingEntries().filter(entry => entry.studentId === studentId);
-    
-    // If no data exists, generate universal mock data to enable pattern detection
-    if (trackingEntries.length === 0) {
-      this.generateUniversalMockDataForStudent(studentId);
-    }
-
-    // Immediately analyze
-    this.triggerAnalyticsForStudent(studentId);
+    // Analytics is initialized - will show empty state until real data is collected
+    console.log(`Analytics initialized for student ${studentId} - ready for data collection`);
   }
 
   // Generate universal mock data for a student to enable pattern detection
