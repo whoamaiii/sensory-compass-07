@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Student } from "@/types/student";
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { User, GraduationCap, Trash2, Eye, TrendingUp, School } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import { nb } from 'date-fns/locale';
@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from '@/lib/utils';
 import { dataStorage } from '@/lib/dataStorage';
 import { toast } from 'sonner';
+import { useState } from 'react';
 
 interface PremiumStudentCardProps {
   student: Student;
@@ -30,6 +31,7 @@ export const PremiumStudentCard = ({
   index 
 }: PremiumStudentCardProps) => {
   const { tDashboard } = useTranslation();
+  const [isHovered, setIsHovered] = useState(false);
 
   const handleDeleteStudent = async () => {
     try {
@@ -79,9 +81,14 @@ export const PremiumStudentCard = ({
         scale: 1.02,
         transition: { duration: 0.2 }
       }}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
       className="group"
     >
-      <Card className="relative overflow-hidden bg-gradient-card border-0 shadow-soft hover:shadow-elegant transition-all duration-500">
+      <Card className="relative overflow-hidden bg-gradient-card border-0 shadow-soft hover:shadow-elegant transition-all duration-500"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+      >
         {/* Background gradient animation */}
         <motion.div
           className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
@@ -229,17 +236,26 @@ export const PremiumStudentCard = ({
         </CardContent>
 
         {/* Subtle shine effect */}
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 -skew-x-12 pointer-events-none"
-          animate={{
-            x: [-100, 300],
-            transition: {
-              duration: 1.5,
-              repeat: Infinity,
-              repeatDelay: 3
-            }
-          }}
-        />
+        <AnimatePresence>
+          {isHovered && (
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 pointer-events-none"
+              initial={{ x: "-100%", opacity: 0 }}
+              animate={{ 
+                x: "100%", 
+                opacity: 1,
+                transition: {
+                  duration: 0.6,
+                  ease: "easeInOut"
+                }
+              }}
+              exit={{ 
+                opacity: 0,
+                transition: { duration: 0.2 }
+              }}
+            />
+          )}
+        </AnimatePresence>
       </Card>
     </motion.div>
   );
