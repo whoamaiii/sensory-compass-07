@@ -66,10 +66,15 @@ All colors MUST be HSL.
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-soft)));
     --gradient-calm: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--primary-soft)));
     --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(var(--accent)));
+    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(210, 20%, 99%) 0%, hsl(220, 15%, 97%) 100%);
 
     /* Shadows for depth */
     --shadow-soft: 0 4px 20px -4px hsl(var(--primary) / 0.1);
     --shadow-medium: 0 8px 30px -8px hsl(var(--primary) / 0.15);
+    --shadow-glow: 0 0 20px hsl(var(--primary) / 0.3);
+    --shadow-elevation: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    --shadow-focus: 0 0 0 3px hsl(var(--primary) / 0.1);
 
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -144,12 +149,45 @@ All colors MUST be HSL.
     background: var(--gradient-calm);
   }
   
+  .bg-gradient-glass {
+    background: var(--gradient-glass);
+  }
+  
+  .bg-gradient-subtle {
+    background: var(--gradient-subtle);
+  }
+  
   .shadow-soft {
     box-shadow: var(--shadow-soft);
   }
   
   .shadow-medium {
     box-shadow: var(--shadow-medium);
+  }
+  
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .shadow-elevation {
+    box-shadow: var(--shadow-elevation);
+  }
+  
+  .shadow-focus {
+    box-shadow: var(--shadow-focus);
+  }
+  
+  /* Micro-animation utilities */
+  .hover-lift {
+    @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-medium;
+  }
+  
+  .hover-glow {
+    @apply transition-all duration-300 hover:shadow-glow;
+  }
+  
+  .press-scale {
+    @apply active:scale-[0.98] transition-transform duration-150;
   }
 }
 

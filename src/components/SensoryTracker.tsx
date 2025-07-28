@@ -70,14 +70,14 @@ export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps)
                 <Button
                   key={type.type}
                   variant={selectedType === type.type ? "default" : "outline"}
-                  className={`h-16 flex items-center gap-3 justify-start font-dyslexia transition-all duration-200 ${
+                  className={`h-16 flex items-center gap-3 justify-start font-dyslexia hover-lift press-scale transition-all duration-300 ${
                     selectedType === type.type 
-                      ? 'bg-gradient-primary shadow-medium' 
-                      : 'hover:scale-105'
+                      ? 'bg-gradient-primary shadow-glow animate-bounce-in' 
+                      : 'hover:scale-105 animate-fade-in hover:shadow-soft'
                   }`}
                   onClick={() => setSelectedType(type.type)}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-5 w-5 transform transition-transform duration-200 hover:scale-110" />
                   <div className="text-left">
                     <div className="font-medium">{String(tTracking(`sensory.types.${type.type}`))}</div>
                   </div>
@@ -96,10 +96,10 @@ export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps)
                 <Button
                   key={response.type}
                   variant={selectedResponse === response.type ? "default" : "outline"}
-                  className={`h-16 flex-col gap-1 font-dyslexia transition-all duration-200 ${
+                  className={`h-16 flex-col gap-1 font-dyslexia hover-lift press-scale transition-all duration-300 ${
                     selectedResponse === response.type 
-                      ? 'bg-gradient-primary shadow-medium' 
-                      : 'hover:scale-105'
+                      ? 'bg-gradient-primary shadow-glow animate-bounce-in' 
+                      : 'hover:scale-105 animate-fade-in hover:shadow-soft'
                   }`}
                   onClick={() => setSelectedResponse(response.type)}
                 >

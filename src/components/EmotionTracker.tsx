@@ -74,14 +74,14 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
                 <Button
                   key={emotion.type}
                   variant={selectedEmotion === emotion.type ? "default" : "outline"}
-                  className={`h-20 flex-col gap-2 font-dyslexia transition-all duration-200 ${
+                  className={`h-20 flex-col gap-2 font-dyslexia hover-lift press-scale transition-all duration-300 ${
                     selectedEmotion === emotion.type 
-                      ? 'bg-gradient-primary shadow-medium' 
-                      : 'hover:scale-105'
+                      ? 'bg-gradient-primary shadow-glow animate-bounce-in' 
+                      : 'hover:scale-105 animate-fade-in hover:shadow-soft'
                   }`}
                   onClick={() => setSelectedEmotion(emotion.type)}
                 >
-                  <Icon className="h-6 w-6" />
+                  <Icon className="h-6 w-6 transform transition-transform duration-200 hover:scale-110" />
                   <span className="text-sm">{String(tTracking(`emotions.types.${emotion.type}`))}</span>
                 </Button>
               );
@@ -101,8 +101,8 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
                   key={level}
                   variant={intensity === level ? "default" : "outline"}
                   size="sm"
-                  className={`w-12 h-12 rounded-full font-dyslexia ${
-                    intensity === level ? 'bg-gradient-primary' : ''
+                  className={`w-12 h-12 rounded-full font-dyslexia hover-lift press-scale transition-all duration-200 hover:shadow-soft ${
+                    intensity === level ? 'bg-gradient-primary animate-bounce-in' : ''
                   }`}
                   onClick={() => setIntensity(level)}
                   title={String(tTracking(`emotions.intensityLevels.${level}`))}
