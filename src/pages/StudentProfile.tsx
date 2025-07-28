@@ -1,34 +1,24 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
-import { AdvancedSearch } from "@/components/AdvancedSearch";
-import { QuickEntryTemplates } from "@/components/QuickEntryTemplates";
-import { DateRangeSelector, TimeRange } from "@/components/DateRangeSelector";
-import { PeriodComparison } from "@/components/PeriodComparison";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { StudentProfileSidebar } from "@/components/StudentProfileSidebar";
+import { DashboardSection } from "@/components/profile-sections/DashboardSection";
+import { AnalyticsSection } from "@/components/profile-sections/AnalyticsSection";
+import { ToolsSection } from "@/components/profile-sections/ToolsSection";
 import { GoalManager } from "@/components/GoalManager";
 import { ProgressDashboard } from "@/components/ProgressDashboard";
-import { LazyInteractiveDataVisualization } from "@/components/lazy/LazyInteractiveDataVisualization";
 import { LazyReportBuilder } from "@/components/lazy/LazyReportBuilder";
-import { PaginatedSessionsList } from "@/components/PaginatedSessionsList";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { DataRequirementsCalculator } from "@/components/DataRequirementsCalculator";
-import { DataCollectionRoadmap } from "@/components/DataCollectionRoadmap";
-import { DataQualityFeedback } from "@/components/DataQualityFeedback";
 import { useDataFiltering } from "@/hooks/useDataFiltering";
 import { useOptimizedInsights } from "@/hooks/useOptimizedInsights";
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Goal } from "@/types/student";
 import { dataStorage } from "@/lib/dataStorage";
-import { enhancedPatternAnalysis } from "@/lib/enhancedPatternAnalysis";
 import { exportSystem } from "@/lib/exportSystem";
-import { ArrowLeft, TrendingUp, Calendar, FileText, Plus, Filter, Crosshair, Zap, Download, Save, Upload } from "lucide-react";
+import { ArrowLeft, Download, Save, FileText, Calendar } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
-import { AnalyticsStatusIndicator } from "@/components/AnalyticsStatusIndicator";
 import { analyticsManager } from "@/lib/analyticsManager";
 
 export const StudentProfile = () => {
@@ -40,9 +30,8 @@ export const StudentProfile = () => {
   const [allEmotions, setAllEmotions] = useState<EmotionEntry[]>([]);
   const [allSensoryInputs, setAllSensoryInputs] = useState<SensoryEntry[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [showComparison, setShowComparison] = useState(false);
-  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
-  const [showQuickTemplates, setShowQuickTemplates] = useState(false);
+  const [activeSection, setActiveSection] = useState('dashboard');
+  const [activeToolSection, setActiveToolSection] = useState('search');
   const [searchResults, setSearchResults] = useState<{
     students: Student[];
     entries: TrackingEntry[];
@@ -50,7 +39,6 @@ export const StudentProfile = () => {
     sensoryInputs: SensoryEntry[];
     goals: Goal[];
   } | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'goals' | 'progress' | 'reports'>('overview');
   const { selectedRange, filteredData, handleRangeChange } = useDataFiltering(
     trackingEntries,
     allEmotions,
@@ -162,24 +150,9 @@ export const StudentProfile = () => {
     setGoals(studentGoals);
   };
 
-  const handleSearchResults = (results: {
-    students: Student[];
-    entries: TrackingEntry[];
-    emotions: EmotionEntry[];
-    sensoryInputs: SensoryEntry[];
-    goals: Goal[];
-  }) => {
+  const handleSearchResults = (results: any) => {
     setSearchResults(results);
   };
-
-  const handleQuickTemplateApply = (emotions: Partial<EmotionEntry>[], sensoryInputs: Partial<SensoryEntry>[]) => {
-    // Navigate to tracking page with pre-filled data
-    localStorage.setItem('quickTemplate_emotions', JSON.stringify(emotions));
-    localStorage.setItem('quickTemplate_sensoryInputs', JSON.stringify(sensoryInputs));
-    navigate(`/track/${student.id}?template=true`);
-  };
-
-  // Removed duplicate getInsights function - now using useOptimizedInsights hook
 
   const handleExportData = async (format: 'pdf' | 'csv' | 'json') => {
     if (!student) return;
@@ -286,373 +259,106 @@ export const StudentProfile = () => {
 
   if (!student) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background font-dyslexia flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">{String(tCommon('status.loading'))}...</p>
+          <h1 className="text-2xl font-bold mb-4">{String(tCommon('status.loading'))}</h1>
+          <div className="animate-pulse">Laster elevdata...</div>
         </div>
       </div>
     );
   }
 
-
-  return (
-    <div className="min-h-screen bg-background font-dyslexia">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/')}
-              className="font-dyslexia"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              {String(tCommon('buttons.back'))}
-            </Button>
-            <LanguageSettings />
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-bold text-xl">
-                {student.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">
-                  {student.name}
-                </h1>
-                <div className="flex items-center gap-2 mt-1">
-                  {student.grade && (
-                    <Badge variant="secondary">{String(tStudent('studentCard.grade')).replace('{{grade}}', student.grade)}</Badge>
-                  )}
-                  <span className="text-muted-foreground">
-                    {String(tStudent('interface.added'))} {formatDate(student.createdAt)}
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
-                className="font-dyslexia"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                {showAdvancedSearch ? String(tStudent('interface.hideSearch')) : String(tStudent('interface.advancedSearch'))}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowQuickTemplates(!showQuickTemplates)}
-                className="font-dyslexia"
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                {showQuickTemplates ? String(tStudent('interface.hideTemplates')) : String(tStudent('interface.quickTemplates'))}
-              </Button>
-              <Button
-                onClick={() => navigate(`/track/${student.id}`)}
-                className="bg-gradient-primary hover:opacity-90 font-dyslexia"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {String(tStudent('interface.newSession'))}
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Advanced Search */}
-        {showAdvancedSearch && (
-          <div className="mb-8">
-            <AdvancedSearch
-              students={[student]}
-              trackingEntries={trackingEntries}
-              emotions={allEmotions}
-              sensoryInputs={allSensoryInputs}
-              goals={goals}
-              onResultsChange={handleSearchResults}
-            />
-          </div>
-        )}
-
-        {/* Quick Entry Templates */}
-        {showQuickTemplates && (
-          <div className="mb-8">
-            <QuickEntryTemplates
-              studentId={student.id}
-              onApplyTemplate={handleQuickTemplateApply}
-            />
-          </div>
-        )}
-
-        {/* Time Range Selector */}
-        <Card className="mb-8 bg-gradient-card border-0 shadow-soft">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                {String(tStudent('interface.dataAnalysisPeriod'))}
-              </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowComparison(!showComparison)}
-                className="font-dyslexia"
-              >
-                {showComparison ? String(tStudent('interface.hideComparison')) : String(tStudent('interface.showComparison'))}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <DateRangeSelector
-              selectedRange={selectedRange}
-              onRangeChange={handleRangeChange}
-              className="mb-4"
-            />
-          </CardContent>
-        </Card>
-
-        {/* Analytics Status */}
-        <div className="mb-8">
-          <AnalyticsStatusIndicator 
-            studentId={student.id} 
-            showDetails={true}
+  const renderMainContent = () => {
+    switch (activeSection) {
+      case 'dashboard':
+        return (
+          <DashboardSection
+            student={student}
+            trackingEntries={trackingEntries}
+            filteredData={filteredData}
+            selectedRange={selectedRange}
+            onRangeChange={handleRangeChange}
+            insights={insights}
           />
-        </div>
-
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-gradient-card border-0 shadow-soft">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{String(tStudent('interface.sessionsInPeriod'))}</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{filteredData.entries.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {trackingEntries.length} {String(tStudent('interface.totalSessions'))}
+        );
+      case 'analytics':
+        return (
+          <AnalyticsSection
+            student={student}
+            trackingEntries={trackingEntries}
+            filteredData={filteredData}
+            insights={insights}
+          />
+        );
+      case 'goals':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Mål og målstyring</h2>
+              <p className="text-muted-foreground">
+                Administrer og følg opp {student.name}s IEP-mål
               </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-0 shadow-soft">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{String(tStudent('interface.emotionsTracked'))}</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{filteredData.emotions.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {allEmotions.length} {String(tStudent('interface.totalEmotions'))}
+            </div>
+            <GoalManager student={student} />
+          </div>
+        );
+      case 'progress':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Fremgang og utvikling</h2>
+              <p className="text-muted-foreground">
+                Analyser {student.name}s utvikling over tid
               </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-0 shadow-soft">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{String(tStudent('interface.sensoryInputs'))}</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{filteredData.sensoryInputs.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {allSensoryInputs.length} {String(tStudent('interface.totalSensoryInputs'))}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Period Comparison */}
-        {showComparison && (
-          <div className="mb-8">
-            <PeriodComparison
-              emotions={allEmotions}
-              sensoryInputs={allSensoryInputs}
-              currentRange={selectedRange}
-            />
-          </div>
-        )}
-
-        {/* Student Notes */}
-        {student.notes && (
-          <Card className="mb-8 bg-gradient-card border-0 shadow-soft">
-            <CardHeader>
-              <CardTitle>Student Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-foreground">{student.notes}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Insights */}
-        {insights && insights.basic && insights.basic.length > 0 && (
-          <Card className="mb-8 bg-gradient-calm border-0 shadow-soft">
-            <CardHeader>
-              <CardTitle>AI Insights & Suggestions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {insights.basic.map((insight, index) => (
-                  <div key={index} className="border-l-4 border-primary pl-4 py-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant={insight.confidence === 'high' ? 'default' : insight.confidence === 'moderate' ? 'secondary' : 'outline'}>
-                        {insight.confidence} confidence
-                      </Badge>
-                      <Badge variant="outline">{insight.type}</Badge>
-                    </div>
-                    <p className="text-foreground mb-2">{insight.text}</p>
-                    {insight.recommendations && insight.recommendations.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Recommendations:</p>
-                        <ul className="text-sm text-muted-foreground space-y-1">
-                          {insight.recommendations.map((rec: string, recIndex: number) => (
-                            <li key={recIndex}>• {rec}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Navigation Tabs */}
-        <div className="mb-8">
-          <div className="flex space-x-1 bg-muted p-1 rounded-lg">
-            {[
-              { id: 'overview', label: 'Overview', icon: TrendingUp },
-              { id: 'goals', label: 'IEP Goals', icon: Crosshair },
-              { id: 'progress', label: 'Progress', icon: Calendar },
-              { id: 'reports', label: 'Reports', icon: FileText }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md font-dyslexia transition-all ${
-                  activeTab === tab.id 
-                    ? 'bg-background text-foreground shadow-sm' 
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <tab.icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'overview' && (
-          <>
-            {/* Data Requirements System */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <DataRequirementsCalculator
-                emotions={filteredData.emotions}
-                sensoryInputs={filteredData.sensoryInputs}
-                entries={filteredData.entries}
-              />
-              <DataQualityFeedback
-                emotions={filteredData.emotions}
-                sensoryInputs={filteredData.sensoryInputs}
-                entries={filteredData.entries}
-              />
             </div>
-            
-            {/* Data Collection Roadmap */}
-            <div className="mb-8">
-              <DataCollectionRoadmap
-                emotions={filteredData.emotions}
-                sensoryInputs={filteredData.sensoryInputs}
-                entries={filteredData.entries}
-              />
-            </div>
-
-            {/* Interactive Data Visualization */}
-            <ErrorBoundary>
-              <div className="mb-8">
-                <LazyInteractiveDataVisualization
-                  emotions={filteredData.emotions}
-                  sensoryInputs={filteredData.sensoryInputs}
-                  trackingEntries={filteredData.entries}
-                  studentName={student.name}
-                />
-              </div>
-            </ErrorBoundary>
-
-            {/* Analytics Dashboard */}
-            <div className="mb-8">
-              <AnalyticsDashboard
-                student={student}
-                trackingEntries={filteredData.entries}
-                emotions={filteredData.emotions}
-                sensoryInputs={filteredData.sensoryInputs}
-              />
-            </div>
-          </>
-        )}
-
-        {activeTab === 'goals' && (
-          <div className="mb-8">
-            <GoalManager student={student} onGoalUpdate={loadGoals} />
-          </div>
-        )}
-
-        {activeTab === 'progress' && (
-          <div className="mb-8">
             <ProgressDashboard student={student} goals={goals} />
           </div>
-        )}
-
-        {activeTab === 'reports' && (
-          <div className="mb-8">
+        );
+      case 'reports':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Rapporter og eksport</h2>
+              <p className="text-muted-foreground">
+                Generer rapporter og eksporter data for {student.name}
+              </p>
+            </div>
+            
             {/* Export Controls */}
-            <Card className="mb-6 bg-gradient-card border-0 shadow-soft">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Download className="h-5 w-5" />
-                  Export Data
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleExportData('pdf')}
-                    className="font-dyslexia"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Export PDF
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleExportData('csv')}
-                    className="font-dyslexia"
-                  >
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Export CSV
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleExportData('json')}
-                    className="font-dyslexia"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export JSON
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleBackupData}
-                    className="font-dyslexia"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Create Backup
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex flex-wrap gap-3 p-4 bg-gradient-card rounded-lg border-0 shadow-soft">
+              <Button
+                variant="outline"
+                onClick={() => handleExportData('pdf')}
+                className="font-dyslexia"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Eksporter PDF
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleExportData('csv')}
+                className="font-dyslexia"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Eksporter CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleExportData('json')}
+                className="font-dyslexia"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Eksporter JSON
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleBackupData}
+                className="font-dyslexia"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Opprett backup
+              </Button>
+            </div>
 
             <ErrorBoundary>
               <LazyReportBuilder 
@@ -664,16 +370,64 @@ export const StudentProfile = () => {
               />
             </ErrorBoundary>
           </div>
-        )}
+        );
+      case 'search':
+      case 'templates':
+      case 'compare':
+        return (
+          <ToolsSection
+            student={student}
+            trackingEntries={trackingEntries}
+            emotions={allEmotions}
+            sensoryInputs={allSensoryInputs}
+            goals={goals}
+            activeToolSection={activeSection}
+            onToolSectionChange={setActiveSection}
+            onSearchResults={handleSearchResults}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
-        {/* Recent Sessions - Only show on overview tab */}
-        {activeTab === 'overview' && filteredData.entries.length > 0 && (
-          <ErrorBoundary>
-            <PaginatedSessionsList sessions={filteredData.entries} />
-          </ErrorBoundary>
-        )}
+  return (
+    <SidebarProvider>
+      <div className="min-h-screen w-full bg-background font-dyslexia flex">
+        <StudentProfileSidebar
+          student={student}
+          activeSection={activeSection}
+          onSectionChange={setActiveSection}
+        />
+        
+        <main className="flex-1 overflow-auto">
+          {/* Header */}
+          <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
+            <div className="flex h-14 items-center justify-between px-6">
+              <div className="flex items-center gap-3">
+                <SidebarTrigger />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/')}
+                  className="font-dyslexia"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  {String(tCommon('buttons.back'))}
+                </Button>
+              </div>
+              <LanguageSettings />
+            </div>
+          </header>
 
+          {/* Main Content */}
+          <div className="p-6">
+            <ErrorBoundary>
+              {renderMainContent()}
+            </ErrorBoundary>
+          </div>
+        </main>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };

@@ -1,0 +1,150 @@
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
+import { LazyInteractiveDataVisualization } from '@/components/lazy/LazyInteractiveDataVisualization';
+import { DetailedConfidenceExplanation } from '@/components/DetailedConfidenceExplanation';
+import { ConfidenceIndicator } from '@/components/ConfidenceIndicator';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from '@/types/student';
+import { useTranslation } from '@/hooks/useTranslation';
+import { BarChart3, TrendingUp, AlertCircle } from 'lucide-react';
+
+interface AnalyticsSectionProps {
+  student: Student;
+  trackingEntries: TrackingEntry[];
+  filteredData: {
+    entries: TrackingEntry[];
+    emotions: EmotionEntry[];
+    sensoryInputs: SensoryEntry[];
+  };
+  insights: any;
+}
+
+export function AnalyticsSection({ 
+  student, 
+  trackingEntries, 
+  filteredData, 
+  insights 
+}: AnalyticsSectionProps) {
+  const { tAnalytics, tCommon } = useTranslation();
+
+  // Calculate confidence level based on data availability
+  const getConfidenceLevel = () => {
+    const totalEntries = filteredData.entries.length;
+    const totalEmotions = filteredData.emotions.length;
+    const totalSensory = filteredData.sensoryInputs.length;
+    
+    if (totalEntries < 5) return 0.3;
+    if (totalEntries < 15 || totalEmotions < 10) return 0.7;
+    return 0.9;
+  };
+
+  const confidenceLevel = getConfidenceLevel();
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold">Dataanalyse</h2>
+        <p className="text-muted-foreground">
+          Avansert analyse av {student.name}s mønstre og trender
+        </p>
+      </div>
+
+      {/* Confidence Explanation */}
+      <Card className="bg-gradient-card border-0 shadow-soft">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            Analysetillit og datakvalitet
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <ConfidenceIndicator 
+              confidence={confidenceLevel}
+              dataPoints={filteredData.entries.length}
+            />
+            <DetailedConfidenceExplanation
+              trackingEntries={filteredData.entries}
+              emotions={filteredData.emotions}
+              sensoryInputs={filteredData.sensoryInputs}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Main Analytics Dashboard */}
+      <ErrorBoundary>
+        <AnalyticsDashboard
+          student={student}
+          trackingEntries={trackingEntries}
+          emotions={filteredData.emotions}
+          sensoryInputs={filteredData.sensoryInputs}
+        />
+      </ErrorBoundary>
+
+      {/* Interactive Data Visualization */}
+      <Card className="bg-gradient-card border-0 shadow-soft">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Interaktiv datavisualisering
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorBoundary>
+            <LazyInteractiveDataVisualization 
+              trackingEntries={filteredData.entries}
+              emotions={filteredData.emotions}
+              sensoryInputs={filteredData.sensoryInputs}
+              studentName={student.name}
+            />
+          </ErrorBoundary>
+        </CardContent>
+      </Card>
+
+      {/* Detailed Insights */}
+      {insights && (
+        <Card className="bg-gradient-card border-0 shadow-soft">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Detaljerte innsikter
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {insights.patterns && insights.patterns.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-2">Oppdagede mønstre:</h4>
+                  <div className="space-y-2">
+                    {insights.patterns.map((pattern: any, index: number) => (
+                      <div key={index} className="p-3 bg-accent/20 rounded-lg">
+                        <p className="text-sm font-medium">{pattern.type}</p>
+                        <p className="text-sm text-muted-foreground">{pattern.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {insights.correlations && insights.correlations.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-2">Korrelasjoner:</h4>
+                  <div className="space-y-2">
+                    {insights.correlations.map((correlation: any, index: number) => (
+                      <div key={index} className="p-3 bg-accent/20 rounded-lg">
+                        <p className="text-sm">{correlation.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
