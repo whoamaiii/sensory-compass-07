@@ -131,6 +131,28 @@ All colors MUST be HSL.
   }
 }
 
+@layer utilities {
+  .bg-gradient-card {
+    background: var(--gradient-card);
+  }
+  
+  .bg-gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .bg-gradient-calm {
+    background: var(--gradient-calm);
+  }
+  
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .shadow-medium {
+    box-shadow: var(--shadow-medium);
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

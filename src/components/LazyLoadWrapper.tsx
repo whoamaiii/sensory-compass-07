@@ -2,6 +2,7 @@ import React, { Suspense, lazy, ComponentType } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
+import { ErrorWrapper } from './ErrorWrapper';
 
 interface LazyLoadWrapperProps {
   fallback?: React.ReactNode;
@@ -10,7 +11,7 @@ interface LazyLoadWrapperProps {
 }
 
 const DefaultFallback = () => (
-  <Card className="bg-gradient-card border-0 shadow-soft">
+  <Card>
     <CardContent className="p-6">
       <div className="flex items-center justify-center space-y-4">
         <div className="text-center">
@@ -28,7 +29,7 @@ const DefaultFallback = () => (
 );
 
 const DefaultErrorFallback = () => (
-  <Card className="bg-gradient-card border-0 shadow-soft border-destructive/20">
+  <Card className="border-destructive/20">
     <CardContent className="p-6">
       <div className="text-center">
         <p className="text-destructive font-medium">Failed to load component</p>
@@ -46,11 +47,11 @@ export const LazyLoadWrapper: React.FC<LazyLoadWrapperProps> = ({
   children
 }) => {
   return (
-    <Suspense fallback={fallback}>
-      <ErrorBoundary fallback={errorFallback}>
+    <ErrorWrapper fallback={errorFallback}>
+      <Suspense fallback={fallback}>
         {children}
-      </ErrorBoundary>
-    </Suspense>
+      </Suspense>
+    </ErrorWrapper>
   );
 };
 

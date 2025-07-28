@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText } from 'lucide-react';
 
 const LoadingFallback = () => (
-  <Card className="bg-gradient-card border-0 shadow-soft">
+  <Card>
     <CardHeader>
       <CardTitle className="flex items-center gap-2">
         <FileText className="h-5 w-5 animate-pulse" />
