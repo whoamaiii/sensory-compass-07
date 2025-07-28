@@ -174,7 +174,6 @@ export const PremiumStudentCard = ({
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                console.log('View button clicked for student:', student.name);
                 onView(student);
               }}
               className="flex-1 border-primary/20 hover:bg-primary/10 hover:border-primary/40 transition-all duration-200"
@@ -187,7 +186,6 @@ export const PremiumStudentCard = ({
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                console.log('Track button clicked for student:', student.name);
                 onTrack(student);
               }}
               className="flex-1 bg-gradient-primary hover:opacity-90 transition-all duration-200"

@@ -11,6 +11,8 @@ import { LanguageSettings } from "@/components/LanguageSettings";
 import { PremiumStudentCard } from "@/components/PremiumStudentCard";
 import { MockDataLoader } from "@/components/MockDataLoader";
 import { dataStorage } from "@/lib/dataStorage";
+import { exportSystem } from "@/lib/exportSystem";
+import { toast } from "sonner";
 import { FlaskConical, HelpCircle, Download, Plus, Users, CalendarDays, BarChart3, TrendingUp, TrendingDown } from "lucide-react";
 
 /**
@@ -26,10 +28,7 @@ export const Dashboard = () => {
   useEffect(() => {
     const loadData = () => {
       try {
-        console.log('Dashboard: Loading students...');
-        // Use DataStorageManager for consistent data access
         const students = dataStorage.getStudents();
-        console.log('Dashboard: Loaded students:', students.length);
         setStudents(students);
       } catch (error) {
         console.error('Dashboard: Error loading students:', error);
@@ -44,7 +43,7 @@ export const Dashboard = () => {
     // Listen for storage changes to refresh data without page reload
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key?.startsWith('sensoryTracker_')) {
-        console.log('Dashboard: Storage changed, reloading data');
+        
         loadData();
       }
     };
@@ -65,13 +64,8 @@ export const Dashboard = () => {
     }
 
     try {
-      console.log('Dashboard: Calculating tracking statistics...');
-      // Use DataStorageManager for consistent data access
       const allEntries = dataStorage.getTrackingEntries();
-      console.log('Dashboard: Total entries found:', allEntries.length);
-      
       const todayCount = allEntries.filter(entry => isToday(entry.timestamp)).length;
-      console.log('Dashboard: Today entries:', todayCount);
       
       return { 
         todayEntries: todayCount, 
@@ -95,9 +89,35 @@ export const Dashboard = () => {
     }
   };
 
-  const handleExportReport = () => {
-    // TODO: Implement export functionality
-    console.log('Export report functionality to be implemented');
+  const handleExportReport = async () => {
+    try {
+      const allData = {
+        students,
+        trackingEntries: dataStorage.getTrackingEntries(),
+        goals: dataStorage.getGoals()
+      };
+      
+      const csvContent = exportSystem.generateCSVExport(students, {
+        trackingEntries: allData.trackingEntries,
+        emotions: allData.trackingEntries.flatMap(entry => entry.emotions),
+        sensoryInputs: allData.trackingEntries.flatMap(entry => entry.sensoryInputs),
+        goals: allData.goals
+      }, {
+        format: 'csv',
+        includeFields: ['all']
+      });
+      
+      const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+      const csvUrl = URL.createObjectURL(csvBlob);
+      const csvLink = document.createElement('a');
+      csvLink.href = csvUrl;
+      csvLink.download = 'sensory_tracker_report_' + new Date().toISOString().split('T')[0] + '.csv';
+      csvLink.click();
+      
+      toast.success('Report exported successfully');
+    } catch (error) {
+      toast.error('Export failed. Please try again.');
+    }
   };
 
   const handleViewStudent = (student: Student) => {

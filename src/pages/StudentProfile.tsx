@@ -447,9 +447,7 @@ export const StudentProfile = () => {
                       size="sm" 
                       className="flex items-center justify-center group"
                     >
-                      <span className="material-icons-outlined mr-2 text-base transition-transform group-hover:rotate-12">
-                        science
-                      </span>
+                      <FileText className="h-4 w-4 mr-2 transition-transform group-hover:rotate-12" />
                       Load Mock Data
                     </Button>
                   </DialogTrigger>
