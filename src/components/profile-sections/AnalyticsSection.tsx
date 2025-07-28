@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from '@/types/student';
 import { useTranslation } from '@/hooks/useTranslation';
 import { BarChart3, TrendingUp, AlertCircle } from 'lucide-react';
+import { PatternDetectionEmptyState } from '@/components/PatternDetectionEmptyState';
 
 interface AnalyticsSectionProps {
   student: Student;
@@ -66,10 +67,10 @@ export function AnalyticsSection({
               dataPoints={filteredData.entries.length}
             />
               <DetailedConfidenceExplanation
-                confidence={0.75}
+                confidence={confidenceLevel}
                 dataPoints={filteredData.entries.length + filteredData.emotions.length + filteredData.sensoryInputs.length}
                 timeSpanDays={30}
-                rSquared={0.65}
+                rSquared={Math.min(0.9, 0.4 + (confidenceLevel * 0.5))}
               />
           </div>
         </CardContent>
@@ -106,7 +107,7 @@ export function AnalyticsSection({
       </Card>
 
       {/* Detailed Insights */}
-      {insights && (
+      {insights && (insights.patterns?.length > 0 || insights.correlations?.length > 0) ? (
         <Card className="bg-gradient-card border-0 shadow-soft">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -122,8 +123,23 @@ export function AnalyticsSection({
                   <div className="space-y-2">
                     {insights.patterns.map((pattern: any, index: number) => (
                       <div key={index} className="p-3 bg-accent/20 rounded-lg">
-                        <p className="text-sm font-medium">{pattern.type}</p>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-medium">{pattern.pattern}</p>
+                          <span className="text-xs px-2 py-1 bg-primary/20 text-primary rounded">
+                            {Math.round((pattern.confidence || 0) * 100)}% sikkerhet
+                          </span>
+                        </div>
                         <p className="text-sm text-muted-foreground">{pattern.description}</p>
+                        {pattern.recommendations && pattern.recommendations.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs font-medium mb-1">Anbefalinger:</p>
+                            <ul className="text-xs text-muted-foreground space-y-1">
+                              {pattern.recommendations.slice(0, 2).map((rec: string, i: number) => (
+                                <li key={i}>• {rec}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -136,7 +152,13 @@ export function AnalyticsSection({
                   <div className="space-y-2">
                     {insights.correlations.map((correlation: any, index: number) => (
                       <div key={index} className="p-3 bg-accent/20 rounded-lg">
-                        <p className="text-sm">{correlation.description}</p>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-medium">{correlation.factor1} ↔ {correlation.factor2}</p>
+                          <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-600 rounded">
+                            r = {correlation.correlation?.toFixed(2) || 'N/A'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{correlation.description}</p>
                       </div>
                     ))}
                   </div>
@@ -145,6 +167,12 @@ export function AnalyticsSection({
             </div>
           </CardContent>
         </Card>
+      ) : (
+        <PatternDetectionEmptyState
+          dataPoints={filteredData.emotions.length + filteredData.sensoryInputs.length}
+          daysWithData={Math.max(0, Math.ceil((filteredData.entries.length + filteredData.emotions.length + filteredData.sensoryInputs.length) / 3))}
+          onCollectData={() => window.location.href = `/track/${student.id}`}
+        />
       )}
     </div>
   );
