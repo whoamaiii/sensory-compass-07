@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Goal, Student, GoalDataPoint, Milestone } from "@/types/student";
 import { dataStorage } from "@/lib/dataStorage";
-import { Calendar, Plus, Target, TrendingUp, CheckCircle, Edit, Trash2, Calendar as CalendarIcon } from "lucide-react";
+import { Calendar, Plus, Crosshair, TrendingUp, CheckCircle, Edit, Trash2, Calendar as CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -302,7 +302,7 @@ export const GoalManager = ({ student, onGoalUpdate }: GoalManagerProps) => {
       {goals.length === 0 ? (
         <Card className="bg-gradient-card border-0 shadow-soft">
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <Target className="h-16 w-16 text-muted-foreground mb-4" />
+            <Crosshair className="h-16 w-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold text-foreground mb-2">No IEP Goals Yet</h3>
             <p className="text-muted-foreground text-center mb-6 max-w-md">
               Start by creating your first IEP goal to track {student.name}'s educational progress.
@@ -369,7 +369,7 @@ export const GoalManager = ({ student, onGoalUpdate }: GoalManagerProps) => {
                     <span>Created: {format(goal.createdDate, 'MMM dd, yyyy')}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <Target className="h-4 w-4 text-muted-foreground" />
+                    <Crosshair className="h-4 w-4 text-muted-foreground" />
                     <span>Target: {format(goal.targetDate, 'MMM dd, yyyy')}</span>
                   </div>
                 </div>

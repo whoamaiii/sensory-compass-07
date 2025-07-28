@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Goal, Student, GoalDataPoint } from "@/types/student";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, Target, Calendar, Award, Clock, CheckCircle } from "lucide-react";
+import { TrendingUp, Crosshair, Calendar, Award, Clock, CheckCircle } from "lucide-react";
 import { format, differenceInDays, startOfWeek, endOfWeek, eachWeekOfInterval, startOfMonth, endOfMonth } from "date-fns";
 
 interface ProgressDashboardProps {
@@ -148,7 +148,7 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
         <Card className="bg-gradient-card border-0 shadow-soft">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Goals</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
+            <Crosshair className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-primary">{progressMetrics.totalGoals}</div>

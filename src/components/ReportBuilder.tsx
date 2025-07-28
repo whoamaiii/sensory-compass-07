@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Student, Goal, TrackingEntry, EmotionEntry, SensoryEntry } from "@/types/student";
-import { FileText, Download, Printer, Mail, Calendar, TrendingUp, Target } from "lucide-react";
+import { FileText, Download, Printer, Mail, Calendar, TrendingUp, Crosshair } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { toast } from "sonner";
 
