@@ -44,10 +44,16 @@ export const MockDataLoader = () => {
         description: `Loaded ${mockStudents.length} students with ${stats.entriesCount} tracking entries`,
       });
       
-      // Refresh the page to show new data
+      // Trigger storage event to refresh Dashboard without page reload
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'sensoryTracker_students',
+        newValue: JSON.stringify(dataStorage.getStudents())
+      }));
+      
+      // Fallback: refresh the page if storage event doesn't work
       setTimeout(() => {
         window.location.reload();
-      }, 1000);
+      }, 2000);
       
     } catch (error) {
       toast.error('Failed to load mock data', {
@@ -65,10 +71,16 @@ export const MockDataLoader = () => {
       
       toast.success('Mock data cleared successfully!');
       
-      // Refresh the page to show cleared state
+      // Trigger storage event to refresh Dashboard without page reload
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'sensoryTracker_students',
+        newValue: JSON.stringify([])
+      }));
+      
+      // Fallback: refresh the page if storage event doesn't work
       setTimeout(() => {
         window.location.reload();
-      }, 500);
+      }, 1500);
       
     } catch (error) {
       toast.error('Failed to clear mock data', {

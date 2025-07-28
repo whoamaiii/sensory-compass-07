@@ -10,6 +10,7 @@ import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { LanguageSettings } from "@/components/LanguageSettings";
 import { PremiumStudentCard } from "@/components/PremiumStudentCard";
 import { MockDataLoader } from "@/components/MockDataLoader";
+import { dataStorage } from "@/lib/dataStorage";
 
 /**
  * Dashboard component - Main landing page with modern glassmorphism design
@@ -24,17 +25,13 @@ export const Dashboard = () => {
   useEffect(() => {
     const loadData = () => {
       try {
-        // Load students from localStorage
-        const storedStudents = localStorage.getItem('sensoryTracker_students');
-        if (storedStudents) {
-          const parsed = JSON.parse(storedStudents);
-          setStudents(parsed.map((s: any) => ({
-            ...s,
-            createdAt: new Date(s.createdAt)
-          })));
-        }
+        console.log('Dashboard: Loading students...');
+        // Use DataStorageManager for consistent data access
+        const students = dataStorage.getStudents();
+        console.log('Dashboard: Loaded students:', students.length);
+        setStudents(students);
       } catch (error) {
-        // Handle parsing errors gracefully
+        console.error('Dashboard: Error loading students:', error);
         setStudents([]);
       } finally {
         setIsLoading(false);
@@ -42,6 +39,20 @@ export const Dashboard = () => {
     };
 
     loadData();
+    
+    // Listen for storage changes to refresh data without page reload
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key?.startsWith('sensoryTracker_')) {
+        console.log('Dashboard: Storage changed, reloading data');
+        loadData();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   /**
@@ -52,27 +63,23 @@ export const Dashboard = () => {
       return { todayEntries: 0, totalEntries: 0 };
     }
 
-    let todayCount = 0;
-    let totalCount = 0;
-
-    students.forEach(student => {
-      try {
-        const trackingData = localStorage.getItem(`sensoryTracker_tracking_${student.id}`);
-        if (trackingData) {
-          const entries: TrackingEntry[] = JSON.parse(trackingData).map((entry: any) => ({
-            ...entry,
-            timestamp: new Date(entry.timestamp)
-          }));
-
-          totalCount += entries.length;
-          todayCount += entries.filter(entry => isToday(entry.timestamp)).length;
-        }
-      } catch (error) {
-        // Skip invalid entries
-      }
-    });
-
-    return { todayEntries: todayCount, totalEntries: totalCount };
+    try {
+      console.log('Dashboard: Calculating tracking statistics...');
+      // Use DataStorageManager for consistent data access
+      const allEntries = dataStorage.getTrackingEntries();
+      console.log('Dashboard: Total entries found:', allEntries.length);
+      
+      const todayCount = allEntries.filter(entry => isToday(entry.timestamp)).length;
+      console.log('Dashboard: Today entries:', todayCount);
+      
+      return { 
+        todayEntries: todayCount, 
+        totalEntries: allEntries.length 
+      };
+    } catch (error) {
+      console.error('Dashboard: Error calculating statistics:', error);
+      return { todayEntries: 0, totalEntries: 0 };
+    }
   }, [students]);
 
   const handleAddStudent = () => {
