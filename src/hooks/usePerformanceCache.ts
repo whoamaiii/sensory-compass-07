@@ -37,7 +37,7 @@ interface CacheOptions {
  * const value = cache.get('key1');
  * 
  * // Check cache stats
- * console.log(cache.stats?.hitRate); // Hit rate percentage
+ * // cache.stats?.hitRate; // Hit rate percentage
  * ```
  */
 export function usePerformanceCache<T>(options: CacheOptions = {}) {

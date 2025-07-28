@@ -11,7 +11,8 @@
     "saveSession": "Lagre økt",
     "cancelSession": "Avbryt økt",
     "validationError": "Vennligst registrer minst en følelse eller sensorisk inngang før du lagrer økten.",
-    "sessionSaved": "Økt lagret vellykket!"
+    "sessionSaved": "Økt lagret vellykket!",
+    "saveError": "Kunne ikke lagre økt. Prøv igjen."
   },
   "emotions": {
     "title": "Følelser",

@@ -9,7 +9,10 @@
     "close": "Lukk",
     "confirm": "Bekreft",
     "loading": "Laster...",
-    "submit": "Send inn"
+    "submit": "Send inn",
+    "tryAgain": "Prøv igjen",
+    "reload": "Last på nytt",
+    "home": "Hjem"
   },
   "navigation": {
     "dashboard": "Hovedside",
@@ -60,5 +63,9 @@
     "sensory": "Sensorisk",
     "goal": "Mål",
     "clearAllFilters": "Fjern alle filtre"
+  },
+  "error": {
+    "title": "Noe gikk galt",
+    "description": "En uventet feil oppstod. Du kan prøve igjen eller laste siden på nytt."
   }
 }

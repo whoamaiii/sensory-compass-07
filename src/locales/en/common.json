@@ -9,7 +9,10 @@
     "close": "Close",
     "confirm": "Confirm",
     "loading": "Loading...",
-    "submit": "Submit"
+    "submit": "Submit",
+    "tryAgain": "Try Again",
+    "reload": "Reload",
+    "home": "Home"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -60,5 +63,9 @@
     "sensory": "Sensory",
     "goal": "Goal",
     "clearAllFilters": "Clear All Filters"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. You can try again or reload the page."
   }
 }

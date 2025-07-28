@@ -11,7 +11,8 @@
     "saveSession": "Save Session",
     "cancelSession": "Cancel Session",
     "validationError": "Please record at least one emotion or sensory input before saving the session.",
-    "sessionSaved": "Session saved successfully!"
+    "sessionSaved": "Session saved successfully!",
+    "saveError": "Failed to save session. Please try again."
   },
   "emotions": {
     "title": "Emotions",

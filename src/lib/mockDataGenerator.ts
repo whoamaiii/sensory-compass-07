@@ -300,49 +300,44 @@ export const generateAllMockData = (): { students: Student[]; trackingEntries: T
 };
 
 export function loadMockDataToStorage(): void {
-  console.log('MockDataGenerator: Starting to load mock data...');
-  
-  // Clear only existing mock data first
-  clearMockDataFromStorage();
-  
-  const { students, trackingEntries } = generateAllMockData();
-  console.log('MockDataGenerator: Generated', students.length, 'students and', trackingEntries.length, 'tracking entries');
-  
-  // Save students
-  students.forEach(student => {
-    console.log('MockDataGenerator: Saving student', student.name);
-    dataStorage.saveStudent(student);
-  });
-  
-  // Save tracking entries
-  trackingEntries.forEach(entry => {
-    dataStorage.saveTrackingEntry(entry);
-  });
-  
-  console.log('MockDataGenerator: Mock data loaded successfully');
-  console.log('MockDataGenerator: Storage stats after loading:', dataStorage.getStorageStats());
+  try {
+    // Clear only existing mock data first
+    clearMockDataFromStorage();
+    
+    const { students, trackingEntries } = generateAllMockData();
+    
+    // Save students
+    students.forEach(student => {
+      dataStorage.saveStudent(student);
+    });
+    
+    // Save tracking entries
+    trackingEntries.forEach(entry => {
+      dataStorage.saveTrackingEntry(entry);
+    });
+  } catch (error) {
+    console.error('Failed to load mock data:', error);
+    throw new Error('Failed to initialize mock data');
+  }
 }
 
 export function clearMockDataFromStorage(): void {
-  console.log('MockDataGenerator: Clearing mock data...');
-  
-  const allStudents = dataStorage.getStudents();
-  const allEntries = dataStorage.getTrackingEntries();
-  
-  console.log('MockDataGenerator: Found', allStudents.length, 'students,', allEntries.length, 'entries');
-  
-  // Filter out mock data
-  const nonMockStudents = allStudents.filter(student => !student.id.startsWith('mock_'));
-  const nonMockEntries = allEntries.filter(entry => !entry.studentId.startsWith('mock_'));
-  
-  console.log('MockDataGenerator: Keeping', nonMockStudents.length, 'non-mock students,', nonMockEntries.length, 'non-mock entries');
-  
-  // Clear all data and re-save only non-mock data
-  dataStorage.clearAllData();
-  
-  // Restore non-mock data
-  nonMockStudents.forEach(student => dataStorage.saveStudent(student));
-  nonMockEntries.forEach(entry => dataStorage.saveTrackingEntry(entry));
-  
-  console.log('MockDataGenerator: Mock data cleared, preserved existing data');
+  try {
+    const allStudents = dataStorage.getStudents();
+    const allEntries = dataStorage.getTrackingEntries();
+    
+    // Filter out mock data
+    const nonMockStudents = allStudents.filter(student => !student.id.startsWith('mock_'));
+    const nonMockEntries = allEntries.filter(entry => !entry.studentId.startsWith('mock_'));
+    
+    // Clear all data and re-save only non-mock data
+    dataStorage.clearAllData();
+    
+    // Restore non-mock data
+    nonMockStudents.forEach(student => dataStorage.saveStudent(student));
+    nonMockEntries.forEach(entry => dataStorage.saveTrackingEntry(entry));
+  } catch (error) {
+    console.error('Failed to clear mock data:', error);
+    throw new Error('Failed to clear mock data');
+  }
 }

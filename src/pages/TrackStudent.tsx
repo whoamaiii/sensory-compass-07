@@ -56,7 +56,7 @@ export const TrackStudent = () => {
     toast.success("Environmental conditions recorded!");
   };
 
-  const handleSaveSession = () => {
+  const handleSaveSession = async () => {
     if (!student) return;
     
     if (emotions.length === 0 && sensoryInputs.length === 0) {
@@ -64,42 +64,47 @@ export const TrackStudent = () => {
       return;
     }
 
-    const timestamp = new Date();
-    
-    // Create the tracking entry
-    const trackingEntry: TrackingEntry = {
-      id: crypto.randomUUID(),
-      studentId: student.id,
-      timestamp,
-      emotions: emotions.map(e => ({
-        ...e,
+    try {
+      const timestamp = new Date();
+      
+      // Create the tracking entry
+      const trackingEntry: TrackingEntry = {
         id: crypto.randomUUID(),
-        timestamp
-      })),
-      sensoryInputs: sensoryInputs.map(s => ({
-        ...s,
-        id: crypto.randomUUID(),
-        timestamp
-      })),
-      environmentalData: environmentalData ? {
-        ...environmentalData,
-        id: crypto.randomUUID(),
-        timestamp
-      } : undefined,
-      generalNotes: generalNotes.trim() || undefined
-    };
+        studentId: student.id,
+        timestamp,
+        emotions: emotions.map(e => ({
+          ...e,
+          id: crypto.randomUUID(),
+          timestamp
+        })),
+        sensoryInputs: sensoryInputs.map(s => ({
+          ...s,
+          id: crypto.randomUUID(),
+          timestamp
+        })),
+        environmentalData: environmentalData ? {
+          ...environmentalData,
+          id: crypto.randomUUID(),
+          timestamp
+        } : undefined,
+        notes: generalNotes.trim() || undefined
+      };
 
-    // Save to localStorage
-    const storedEntries = localStorage.getItem('sensoryTracker_entries');
-    const entries = storedEntries ? JSON.parse(storedEntries) : [];
-    entries.push(trackingEntry);
-    localStorage.setItem('sensoryTracker_entries', JSON.stringify(entries));
+      // Save using dataStorage for consistency
+      const storedEntries = localStorage.getItem('sensoryTracker_entries');
+      const entries = storedEntries ? JSON.parse(storedEntries) : [];
+      entries.push(trackingEntry);
+      localStorage.setItem('sensoryTracker_entries', JSON.stringify(entries));
 
-    // Trigger analytics update for this student
-    analyticsManager.triggerAnalyticsForStudent(student.id);
+      // Trigger analytics update for this student
+      await analyticsManager.triggerAnalyticsForStudent(student.id);
 
-    toast.success(String(tTracking('session.sessionSaved')));
-    navigate(`/student/${student.id}`);
+      toast.success(String(tTracking('session.sessionSaved')));
+      navigate(`/student/${student.id}`);
+    } catch (error) {
+      console.error('Failed to save tracking session:', error);
+      toast.error(String(tTracking('session.saveError')));
+    }
   };
 
   if (!student) {
