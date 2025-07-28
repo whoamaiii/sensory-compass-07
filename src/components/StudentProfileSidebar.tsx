@@ -84,19 +84,19 @@ export function StudentProfileSidebar({
   const isActive = (section: string) => activeSection === section;
 
   return (
-    <Sidebar className={`glass-card ${state === "collapsed" ? "w-14" : "w-64"} bg-bg-secondary border-border-color`}>
+    <Sidebar className={`${state === "collapsed" ? "w-14" : "w-64"} bg-card/95 border-border backdrop-blur-sm`}>
       <SidebarContent className="bg-transparent">
         {/* Student Header */}
-        <div className={`p-4 border-b border-border-color bg-bg-tertiary/50 backdrop-blur-sm ${state === "collapsed" ? 'px-2' : ''}`}>
+        <div className={`p-4 border-b border-border/20 bg-card/50 backdrop-blur-sm ${state === "collapsed" ? 'px-2' : ''}`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-purple flex items-center justify-center text-white font-bold text-sm shadow-glow">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-primary-foreground font-bold text-sm shadow-lg">
               {student.name.split(' ').map(n => n[0]).join('').toUpperCase()}
             </div>
             {state !== "collapsed" && (
               <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-sm truncate text-text-primary">{student.name}</h3>
+                <h3 className="font-semibold text-sm truncate text-foreground">{student.name}</h3>
                 {student.grade && (
-                  <p className="text-xs text-text-secondary">{student.grade}</p>
+                  <p className="text-xs text-muted-foreground">{student.grade}</p>
                 )}
               </div>
             )}
@@ -105,8 +105,8 @@ export function StudentProfileSidebar({
 
         {/* Main Navigation */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-text-secondary text-xs font-medium uppercase tracking-wider px-3 py-2">
-            {String("Hovedseksjoner")}
+          <SidebarGroupLabel className="text-muted-foreground text-xs font-medium uppercase tracking-wider px-3 py-2">
+            Hovedseksjoner
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -116,13 +116,13 @@ export function StudentProfileSidebar({
                     onClick={() => onSectionChange(item.section)}
                     className={`cursor-pointer mx-2 rounded-lg transition-all duration-200 ${
                       isActive(item.section) 
-                        ? 'bg-accent-purple text-white shadow-purple' 
-                        : 'text-text-primary hover:bg-bg-tertiary/70 hover:text-accent-purple'
+                        ? 'bg-primary text-primary-foreground shadow-lg' 
+                        : 'text-foreground hover:bg-accent hover:text-accent-foreground'
                     }`}
                   >
                     <span className="material-icons text-base">{item.icon}</span>
                     {state !== "collapsed" && (
-                      <span className="text-sm ml-3">{String(item.title)}</span>
+                     <span className="text-sm ml-3">{String(item.title)}</span>
                     )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -133,8 +133,8 @@ export function StudentProfileSidebar({
 
         {/* Tools Section */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-text-secondary text-xs font-medium uppercase tracking-wider px-3 py-2">
-            {String("Verktøy")}
+          <SidebarGroupLabel className="text-muted-foreground text-xs font-medium uppercase tracking-wider px-3 py-2">
+            Verktøy
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -144,8 +144,8 @@ export function StudentProfileSidebar({
                     onClick={() => onSectionChange(item.section)}
                     className={`cursor-pointer mx-2 rounded-lg transition-all duration-200 ${
                       isActive(item.section) 
-                        ? 'bg-accent-purple text-white shadow-purple' 
-                        : 'text-text-primary hover:bg-bg-tertiary/70 hover:text-accent-purple'
+                        ? 'bg-primary text-primary-foreground shadow-lg' 
+                        : 'text-foreground hover:bg-accent hover:text-accent-foreground'
                     }`}
                   >
                     <span className="material-icons text-base">{item.icon}</span>
