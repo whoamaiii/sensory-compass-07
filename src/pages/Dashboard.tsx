@@ -11,6 +11,7 @@ import { LanguageSettings } from "@/components/LanguageSettings";
 import { PremiumStudentCard } from "@/components/PremiumStudentCard";
 import { MockDataLoader } from "@/components/MockDataLoader";
 import { dataStorage } from "@/lib/dataStorage";
+import { FlaskConical, HelpCircle, Download, Plus, Users, CalendarDays, BarChart3, TrendingUp, TrendingDown } from "lucide-react";
 
 /**
  * Dashboard component - Main landing page with modern glassmorphism design
@@ -133,9 +134,7 @@ export const Dashboard = () => {
                     size="sm" 
                     className="bg-gradient-primary hover:opacity-90 text-primary-foreground shadow-glow flex items-center justify-center group"
                   >
-                    <span className="material-icons-outlined mr-2 text-base transition-transform group-hover:rotate-12">
-                      science
-                    </span>
+                    <FlaskConical className="mr-2 h-4 w-4 transition-transform group-hover:rotate-12" />
                     Load Mock Data
                   </Button>
                 </DialogTrigger>
@@ -151,9 +150,7 @@ export const Dashboard = () => {
                 size="sm" 
                 className="hidden sm:flex items-center justify-center group"
               >
-                <span className="material-icons-outlined mr-2 text-base transition-transform group-hover:rotate-12">
-                  help_outline
-                </span>
+                <HelpCircle className="mr-2 h-4 w-4 transition-transform group-hover:rotate-12" />
                 Hjelp & Støtte
               </Button>
               <LanguageSettings />
@@ -173,7 +170,7 @@ export const Dashboard = () => {
                   onClick={handleExportReport}
                   className="flex items-center justify-center group"
                 >
-                  <span className="material-icons-outlined mr-2 text-base">file_download</span>
+                  <Download className="mr-2 h-4 w-4" />
                   Eksporter Rapport
                 </Button>
                 <Button 
@@ -182,7 +179,7 @@ export const Dashboard = () => {
                   size="lg"
                   className="flex items-center justify-center group"
                 >
-                  <span className="material-icons-outlined mr-2 text-base group-hover:animate-bounce">add</span>
+                  <Plus className="mr-2 h-4 w-4 group-hover:animate-bounce" />
                   Ny Registrering
                 </Button>
               </div>
@@ -199,14 +196,14 @@ export const Dashboard = () => {
                     {String(tDashboard('stats.totalStudents'))}
                   </h3>
                   <div className="icon-bg p-2 rounded-lg">
-                    <span className="material-icons-outlined text-primary">groups</span>
+                    <Users className="text-primary h-5 w-5" />
                   </div>
                 </div>
                 <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" style={{ animationDelay: '0.4s' }}>
                   <AnimatedCounter value={isLoading ? 0 : students.length} />
                 </p>
                 <div className="flex items-center text-sm mt-3">
-                  <span className="material-icons-outlined text-green-400 text-base mr-1">arrow_upward</span>
+                  <TrendingUp className="text-green-400 h-4 w-4 mr-1" />
                   <span className="text-green-400">12%</span>
                   <span className="ml-1 text-muted-foreground">fra forrige uke</span>
                 </div>
@@ -221,14 +218,14 @@ export const Dashboard = () => {
                     {String(tDashboard('stats.todaysEntries'))}
                   </h3>
                   <div className="icon-bg p-2 rounded-lg">
-                    <span className="material-icons-outlined text-primary">edit_calendar</span>
+                    <CalendarDays className="text-primary h-5 w-5" />
                   </div>
                 </div>
                 <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" style={{ animationDelay: '0.5s' }}>
                   <AnimatedCounter value={isLoading ? 0 : todayEntries} />
                 </p>
                 <div className="flex items-center text-sm mt-3">
-                  <span className="material-icons-outlined text-green-400 text-base mr-1">arrow_upward</span>
+                  <TrendingUp className="text-green-400 h-4 w-4 mr-1" />
                   <span className="text-green-400">8%</span>
                   <span className="ml-1 text-muted-foreground">fra forrige uke</span>
                 </div>
@@ -243,14 +240,14 @@ export const Dashboard = () => {
                     {String(tDashboard('stats.totalEntries'))}
                   </h3>
                   <div className="icon-bg p-2 rounded-lg">
-                    <span className="material-icons-outlined text-primary">bar_chart</span>
+                    <BarChart3 className="text-primary h-5 w-5" />
                   </div>
                 </div>
                 <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" style={{ animationDelay: '0.6s' }}>
                   <AnimatedCounter value={isLoading ? 0 : totalEntries} />
                 </p>
                 <div className="flex items-center text-sm mt-3">
-                  <span className="material-icons-outlined text-red-400 text-base mr-1">arrow_downward</span>
+                  <TrendingDown className="text-red-400 h-4 w-4 mr-1" />
                   <span className="text-red-400">5%</span>
                   <span className="ml-1 text-muted-foreground">fra forrige uke</span>
                 </div>
@@ -270,7 +267,7 @@ export const Dashboard = () => {
                   size="lg"
                   className="flex items-center justify-center group"
                 >
-                  <span className="material-icons-outlined mr-2 group-hover:animate-bounce transition-transform">add</span>
+                  <Plus className="mr-2 h-4 w-4 group-hover:animate-bounce transition-transform" />
                   Legg til elev
                 </Button>
               </div>
@@ -332,7 +329,7 @@ export const Dashboard = () => {
 
                     <div className="relative z-10 flex flex-col items-center">
                       <div className="flex items-center justify-center w-24 h-24 bg-primary/10 rounded-full mb-6 border border-primary/20 transition-transform duration-300 hover:scale-110">
-                        <span className="material-icons-outlined text-primary text-5xl transition-transform duration-300 group-hover:rotate-6">groups</span>
+                        <Users className="text-primary h-12 w-12 transition-transform duration-300 group-hover:rotate-6" />
                       </div>
                       <h3 className="text-2xl font-semibold text-foreground">
                         {String(tDashboard('emptyState.title'))}

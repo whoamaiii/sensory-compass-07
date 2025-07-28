@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Student } from "@/types/student";
 import { motion } from 'framer-motion';
-import { User, GraduationCap, Trash2 } from 'lucide-react';
+import { User, GraduationCap, Trash2, Eye, TrendingUp, School } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { useTranslation } from "@/hooks/useTranslation";
@@ -119,7 +119,7 @@ export const PremiumStudentCard = ({
                 className="absolute -bottom-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center"
                 whileHover={{ scale: 1.2 }}
               >
-                <span className="material-icons-outlined text-white text-xs">person</span>
+                <User className="text-white h-3 w-3" />
               </motion.div>
             </motion.div>
             
@@ -132,7 +132,7 @@ export const PremiumStudentCard = ({
               </motion.h3>
               
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="material-icons-outlined text-sm">school</span>
+                <School className="h-4 w-4" />
                 <span>
                   {student.grade 
                     ? String(tDashboard('studentCard.grade')).replace('{{grade}}', student.grade.toString())
@@ -179,7 +179,7 @@ export const PremiumStudentCard = ({
               }}
               className="flex-1 border-primary/20 hover:bg-primary/10 hover:border-primary/40 transition-all duration-200"
             >
-              <span className="material-icons-outlined text-sm mr-1">visibility</span>
+              <Eye className="h-4 w-4 mr-1" />
               {String(tDashboard('studentCard.viewProfile'))}
             </Button>
             
@@ -192,7 +192,7 @@ export const PremiumStudentCard = ({
               }}
               className="flex-1 bg-gradient-primary hover:opacity-90 transition-all duration-200"
             >
-              <span className="material-icons-outlined text-sm mr-1">trending_up</span>
+              <TrendingUp className="h-4 w-4 mr-1" />
               {String(tDashboard('studentCard.trackNow'))}
             </Button>
             
