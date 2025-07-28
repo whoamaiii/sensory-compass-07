@@ -14,6 +14,9 @@ import { LazyInteractiveDataVisualization } from "@/components/lazy/LazyInteract
 import { LazyReportBuilder } from "@/components/lazy/LazyReportBuilder";
 import { PaginatedSessionsList } from "@/components/PaginatedSessionsList";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { DataRequirementsCalculator } from "@/components/DataRequirementsCalculator";
+import { DataCollectionRoadmap } from "@/components/DataCollectionRoadmap";
+import { DataQualityFeedback } from "@/components/DataQualityFeedback";
 import { useDataFiltering } from "@/hooks/useDataFiltering";
 import { useOptimizedInsights } from "@/hooks/useOptimizedInsights";
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Goal } from "@/types/student";
@@ -544,6 +547,29 @@ export const StudentProfile = () => {
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <>
+            {/* Data Requirements System */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <DataRequirementsCalculator
+                emotions={filteredData.emotions}
+                sensoryInputs={filteredData.sensoryInputs}
+                entries={filteredData.entries}
+              />
+              <DataQualityFeedback
+                emotions={filteredData.emotions}
+                sensoryInputs={filteredData.sensoryInputs}
+                entries={filteredData.entries}
+              />
+            </div>
+            
+            {/* Data Collection Roadmap */}
+            <div className="mb-8">
+              <DataCollectionRoadmap
+                emotions={filteredData.emotions}
+                sensoryInputs={filteredData.sensoryInputs}
+                entries={filteredData.entries}
+              />
+            </div>
+
             {/* Interactive Data Visualization */}
             <ErrorBoundary>
               <div className="mb-8">
