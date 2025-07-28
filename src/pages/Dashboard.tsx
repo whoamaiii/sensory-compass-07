@@ -122,19 +122,19 @@ export const Dashboard = () => {
               <Dialog>
                 <DialogTrigger asChild>
                   <Button 
-                    variant="outline" 
+                    variant="default" 
                     size="sm" 
-                    className="hidden sm:flex items-center justify-center group"
+                    className="bg-gradient-primary hover:opacity-90 text-primary-foreground shadow-glow flex items-center justify-center group"
                   >
                     <span className="material-icons-outlined mr-2 text-base transition-transform group-hover:rotate-12">
                       science
                     </span>
-                    Last testdata
+                    Load Mock Data
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Last testdata for mønsteranalyse</DialogTitle>
+                    <DialogTitle>Mock Data for Testing & Analysis</DialogTitle>
                   </DialogHeader>
                   <MockDataLoader />
                 </DialogContent>

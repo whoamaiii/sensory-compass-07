@@ -2,11 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { StudentProfileSidebar } from "@/components/StudentProfileSidebar";
 import { DashboardSection } from "@/components/profile-sections/DashboardSection";
 import { AnalyticsSection } from "@/components/profile-sections/AnalyticsSection";
 import { ToolsSection } from "@/components/profile-sections/ToolsSection";
+import { TestingToolsSection } from "@/components/TestingToolsSection";
 import { GoalManager } from "@/components/GoalManager";
 import { ProgressDashboard } from "@/components/ProgressDashboard";
 import { LazyReportBuilder } from "@/components/lazy/LazyReportBuilder";
@@ -20,6 +22,7 @@ import { ArrowLeft, Download, Save, FileText, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
+import { MockDataLoader } from "@/components/MockDataLoader";
 import { analyticsManager } from "@/lib/analyticsManager";
 
 export const StudentProfile = () => {
@@ -404,6 +407,8 @@ export const StudentProfile = () => {
             </div>
           </div>
         );
+      case 'testing':
+        return <TestingToolsSection />;
       default:
         return null;
     }
@@ -434,7 +439,29 @@ export const StudentProfile = () => {
                   {String(tCommon('buttons.back'))}
                 </Button>
               </div>
-              <LanguageSettings />
+              <div className="flex items-center gap-3">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center justify-center group"
+                    >
+                      <span className="material-icons-outlined mr-2 text-base transition-transform group-hover:rotate-12">
+                        science
+                      </span>
+                      Load Mock Data
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Mock Data for Testing & Analysis</DialogTitle>
+                    </DialogHeader>
+                    <MockDataLoader />
+                  </DialogContent>
+                </Dialog>
+                <LanguageSettings />
+              </div>
             </div>
           </header>
 
