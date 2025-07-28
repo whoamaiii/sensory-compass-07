@@ -40,6 +40,7 @@ export const StudentProfile = () => {
     goals: Goal[];
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'goals' | 'progress' | 'reports'>('overview');
+  const [insights, setInsights] = useState<any[]>([]);
 
   const { selectedRange, filteredData, handleRangeChange } = useDataFiltering(
     trackingEntries,
@@ -100,6 +101,25 @@ export const StudentProfile = () => {
     // Load goals
     loadGoals();
   }, [studentId, navigate]);
+
+  // Generate insights when filtered data changes
+  useEffect(() => {
+    const generateInsights = async () => {
+      if (filteredData.emotions.length === 0 && filteredData.sensoryInputs.length === 0 && filteredData.entries.length === 0) {
+        setInsights([]);
+        return;
+      }
+      
+      try {
+        const newInsights = await getInsights(filteredData.emotions, filteredData.sensoryInputs, filteredData.entries);
+        setInsights(newInsights);
+      } catch (error) {
+        console.error('Error generating insights:', error);
+        setInsights([]);
+      }
+    };
+    generateInsights();
+  }, [filteredData.emotions.length, filteredData.sensoryInputs.length, filteredData.entries.length]);
 
   const loadGoals = () => {
     if (!studentId) return;
@@ -335,16 +355,6 @@ export const StudentProfile = () => {
     );
   }
 
-  const [insights, setInsights] = useState<any[]>([]);
-
-  // Generate insights when filtered data changes
-  useEffect(() => {
-    const generateInsights = async () => {
-      const newInsights = await getInsights(filteredData.emotions, filteredData.sensoryInputs, filteredData.entries);
-      setInsights(newInsights);
-    };
-    generateInsights();
-  }, [filteredData]);
 
   return (
     <div className="min-h-screen bg-background font-dyslexia">
