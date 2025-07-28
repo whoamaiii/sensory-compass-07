@@ -7,9 +7,13 @@ import { DataVisualization } from "@/components/DataVisualization";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import { DateRangeSelector, TimeRange } from "@/components/DateRangeSelector";
 import { PeriodComparison } from "@/components/PeriodComparison";
+import { GoalManager } from "@/components/GoalManager";
+import { ProgressDashboard } from "@/components/ProgressDashboard";
+import { ReportBuilder } from "@/components/ReportBuilder";
 import { useDataFiltering } from "@/hooks/useDataFiltering";
-import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from "@/types/student";
-import { ArrowLeft, TrendingUp, Calendar, FileText, Plus, Filter } from "lucide-react";
+import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Goal } from "@/types/student";
+import { dataStorage } from "@/lib/dataStorage";
+import { ArrowLeft, TrendingUp, Calendar, FileText, Plus, Filter, Target } from "lucide-react";
 import { toast } from "sonner";
 
 export const StudentProfile = () => {
@@ -19,7 +23,9 @@ export const StudentProfile = () => {
   const [trackingEntries, setTrackingEntries] = useState<TrackingEntry[]>([]);
   const [allEmotions, setAllEmotions] = useState<EmotionEntry[]>([]);
   const [allSensoryInputs, setAllSensoryInputs] = useState<SensoryEntry[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [showComparison, setShowComparison] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'goals' | 'progress' | 'reports'>('overview');
 
   const { selectedRange, filteredData, handleRangeChange } = useDataFiltering(
     trackingEntries,
@@ -76,7 +82,17 @@ export const StudentProfile = () => {
       setAllEmotions(emotions);
       setAllSensoryInputs(sensoryInputs);
     }
+
+    // Load goals
+    loadGoals();
   }, [studentId, navigate]);
+
+  const loadGoals = () => {
+    if (!studentId) return;
+    const allGoals = dataStorage.getGoals();
+    const studentGoals = allGoals.filter(goal => goal.studentId === studentId);
+    setGoals(studentGoals);
+  };
 
   const getInsights = (emotions: EmotionEntry[], sensoryInputs: SensoryEntry[]) => {
     if (emotions.length === 0 && sensoryInputs.length === 0) {
@@ -295,19 +311,73 @@ export const StudentProfile = () => {
           </Card>
         )}
 
-        {/* Data Visualization */}
+        {/* Navigation Tabs */}
         <div className="mb-8">
-          <DataVisualization
-            emotions={filteredData.emotions}
-            sensoryInputs={filteredData.sensoryInputs}
-            studentName={student.name}
-            showTimeFilter={true}
-            selectedRange={selectedRange.label}
-          />
+          <div className="flex space-x-1 bg-muted p-1 rounded-lg">
+            {[
+              { id: 'overview', label: 'Overview', icon: TrendingUp },
+              { id: 'goals', label: 'IEP Goals', icon: Target },
+              { id: 'progress', label: 'Progress', icon: Calendar },
+              { id: 'reports', label: 'Reports', icon: FileText }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md font-dyslexia transition-all ${
+                  activeTab === tab.id 
+                    ? 'bg-background text-foreground shadow-sm' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Recent Sessions */}
-        {filteredData.entries.length > 0 && (
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <>
+            {/* Data Visualization */}
+            <div className="mb-8">
+              <DataVisualization
+                emotions={filteredData.emotions}
+                sensoryInputs={filteredData.sensoryInputs}
+                studentName={student.name}
+                showTimeFilter={true}
+                selectedRange={selectedRange.label}
+              />
+            </div>
+          </>
+        )}
+
+        {activeTab === 'goals' && (
+          <div className="mb-8">
+            <GoalManager student={student} onGoalUpdate={loadGoals} />
+          </div>
+        )}
+
+        {activeTab === 'progress' && (
+          <div className="mb-8">
+            <ProgressDashboard student={student} goals={goals} />
+          </div>
+        )}
+
+        {activeTab === 'reports' && (
+          <div className="mb-8">
+            <ReportBuilder 
+              student={student}
+              goals={goals}
+              trackingEntries={filteredData.entries}
+              emotions={filteredData.emotions}
+              sensoryInputs={filteredData.sensoryInputs}
+            />
+          </div>
+        )}
+
+        {/* Recent Sessions - Only show on overview tab */}
+        {activeTab === 'overview' && filteredData.entries.length > 0 && (
           <Card className="bg-gradient-card border-0 shadow-soft">
             <CardHeader>
               <CardTitle>Sessions in Selected Period</CardTitle>
@@ -346,6 +416,18 @@ export const StudentProfile = () => {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Analytics Dashboard - Show on overview tab only */}
+        {activeTab === 'overview' && (
+          <div className="mb-8">
+            <AnalyticsDashboard
+              student={student}
+              trackingEntries={filteredData.entries}
+              emotions={filteredData.emotions}
+              sensoryInputs={filteredData.sensoryInputs}
+            />
+          </div>
         )}
       </div>
     </div>
