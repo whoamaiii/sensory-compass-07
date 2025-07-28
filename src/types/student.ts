@@ -57,6 +57,7 @@ export interface EnvironmentalEntry {
   id?: string;
   timestamp?: Date;
   location?: string;
+  socialContext?: string;
   roomConditions?: {
     temperature?: number;
     humidity?: number;
@@ -68,10 +69,10 @@ export interface EnvironmentalEntry {
     temperature?: number;
     pressure?: number;
   };
-  classroom: {
-    activity: 'instruction' | 'transition' | 'free-time' | 'testing' | 'group-work';
+  classroom?: {
+    activity?: 'instruction' | 'transition' | 'free-time' | 'testing' | 'group-work';
     studentCount?: number;
-    timeOfDay: 'morning' | 'afternoon' | 'evening';
+    timeOfDay?: 'morning' | 'afternoon' | 'evening';
   };
   notes?: string;
 }
