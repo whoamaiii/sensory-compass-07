@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { PaginatedSessionsList } from '@/components/PaginatedSessionsList';
 import { DataRequirementsCalculator } from '@/components/DataRequirementsCalculator';
 import { DataQualityFeedback } from '@/components/DataQualityFeedback';
@@ -10,7 +11,7 @@ import { AnalyticsStatusIndicator } from '@/components/AnalyticsStatusIndicator'
 import { DateRangeSelector, TimeRange } from '@/components/DateRangeSelector';
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from '@/types/student';
 import { useTranslation } from '@/hooks/useTranslation';
-import { Plus, Calendar, BarChart3, TrendingUp } from 'lucide-react';
+import { Plus, Calendar, BarChart3, TrendingUp, ChevronDown, Info, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface DashboardSectionProps {
@@ -36,6 +37,7 @@ export function DashboardSection({
 }: DashboardSectionProps) {
   const { tStudent, tCommon } = useTranslation();
   const navigate = useNavigate();
+  const [showAdvancedDetails, setShowAdvancedDetails] = useState(false);
 
   // Calculate stats for the selected period
   const stats = {
@@ -43,6 +45,23 @@ export function DashboardSection({
     totalEmotions: filteredData.emotions.length,
     totalSensoryInputs: filteredData.sensoryInputs.length
   };
+
+  // Calculate simple data quality score
+  const dataQualityScore = Math.min(
+    100,
+    Math.round(
+      ((stats.totalSessions * 0.4) + (stats.totalEmotions * 0.3) + (stats.totalSensoryInputs * 0.3)) / 10 * 100
+    )
+  );
+
+  const getQualityStatus = (score: number) => {
+    if (score >= 80) return { label: 'Utmerket', color: 'bg-green-500', variant: 'default' as const };
+    if (score >= 60) return { label: 'God', color: 'bg-blue-500', variant: 'secondary' as const };
+    if (score >= 40) return { label: 'Moderat', color: 'bg-yellow-500', variant: 'outline' as const };
+    return { label: 'Trenger mer data', color: 'bg-red-500', variant: 'destructive' as const };
+  };
+
+  const qualityStatus = getQualityStatus(dataQualityScore);
 
   return (
     <div className="space-y-6">
@@ -137,26 +156,65 @@ export function DashboardSection({
         </Card>
       </div>
 
-      {/* Data Quality Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <DataRequirementsCalculator
-          entries={filteredData.entries}
-          emotions={filteredData.emotions}
-          sensoryInputs={filteredData.sensoryInputs}
-        />
-        <DataQualityFeedback
-          entries={filteredData.entries}
-          emotions={filteredData.emotions}
-          sensoryInputs={filteredData.sensoryInputs}
-        />
-      </div>
+      {/* Simple Data Quality Overview */}
+      <Card className="bg-gradient-card border-0 shadow-soft">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Info className="h-5 w-5" />
+            Datakvalitet
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Samlet kvalitetsscore</p>
+              <p className="text-3xl font-bold">{dataQualityScore}%</p>
+            </div>
+            <Badge variant={qualityStatus.variant} className="ml-2">
+              {qualityStatus.label}
+            </Badge>
+          </div>
+          
+          <div className="bg-muted rounded-full h-2 mb-4">
+            <div 
+              className="bg-primary h-2 rounded-full transition-all duration-500"
+              style={{ width: `${dataQualityScore}%` }}
+            />
+          </div>
 
-      {/* Data Collection Roadmap */}
-      <DataCollectionRoadmap
-        entries={filteredData.entries}
-        emotions={filteredData.emotions}
-        sensoryInputs={filteredData.sensoryInputs}
-      />
+          <Collapsible open={showAdvancedDetails} onOpenChange={setShowAdvancedDetails}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between p-0 h-auto">
+                <span className="text-sm text-muted-foreground">
+                  {showAdvancedDetails ? 'Skjul detaljer' : 'Vis detaljert analyse'}
+                </span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedDetails ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="space-y-6 mt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <DataRequirementsCalculator
+                  entries={filteredData.entries}
+                  emotions={filteredData.emotions}
+                  sensoryInputs={filteredData.sensoryInputs}
+                />
+                <DataQualityFeedback
+                  entries={filteredData.entries}
+                  emotions={filteredData.emotions}
+                  sensoryInputs={filteredData.sensoryInputs}
+                />
+              </div>
+              
+              <DataCollectionRoadmap
+                entries={filteredData.entries}
+                emotions={filteredData.emotions}
+                sensoryInputs={filteredData.sensoryInputs}
+              />
+            </CollapsibleContent>
+          </Collapsible>
+        </CardContent>
+      </Card>
 
       {/* AI Insights */}
       {insights && insights.suggestions && insights.suggestions.length > 0 && (
