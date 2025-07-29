@@ -29,7 +29,6 @@ export interface EmotionEntry {
 export interface SensoryEntry {
   id: string;
   studentId?: string;
-  sensoryType?: string;
   type?: string;
   input?: string;
   response: string;
@@ -47,7 +46,6 @@ export interface TrackingEntry {
   emotions: EmotionEntry[];
   sensoryInputs: SensoryEntry[];
   environmentalData?: EnvironmentalEntry;
-  generalNotes?: string;
   notes?: string;
   version?: number;
 }
@@ -88,14 +86,13 @@ export interface Goal {
   updatedAt: Date;
   status: 'active' | 'achieved' | 'modified' | 'discontinued' | 'not_started' | 'in_progress' | 'on_hold';
   measurableObjective: string;
-  currentProgress: number; // 0-100 percentage
+  progress: number; // 0-100 percentage
   milestones?: Milestone[];
   interventions?: string[]; // IDs of associated interventions
   baselineValue?: number;
   targetValue?: number;
   dataPoints?: GoalDataPoint[];
   notes?: string;
-  progress: number;
 };
 
 export interface Milestone {
