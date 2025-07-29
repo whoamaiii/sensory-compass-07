@@ -5,11 +5,21 @@ import { LazyInteractiveDataVisualization } from '@/components/lazy/LazyInteract
 import { DetailedConfidenceExplanation } from '@/components/DetailedConfidenceExplanation';
 import { ConfidenceIndicator } from '@/components/ConfidenceIndicator';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from '@/types/student';
+import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Insights, Pattern, Correlation } from '@/types/student';
 import { useTranslation } from '@/hooks/useTranslation';
-import { BarChart3, TrendingUp, AlertCircle } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertCircle, Loader } from 'lucide-react';
 import { PatternDetectionEmptyState } from '@/components/PatternDetectionEmptyState';
 
+/**
+ * @interface AnalyticsSectionProps
+ * Props for the AnalyticsSection component.
+ * 
+ * @property {Student} student - The student object.
+ * @property {TrackingEntry[]} trackingEntries - All tracking entries for the student.
+ * @property {object} filteredData - Data filtered by the selected date range.
+ * @property {Insights | null} insights - The AI-generated insights for the student.
+ * @property {boolean} isLoadingInsights - Flag indicating if insights are currently being loaded.
+ */
 interface AnalyticsSectionProps {
   student: Student;
   trackingEntries: TrackingEntry[];
@@ -18,14 +28,16 @@ interface AnalyticsSectionProps {
     emotions: EmotionEntry[];
     sensoryInputs: SensoryEntry[];
   };
-  insights: any;
+  insights: Insights | null;
+  isLoadingInsights: boolean;
 }
 
 export function AnalyticsSection({ 
   student, 
   trackingEntries, 
   filteredData, 
-  insights 
+  insights,
+  isLoadingInsights,
 }: AnalyticsSectionProps) {
   const { tAnalytics, tCommon } = useTranslation();
 
@@ -107,7 +119,19 @@ export function AnalyticsSection({
       </Card>
 
       {/* Detailed Insights */}
-      {insights && (insights.patterns?.length > 0 || insights.correlations?.length > 0) ? (
+      {isLoadingInsights ? (
+        <Card className="bg-gradient-card border-0 shadow-soft">
+           <CardHeader>
+             <CardTitle className="flex items-center gap-2">
+               <Loader className="h-5 w-5 animate-spin" />
+               Laster innsikter...
+             </CardTitle>
+           </CardHeader>
+           <CardContent className="h-48 flex items-center justify-center">
+             <p className="text-muted-foreground">Analyserer data...</p>
+           </CardContent>
+         </Card>
+      ) : insights && (insights.patterns?.length > 0 || insights.correlations?.length > 0) ? (
         <Card className="bg-gradient-card border-0 shadow-soft">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -121,7 +145,7 @@ export function AnalyticsSection({
                 <div>
                   <h4 className="font-semibold mb-2">Oppdagede mønstre:</h4>
                   <div className="space-y-2">
-                    {insights.patterns.map((pattern: any, index: number) => (
+                    {insights.patterns.map((pattern: Pattern, index: number) => (
                       <div key={index} className="p-3 bg-accent/20 rounded-lg">
                         <div className="flex items-center justify-between mb-1">
                           <p className="text-sm font-medium">{pattern.pattern}</p>
@@ -150,7 +174,7 @@ export function AnalyticsSection({
                 <div>
                   <h4 className="font-semibold mb-2">Korrelasjoner:</h4>
                   <div className="space-y-2">
-                    {insights.correlations.map((correlation: any, index: number) => (
+                    {insights.correlations.map((correlation: Correlation, index: number) => (
                       <div key={index} className="p-3 bg-accent/20 rounded-lg">
                         <div className="flex items-center justify-between mb-1">
                           <p className="text-sm font-medium">{correlation.factor1} ↔ {correlation.factor2}</p>

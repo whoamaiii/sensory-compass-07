@@ -2,8 +2,15 @@ import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Goal } from "@/type
 import { patternAnalysis, PatternResult, CorrelationResult } from "@/lib/patternAnalysis";
 import { enhancedPatternAnalysis, PredictiveInsight, AnomalyDetection } from "@/lib/enhancedPatternAnalysis";
 import { alertSystem } from "@/lib/alertSystem";
-import { dataStorage } from "@/lib/dataStorage";
+import { dataStorage, IDataStorage } from "@/lib/dataStorage";
+import { generateUniversalMockDataForStudent as generateMockData } from './universalDataGenerator';
+import { ANALYTICS_CONFIG, AnalyticsConfig } from "./analyticsConfig.ts";
 
+// #region Type Definitions
+
+/**
+ * Defines the analytics profile for a student, tracking configuration and health.
+ */
 interface StudentAnalyticsProfile {
   studentId: string;
   isInitialized: boolean;
@@ -23,6 +30,9 @@ interface StudentAnalyticsProfile {
   analyticsHealthScore: number;
 }
 
+/**
+ * Represents the complete set of results from an analytics run.
+ */
 interface AnalyticsResults {
   patterns: PatternResult[];
   correlations: CorrelationResult[];
@@ -33,27 +43,164 @@ interface AnalyticsResults {
   confidence: number;
 }
 
-class AnalyticsManagerService {
-  private static instance: AnalyticsManagerService;
-  private analyticsProfiles: Map<string, StudentAnalyticsProfile> = new Map();
-  private analyticsCache: Map<string, { results: AnalyticsResults; timestamp: Date }> = new Map();
-  private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+type AnalyticsCache = Map<string, { results: AnalyticsResults; timestamp: Date }>;
+type AnalyticsProfileMap = Map<string, StudentAnalyticsProfile>;
+// #endregion
 
-  private constructor() {
-    this.loadAnalyticsProfiles();
+// #region Utility & Helper Functions (for better SRP)
+
+/**
+ * Safely parses analytics profiles from localStorage.
+ * @param storedProfiles - The stringified profiles from localStorage.
+ * @returns A map of valid student profiles.
+ */
+function loadProfilesFromStorage(storedProfiles: string | null): AnalyticsProfileMap {
+  const profiles: AnalyticsProfileMap = new Map();
+  if (!storedProfiles) return profiles;
+
+  try {
+    const data = JSON.parse(storedProfiles);
+    
+    // Runtime validation
+    const isAnalyticsProfile = (obj: unknown): obj is StudentAnalyticsProfile => {
+      const profile = obj as Partial<StudentAnalyticsProfile>;
+      return !!(profile && typeof profile.studentId === 'string' && typeof profile.isInitialized === 'boolean');
+    };
+
+    Object.entries(data).forEach(([studentId, profile]) => {
+      if (isAnalyticsProfile(profile)) {
+        profiles.set(studentId, {
+          ...profile,
+          lastAnalyzedAt: profile.lastAnalyzedAt ? new Date(profile.lastAnalyzedAt) : null,
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Error loading analytics profiles:", error);
+  }
+  return profiles;
+}
+
+/**
+ * Calculates the confidence score for a set of analytics data.
+ */
+function calculateConfidence(
+  emotions: EmotionEntry[],
+  sensoryInputs: SensoryEntry[],
+  trackingEntries: TrackingEntry[],
+  config: AnalyticsConfig['CONFIDENCE']
+): number {
+  const { THRESHOLDS, WEIGHTS } = config;
+
+  const emotionWeight = Math.min(emotions.length / THRESHOLDS.EMOTION_ENTRIES, 1) * WEIGHTS.EMOTION;
+  const sensoryWeight = Math.min(sensoryInputs.length / THRESHOLDS.SENSORY_ENTRIES, 1) * WEIGHTS.SENSORY;
+  const trackingWeight = Math.min(trackingEntries.length / THRESHOLDS.TRACKING_ENTRIES, 1) * WEIGHTS.TRACKING;
+
+  let confidence = emotionWeight + sensoryWeight + trackingWeight;
+
+  if (trackingEntries.length > 0) {
+    const lastEntry = trackingEntries[trackingEntries.length - 1];
+    const daysSinceLastEntry = (Date.now() - new Date(lastEntry.timestamp).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceLastEntry < THRESHOLDS.DAYS_SINCE_LAST_ENTRY) {
+      confidence = Math.min(confidence + WEIGHTS.RECENCY_BOOST, 1);
+    }
   }
 
-  static getInstance(): AnalyticsManagerService {
+  return Math.round(confidence * 100) / 100;
+}
+
+/**
+ * Generates human-readable insights from analytics results.
+ */
+function generateInsights(
+  results: Omit<AnalyticsResults, 'insights' | 'confidence'>,
+  emotions: readonly EmotionEntry[],
+  trackingEntries: readonly TrackingEntry[],
+  config: AnalyticsConfig['INSIGHTS']
+): string[] {
+    const insights: string[] = [];
+    const { patterns, correlations, predictiveInsights } = results;
+
+    if (trackingEntries.length === 0) {
+      return ["No tracking data available yet. Start by creating your first tracking session to begin pattern analysis."];
+    }
+
+    if (trackingEntries.length < config.MIN_SESSIONS_FOR_FULL_ANALYTICS) {
+      insights.push(`Limited data available (${trackingEntries.length} sessions). Analytics will improve as more data is collected.`);
+    }
+
+    patterns
+      .filter(p => p.confidence > config.HIGH_CONFIDENCE_PATTERN_THRESHOLD)
+      .slice(0, config.MAX_PATTERNS_TO_SHOW)
+      .forEach(pattern => insights.push(`Pattern detected: ${pattern.description} (${Math.round(pattern.confidence * 100)}% confidence)`));
+
+    correlations
+      .filter(c => c.significance === 'high')
+      .slice(0, config.MAX_CORRELATIONS_TO_SHOW)
+      .forEach(correlation => insights.push(`Strong correlation found: ${correlation.description}`));
+
+    predictiveInsights
+      .slice(0, config.MAX_PREDICTIONS_TO_SHOW)
+      .forEach(insight => insights.push(`Prediction: ${insight.description} (${Math.round(insight.confidence * 100)}% confidence)`));
+
+    // Add progress insights (positive/negative trends)
+    if (emotions.length >= config.RECENT_EMOTION_COUNT) {
+        const recentEmotions = emotions.slice(-config.RECENT_EMOTION_COUNT);
+        const positiveRate = recentEmotions.filter(e => ANALYTICS_CONFIG.POSITIVE_EMOTIONS.has(e.emotion.toLowerCase())).length / recentEmotions.length;
+
+        if (positiveRate > config.POSITIVE_EMOTION_TREND_THRESHOLD) {
+            insights.push(`Positive trend: ${Math.round(positiveRate * 100)}% of recent emotions have been positive.`);
+        } else if (positiveRate < config.NEGATIVE_EMOTION_TREND_THRESHOLD) {
+            insights.push(`Consider reviewing strategies - only ${Math.round(positiveRate * 100)}% of recent emotions have been positive.`);
+        }
+    }
+
+    if (insights.length === 0) {
+      insights.push("Analytics are active and monitoring patterns. Continue collecting data for more detailed insights.");
+    }
+
+    return insights;
+}
+
+// #endregion
+
+/**
+ * @class AnalyticsManagerService
+ * @singleton
+ * @description A singleton service that manages all analytics-related operations, including caching,
+ * profile management, and orchestrating analysis tasks.
+ */
+class AnalyticsManagerService {
+  private static instance: AnalyticsManagerService;
+  private analyticsProfiles: AnalyticsProfileMap;
+  private analyticsCache: AnalyticsCache = new Map();
+  private storage: IDataStorage;
+
+  private constructor(storage: IDataStorage, profiles: AnalyticsProfileMap) {
+    this.storage = storage;
+    this.analyticsProfiles = profiles;
+  }
+
+  /**
+   * Retrieves the singleton instance of the AnalyticsManagerService.
+   * @param {IDataStorage} [storage=dataStorage] - The data storage dependency.
+   * @param {AnalyticsProfileMap} [profiles] - Optional initial profiles to load.
+   * @returns {AnalyticsManagerService} The singleton instance.
+   */
+  static getInstance(
+    storage: IDataStorage = dataStorage,
+    profiles?: AnalyticsProfileMap
+  ): AnalyticsManagerService {
     if (!AnalyticsManagerService.instance) {
-      AnalyticsManagerService.instance = new AnalyticsManagerService();
+      const initialProfiles = profiles ?? loadProfilesFromStorage(localStorage.getItem('sensoryTracker_analyticsProfiles'));
+      AnalyticsManagerService.instance = new AnalyticsManagerService(storage, initialProfiles);
     }
     return AnalyticsManagerService.instance;
   }
 
-  // Initialize analytics for a new student
   public initializeStudentAnalytics(studentId: string): void {
     if (this.analyticsProfiles.has(studentId)) {
-      return; // Already initialized
+      return;
     }
 
     const profile: StudentAnalyticsProfile = {
@@ -68,7 +215,7 @@ class AnalyticsManagerService {
         alertSystemEnabled: true,
       },
       minimumDataRequirements: {
-        emotionEntries: 1, // Start with any data
+        emotionEntries: 1,
         sensoryEntries: 1,
         trackingEntries: 1,
       },
@@ -77,301 +224,136 @@ class AnalyticsManagerService {
 
     this.analyticsProfiles.set(studentId, profile);
     this.saveAnalyticsProfiles();
-
-    // Analytics is initialized - will show empty state until real data is collected
   }
 
-  // Generate universal mock data for a student to enable pattern detection
-  private generateUniversalMockDataForStudent(studentId: string): void {
-    try {
-      const student = dataStorage.getStudents().find(s => s.id === studentId);
-      if (!student) return;
+  public async getStudentAnalytics(student: Student): Promise<AnalyticsResults> {
+    this.initializeStudentAnalytics(student.id);
 
-      // Import and use universal data generator
-      const { generateUniversalMockDataForStudent } = require('./universalDataGenerator');
-      const trackingEntries = generateUniversalMockDataForStudent(student);
-      
-      // Save tracking entries
-      trackingEntries.forEach((entry: any) => {
-        dataStorage.saveTrackingEntry(entry);
-      });
-    } catch (error) {
-      console.error('Error generating universal mock data:', error);
-    }
-  }
-
-  // Get analytics results for a student
-  public async getStudentAnalytics(studentId: string): Promise<AnalyticsResults> {
-    // Ensure student is initialized
-    this.initializeStudentAnalytics(studentId);
-
-    // Check cache first
-    const cached = this.analyticsCache.get(studentId);
-    if (cached && (Date.now() - cached.timestamp.getTime()) < this.CACHE_TTL) {
+    const cached = this.analyticsCache.get(student.id);
+    if (cached && (Date.now() - cached.timestamp.getTime()) < ANALYTICS_CONFIG.CACHE_TTL) {
       return cached.results;
     }
 
-    // Generate fresh analytics
-    const results = await this.generateAnalytics(studentId);
-    this.analyticsCache.set(studentId, {
-      results,
-      timestamp: new Date()
-    });
+    const results = await this.generateAnalytics(student);
+    this.analyticsCache.set(student.id, { results, timestamp: new Date() });
 
-    // Update profile
-    const profile = this.analyticsProfiles.get(studentId);
+    const profile = this.analyticsProfiles.get(student.id);
     if (profile) {
       profile.lastAnalyzedAt = new Date();
       profile.analyticsHealthScore = this.calculateHealthScore(results);
-      this.analyticsProfiles.set(studentId, profile);
+      this.analyticsProfiles.set(student.id, profile);
       this.saveAnalyticsProfiles();
     }
 
     return results;
   }
 
-  // Generate comprehensive analytics for a student
-  private async generateAnalytics(studentId: string): Promise<AnalyticsResults> {
-    const student = dataStorage.getStudents().find(s => s.id === studentId);
-    if (!student) {
-      throw new Error(`Student not found: ${studentId}`);
-    }
+  private async generateAnalytics(student: Student): Promise<AnalyticsResults> {
+    const trackingEntries = this.storage.getTrackingEntriesForStudent(student.id);
+    const goals = this.storage.getGoalsForStudent(student.id);
 
-    // Load student data
-    const allTrackingEntries = dataStorage.getTrackingEntries();
-    const trackingEntries = allTrackingEntries.filter(entry => entry.studentId === studentId);
-    
-    const emotions: EmotionEntry[] = [];
-    const sensoryInputs: SensoryEntry[] = [];
+    const emotions: EmotionEntry[] = trackingEntries.flatMap(entry => entry.emotions);
+    const sensoryInputs: SensoryEntry[] = trackingEntries.flatMap(entry => entry.sensoryInputs);
 
-    // Extract emotions and sensory inputs from tracking entries
-    trackingEntries.forEach(entry => {
-      emotions.push(...entry.emotions);
-      sensoryInputs.push(...entry.sensoryInputs);
-    });
+    const hasMinimumData = emotions.length > 0 || sensoryInputs.length > 0 || trackingEntries.length > 0;
 
-    const goals = dataStorage.getGoals().filter(goal => goal.studentId === studentId);
-
-    // Check if we have minimum data
-    const hasMinimumData = emotions.length >= 1 || sensoryInputs.length >= 1 || trackingEntries.length >= 1;
-
-    let patterns: PatternResult[] = [];
+    const patterns: PatternResult[] = [];
     let correlations: CorrelationResult[] = [];
     let predictiveInsights: PredictiveInsight[] = [];
     let anomalies: AnomalyDetection[] = [];
 
     if (hasMinimumData) {
-      try {
-        // Pattern analysis
-        if (emotions.length > 0) {
-          patterns.push(...patternAnalysis.analyzeEmotionPatterns(emotions, 30));
+        try {
+            const { ANALYTICS } = ANALYTICS_CONFIG;
+            if (emotions.length > 0) {
+                patterns.push(...patternAnalysis.analyzeEmotionPatterns(emotions, ANALYTICS.ANALYSIS_PERIOD_DAYS));
+            }
+            if (sensoryInputs.length > 0) {
+                patterns.push(...patternAnalysis.analyzeSensoryPatterns(sensoryInputs, ANALYTICS.ANALYSIS_PERIOD_DAYS));
+            }
+            if (trackingEntries.length >= ANALYTICS.MIN_TRACKING_FOR_CORRELATION) {
+                correlations = patternAnalysis.analyzeEnvironmentalCorrelations(trackingEntries);
+            }
+            if (trackingEntries.length >= ANALYTICS.MIN_TRACKING_FOR_ENHANCED) {
+                predictiveInsights = enhancedPatternAnalysis.generatePredictiveInsights(emotions, sensoryInputs, trackingEntries, goals);
+                anomalies = enhancedPatternAnalysis.detectAnomalies(emotions, sensoryInputs, trackingEntries);
+            }
+            if (trackingEntries.length > 0) {
+                await alertSystem.generateAlertsForStudent(student, emotions, sensoryInputs, trackingEntries);
+            }
+        } catch (error) {
+            console.error(`Error generating analytics for student ${student.id}:`, error);
+            // Re-throw a specific error to let the caller handle it
+            throw new Error(`Analytics generation failed for student ${student.id}`);
         }
-        if (sensoryInputs.length > 0) {
-          patterns.push(...patternAnalysis.analyzeSensoryPatterns(sensoryInputs, 30));
-        }
-
-        // Correlation analysis
-        if (trackingEntries.length > 2) {
-          correlations = patternAnalysis.analyzeEnvironmentalCorrelations(trackingEntries);
-        }
-
-        // Enhanced analytics
-        if (trackingEntries.length > 1) {
-          predictiveInsights = enhancedPatternAnalysis.generatePredictiveInsights(
-            emotions,
-            sensoryInputs,
-            trackingEntries,
-            goals
-          );
-
-          anomalies = enhancedPatternAnalysis.detectAnomalies(
-            emotions,
-            sensoryInputs,
-            trackingEntries
-          );
-        }
-
-        // Generate alerts
-        if (trackingEntries.length > 0) {
-          await alertSystem.generateAlertsForStudent(
-            student,
-            emotions,
-            sensoryInputs,
-            trackingEntries
-          );
-        }
-      } catch (error) {
-        console.error('Error generating analytics:', error);
-      }
     }
-
-    // Generate insights
-    const insights = this.generateInsights(
-      patterns,
-      correlations,
-      predictiveInsights,
-      emotions,
-      sensoryInputs,
-      trackingEntries
-    );
-
-    // Calculate confidence based on data quality and quantity
-    const confidence = this.calculateConfidence(emotions, sensoryInputs, trackingEntries);
+    
+    const resultsWithoutInsights = { patterns, correlations, predictiveInsights, anomalies, hasMinimumData };
 
     return {
-      patterns,
-      correlations,
-      predictiveInsights,
-      anomalies,
-      insights,
-      hasMinimumData,
-      confidence,
+      ...resultsWithoutInsights,
+      insights: generateInsights(resultsWithoutInsights, emotions, trackingEntries, ANALYTICS_CONFIG.INSIGHTS),
+      confidence: calculateConfidence(emotions, sensoryInputs, trackingEntries, ANALYTICS_CONFIG.CONFIDENCE),
     };
   }
 
-  // Generate contextual insights
-  private generateInsights(
-    patterns: PatternResult[],
-    correlations: CorrelationResult[],
-    predictiveInsights: PredictiveInsight[],
-    emotions: EmotionEntry[],
-    sensoryInputs: SensoryEntry[],
-    trackingEntries: TrackingEntry[]
-  ): string[] {
-    const insights: string[] = [];
-
-    // Data availability insights
-    if (trackingEntries.length === 0) {
-      insights.push("No tracking data available yet. Start by creating your first tracking session to begin pattern analysis.");
-      return insights;
-    }
-
-    if (trackingEntries.length < 5) {
-      insights.push(`Limited data available (${trackingEntries.length} sessions). Analytics will improve as more data is collected.`);
-    }
-
-    // Pattern insights
-    const highConfidencePatterns = patterns.filter(p => p.confidence > 0.6);
-    if (highConfidencePatterns.length > 0) {
-      highConfidencePatterns.slice(0, 2).forEach(pattern => {
-        insights.push(`Pattern detected: ${pattern.description} (${Math.round(pattern.confidence * 100)}% confidence)`);
-      });
-    }
-
-    // Correlation insights
-    const strongCorrelations = correlations.filter(c => c.significance === 'high');
-    if (strongCorrelations.length > 0) {
-      strongCorrelations.slice(0, 2).forEach(correlation => {
-        insights.push(`Strong correlation found: ${correlation.description}`);
-      });
-    }
-
-    // Predictive insights
-    if (predictiveInsights.length > 0) {
-      predictiveInsights.slice(0, 2).forEach(insight => {
-        insights.push(`Prediction: ${insight.description} (${Math.round(insight.confidence * 100)}% confidence)`);
-      });
-    }
-
-    // Progress insights
-    if (emotions.length > 5) {
-      const recentEmotions = emotions.slice(-7); // Last 7 emotions
-      const positiveEmotions = recentEmotions.filter(e => 
-        ['happy', 'calm', 'focused', 'proud', 'content'].includes(e.emotion.toLowerCase())
-      );
-      const positiveRate = positiveEmotions.length / recentEmotions.length;
-      
-      if (positiveRate > 0.6) {
-        insights.push(`Positive trend: ${Math.round(positiveRate * 100)}% of recent emotions have been positive.`);
-      } else if (positiveRate < 0.3) {
-        insights.push(`Consider reviewing strategies - ${Math.round(positiveRate * 100)}% of recent emotions have been positive.`);
-      }
-    }
-
-    if (insights.length === 0) {
-      insights.push("Analytics are active and monitoring patterns. Continue collecting data for more detailed insights.");
-    }
-
-    return insights;
-  }
-
-  // Calculate analytics confidence based on data quality
-  private calculateConfidence(
-    emotions: EmotionEntry[],
-    sensoryInputs: SensoryEntry[],
-    trackingEntries: TrackingEntry[]
-  ): number {
-    let confidence = 0;
-
-    // Base confidence on data quantity
-    const emotionWeight = Math.min(emotions.length / 10, 1) * 0.3;
-    const sensoryWeight = Math.min(sensoryInputs.length / 10, 1) * 0.3;
-    const trackingWeight = Math.min(trackingEntries.length / 5, 1) * 0.4;
-
-    confidence = emotionWeight + sensoryWeight + trackingWeight;
-
-    // Boost confidence if we have recent data
-    if (trackingEntries.length > 0) {
-      const lastEntry = trackingEntries[trackingEntries.length - 1];
-      const daysSinceLastEntry = (Date.now() - lastEntry.timestamp.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSinceLastEntry < 7) {
-        confidence = Math.min(confidence + 0.1, 1);
-      }
-    }
-
-    return Math.round(confidence * 100) / 100;
-  }
-
-  // Calculate analytics health score
+  /**
+   * Calculates an "analytics health score" based on the completeness and confidence of the results.
+   * @private
+   * @param {AnalyticsResults} results - The results from an analytics run.
+   * @returns {number} A score from 0 to 100.
+   */
   private calculateHealthScore(results: AnalyticsResults): number {
+    const { WEIGHTS } = ANALYTICS_CONFIG.HEALTH_SCORE;
     let score = 0;
 
-    // Base score on availability of different analytics
-    if (results.patterns.length > 0) score += 20;
-    if (results.correlations.length > 0) score += 20;
-    if (results.predictiveInsights.length > 0) score += 20;
-    if (results.anomalies.length > 0) score += 20;
-    if (results.hasMinimumData) score += 20;
+    if (results.patterns.length > 0) score += WEIGHTS.PATTERNS;
+    if (results.correlations.length > 0) score += WEIGHTS.CORRELATIONS;
+    if (results.predictiveInsights.length > 0) score += WEIGHTS.PREDICTIONS;
+    if (results.anomalies.length > 0) score += WEIGHTS.ANOMALIES;
+    if (results.hasMinimumData) score += WEIGHTS.MINIMUM_DATA;
 
-    // Adjust based on confidence
-    score = score * results.confidence;
-
-    return Math.round(score);
+    return Math.round(score * results.confidence);
   }
 
-  // Trigger analytics update for a student
-  public async triggerAnalyticsForStudent(studentId: string): Promise<void> {
-    try {
-      // Clear cache to force fresh analysis
-      this.analyticsCache.delete(studentId);
-      
-      // Generate new analytics
-      await this.getStudentAnalytics(studentId);
-    } catch (error) {
-      console.error(`Error triggering analytics for student ${studentId}:`, error);
-    }
+  /**
+   * Forces a re-calculation of analytics for a specific student by clearing their cache
+   * and re-running the analysis.
+   * @param {Student} student - The student to re-analyze.
+   */
+  public async triggerAnalyticsForStudent(student: Student): Promise<void> {
+    this.analyticsCache.delete(student.id);
+    await this.getStudentAnalytics(student);
   }
 
-  // Trigger analytics for all students
+  /**
+   * Triggers an analytics refresh for all students in the system.
+   * Uses Promise.allSettled to ensure that one failed analysis does not stop others.
+   */
   public async triggerAnalyticsForAllStudents(): Promise<void> {
-    const students = dataStorage.getStudents();
+    const students = this.storage.getStudents();
     
-    for (const student of students) {
+    const analyticsPromises = students.map(student => {
       this.initializeStudentAnalytics(student.id);
-      await this.triggerAnalyticsForStudent(student.id);
-    }
+      return this.triggerAnalyticsForStudent(student);
+    });
+
+    const settledResults = await Promise.allSettled(analyticsPromises);
+
+    settledResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error(`Failed to process analytics for student ${students[index].id}:`, result.reason);
+      }
+    });
   }
 
-  // Get analytics status for all students
-  public getAnalyticsStatus(): Array<{
-    studentId: string;
-    studentName: string;
-    isInitialized: boolean;
-    lastAnalyzed: Date | null;
-    healthScore: number;
-    hasMinimumData: boolean;
-  }> {
-    const students = dataStorage.getStudents();
+  /**
+   * Gets the current analytics status for all students, including health scores and last analysis time.
+   * This is useful for displaying a high-level dashboard of the system's state.
+   * @returns {Array<object>} An array of status objects for each student.
+   */
+  public getAnalyticsStatus() {
+    const students = this.storage.getStudents();
     return students.map(student => {
       const profile = this.analyticsProfiles.get(student.id);
       const cached = this.analyticsCache.get(student.id);
@@ -379,15 +361,19 @@ class AnalyticsManagerService {
       return {
         studentId: student.id,
         studentName: student.name,
-        isInitialized: profile?.isInitialized || false,
-        lastAnalyzed: profile?.lastAnalyzedAt || null,
-        healthScore: profile?.analyticsHealthScore || 0,
-        hasMinimumData: cached?.results.hasMinimumData || false,
+        isInitialized: profile?.isInitialized ?? false,
+        lastAnalyzed: profile?.lastAnalyzedAt ?? null,
+        healthScore: profile?.analyticsHealthScore ?? 0,
+        hasMinimumData: cached?.results.hasMinimumData ?? false,
       };
     });
   }
 
-  // Clear analytics cache
+  /**
+   * Clears the analytics cache.
+   * @param {string} [studentId] - If provided, clears the cache for only that student.
+   * Otherwise, clears the entire analytics cache.
+   */
   public clearCache(studentId?: string): void {
     if (studentId) {
       this.analyticsCache.delete(studentId);
@@ -396,38 +382,13 @@ class AnalyticsManagerService {
     }
   }
 
-  // Load analytics profiles from localStorage
-  private loadAnalyticsProfiles(): void {
-    try {
-      const stored = localStorage.getItem('sensoryTracker_analyticsProfiles');
-      if (stored) {
-        const data = JSON.parse(stored);
-        Object.entries(data).forEach(([studentId, profile]) => {
-          // Convert date strings back to Date objects
-          const profileData = profile as any;
-          const convertedProfile: StudentAnalyticsProfile = {
-            studentId: profileData.studentId,
-            isInitialized: profileData.isInitialized,
-            lastAnalyzedAt: profileData.lastAnalyzedAt ? new Date(profileData.lastAnalyzedAt) : null,
-            analyticsConfig: profileData.analyticsConfig,
-            minimumDataRequirements: profileData.minimumDataRequirements,
-            analyticsHealthScore: profileData.analyticsHealthScore || 0,
-          };
-          this.analyticsProfiles.set(studentId, convertedProfile);
-        });
-      }
-    } catch (error) {
-      console.error('Error loading analytics profiles:', error);
-    }
-  }
-
-  // Save analytics profiles to localStorage
+  /**
+   * Saves the current map of analytics profiles to localStorage.
+   * @private
+   */
   private saveAnalyticsProfiles(): void {
     try {
-      const data: Record<string, StudentAnalyticsProfile> = {};
-      this.analyticsProfiles.forEach((profile, studentId) => {
-        data[studentId] = profile;
-      });
+      const data = Object.fromEntries(this.analyticsProfiles);
       localStorage.setItem('sensoryTracker_analyticsProfiles', JSON.stringify(data));
     } catch (error) {
       console.error('Error saving analytics profiles:', error);
@@ -435,5 +396,4 @@ class AnalyticsManagerService {
   }
 }
 
-// Export singleton instance
 export const analyticsManager = AnalyticsManagerService.getInstance();

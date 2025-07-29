@@ -85,16 +85,18 @@ export interface Goal {
   category: 'behavioral' | 'academic' | 'social' | 'sensory' | 'communication';
   targetDate: Date;
   createdDate: Date;
-  status: 'active' | 'achieved' | 'modified' | 'discontinued';
+  updatedAt: Date;
+  status: 'active' | 'achieved' | 'modified' | 'discontinued' | 'not_started' | 'in_progress' | 'on_hold';
   measurableObjective: string;
   currentProgress: number; // 0-100 percentage
-  milestones: Milestone[];
-  interventions: string[]; // IDs of associated interventions
+  milestones?: Milestone[];
+  interventions?: string[]; // IDs of associated interventions
   baselineValue?: number;
   targetValue?: number;
-  dataPoints: GoalDataPoint[];
+  dataPoints?: GoalDataPoint[];
   notes?: string;
-}
+  progress: number;
+};
 
 export interface Milestone {
   id: string;
@@ -217,7 +219,7 @@ export interface DataVersion {
   version: number;
   timestamp: Date;
   changes: string[];
-  backupData?: any;
+  backupData?: Record<string, unknown>;
 }
 
 export interface StorageIndex {
@@ -228,3 +230,65 @@ export interface StorageIndex {
   alerts: Record<string, Date>; // alertId -> timestamp
   lastUpdated: Date;
 }
+
+export type SearchResults = {
+  students: Student[];
+  entries: TrackingEntry[];
+  emotions: EmotionEntry[];
+  sensoryInputs: SensoryEntry[];
+  goals: Goal[];
+};
+
+export type Anomaly = {
+  timestamp: Date;
+  description: string;
+  severity: 'low' | 'medium' | 'high';
+};
+
+/**
+ * @typedef {object} Pattern
+ * Represents a detected pattern in the student's data.
+ * @property {string} pattern - A title for the pattern.
+ * @property {number} confidence - The confidence level of the detected pattern (0-1).
+ * @property {string} description - A detailed explanation of the pattern.
+ * @property {string[]} [recommendations] - Optional recommendations based on the pattern.
+ */
+export type Pattern = {
+  pattern: string;
+  confidence: number;
+  description: string;
+  recommendations?: string[];
+  type: 'emotion' | 'sensory' | 'environmental' | 'correlation';
+  dataPoints: number;
+}
+
+/**
+ * @typedef {object} Correlation
+ * Represents a statistical correlation found between two factors.
+ * @property {string} factor1 - The first factor in the correlation.
+ * @property {string} factor2 - The second factor in the correlation.
+ * @property {number} correlation - The correlation coefficient (-1 to 1).
+ * @property {string} description - A description of the correlation.
+ */
+export type Correlation = {
+  factor1: string;
+  factor2: string;
+  correlation: number;
+  description: string;
+  significance: 'low' | 'medium' | 'high' | 'moderate';
+  recommendations?: string[];
+}
+
+/**
+ * @typedef {object} Insights
+ * A comprehensive object containing all AI-generated analysis for a student.
+ * This includes detected patterns, statistical correlations, and actionable suggestions.
+ */
+export type Insights = {
+  correlationMatrix?: Correlation[];
+  anomalies?: Anomaly[];
+  keyPatterns?: string[];
+  patterns?: Pattern[];
+  correlations?: Correlation[];
+  suggestions?: string[];
+};

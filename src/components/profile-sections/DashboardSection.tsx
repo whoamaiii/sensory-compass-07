@@ -9,11 +9,23 @@ import { DataQualityFeedback } from '@/components/DataQualityFeedback';
 import { DataCollectionRoadmap } from '@/components/DataCollectionRoadmap';
 import { AnalyticsStatusIndicator } from '@/components/AnalyticsStatusIndicator';
 import { DateRangeSelector, TimeRange } from '@/components/DateRangeSelector';
-import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from '@/types/student';
+import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Insights } from '@/types/student';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Plus, Calendar, BarChart3, TrendingUp, ChevronDown, Info, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+/**
+ * @interface DashboardSectionProps
+ * Props for the DashboardSection component.
+ * 
+ * @property {Student} student - The student object.
+ * @property {TrackingEntry[]} trackingEntries - All tracking entries for the student.
+ * @property {object} filteredData - Data filtered by the selected date range.
+ * @property {TimeRange} selectedRange - The currently selected time range for filtering.
+ * @property {(range: TimeRange) => void} onRangeChange - Callback to handle changes to the date range.
+ * @property {Insights | null} insights - The AI-generated insights for the student.
+ * @property {boolean} isLoadingInsights - Flag indicating if insights are currently being loaded.
+ */
 interface DashboardSectionProps {
   student: Student;
   trackingEntries: TrackingEntry[];
@@ -24,7 +36,8 @@ interface DashboardSectionProps {
   };
   selectedRange: TimeRange;
   onRangeChange: (range: TimeRange) => void;
-  insights: any;
+  insights: Insights | null;
+  isLoadingInsights: boolean;
 }
 
 export function DashboardSection({ 
@@ -33,7 +46,8 @@ export function DashboardSection({
   filteredData, 
   selectedRange, 
   onRangeChange,
-  insights 
+  insights,
+  isLoadingInsights, 
 }: DashboardSectionProps) {
   const { tStudent, tCommon } = useTranslation();
   const navigate = useNavigate();
@@ -217,7 +231,22 @@ export function DashboardSection({
       </Card>
 
       {/* AI Insights */}
-      {insights && insights.suggestions && insights.suggestions.length > 0 && (
+      {isLoadingInsights ? (
+        <Card className="bg-gradient-card border-0 shadow-soft">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 animate-pulse" />
+              AI-genererte innsikter
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="p-3 bg-accent/20 rounded-lg animate-pulse h-12 w-full" />
+              <div className="p-3 bg-accent/20 rounded-lg animate-pulse h-12 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      ) : insights && insights.suggestions && insights.suggestions.length > 0 && (
         <Card className="bg-gradient-card border-0 shadow-soft">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

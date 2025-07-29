@@ -10,6 +10,13 @@ export interface AlertSettings {
   alertFrequencyDays: number;
 }
 
+/**
+ * Represents a single entry in the alert history.
+ *
+ * This interface defines the structure of an alert history entry,
+ * including its trigger alert, viewing status, resolution status,
+ * and associated metadata.
+ */
 export interface AlertHistoryEntry {
   alert: TriggerAlert;
   viewed: boolean;
@@ -19,6 +26,22 @@ export interface AlertHistoryEntry {
   resolvedNotes?: string;
 }
 
+/**
+ * Represents the structure of a raw alert history entry from local storage.
+ */
+type StoredAlertHistoryEntry = Omit<AlertHistoryEntry, 'alert' | 'resolvedAt'> & {
+  alert: Omit<TriggerAlert, 'timestamp'> & { timestamp: string };
+  resolvedAt?: string;
+};
+
+/**
+ * Manages the alert system, including generation, storage, and settings.
+ *
+ * This class provides a centralized system for handling alerts related to student
+ * behavior patterns. It generates alerts based on tracking data, stores them in
+ * local storage, and allows for filtering and management based on user-defined
+ * settings.
+ */
 class AlertSystemManager {
   private readonly STORAGE_KEY = 'sensoryTracker_alerts';
   private readonly SETTINGS_KEY = 'sensoryTracker_alertSettings';
@@ -31,6 +54,20 @@ class AlertSystemManager {
     alertFrequencyDays: 1
   };
 
+  /**
+   * Generates alerts for a specific student based on their tracking data.
+   *
+   * This method analyzes the student's emotional, sensory, and tracking entries
+   * to identify patterns and high-intensity events that may require attention.
+   * It respects the configured alert frequency and settings to avoid overwhelming
+   * the user with notifications.
+   *
+   * @param student - The student for whom to generate alerts.
+   * @param emotions - An array of the student's emotion entries.
+   * @param sensoryInputs - An array of the student's sensory input entries.
+   * @param trackingEntries - An array of the student's general tracking entries.
+   * @returns An array of generated trigger alerts.
+   */
   generateAlertsForStudent(
     student: Student,
     emotions: EmotionEntry[],
@@ -82,6 +119,11 @@ class AlertSystemManager {
     return filteredAlerts;
   }
 
+  /**
+   * Saves new alerts to the alert history.
+   *
+   * @param alerts - An array of trigger alerts to be saved.
+   */
   saveAlerts(alerts: TriggerAlert[]): void {
     const existingHistory = this.getAllAlerts();
     
@@ -95,14 +137,19 @@ class AlertSystemManager {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedHistory));
   }
 
+  /**
+   * Retrieves all alerts from the alert history.
+   *
+   * @returns An array of all alert history entries.
+   */
   getAllAlerts(): AlertHistoryEntry[] {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (!stored) return [];
       
-      const alerts = JSON.parse(stored);
+      const alerts = JSON.parse(stored) as StoredAlertHistoryEntry[];
       // Convert timestamp strings back to Date objects
-      return alerts.map((entry: any) => ({
+      return alerts.map((entry) => ({
         ...entry,
         alert: {
           ...entry.alert,
@@ -116,18 +163,39 @@ class AlertSystemManager {
     }
   }
 
+  /**
+   * Retrieves all alerts for a specific student.
+   *
+   * @param studentId - The ID of the student.
+   * @returns An array of alert history entries for the specified student.
+   */
   getStudentAlerts(studentId: string): AlertHistoryEntry[] {
     return this.getAllAlerts().filter(entry => entry.alert.studentId === studentId);
   }
 
+  /**
+   * Retrieves all unviewed alerts.
+   *
+   * @returns An array of unviewed alert history entries.
+   */
   getUnviewedAlerts(): AlertHistoryEntry[] {
     return this.getAllAlerts().filter(entry => !entry.viewed);
   }
 
+  /**
+   * Retrieves all unresolved alerts.
+   *
+   * @returns An array of unresolved alert history entries.
+   */
   getUnresolvedAlerts(): AlertHistoryEntry[] {
     return this.getAllAlerts().filter(entry => !entry.resolved);
   }
 
+  /**
+   * Marks a specific alert as viewed.
+   *
+   * @param alertId - The ID of the alert to mark as viewed.
+   */
   markAlertAsViewed(alertId: string): void {
     const alerts = this.getAllAlerts();
     const updatedAlerts = alerts.map(entry => 
@@ -138,6 +206,13 @@ class AlertSystemManager {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedAlerts));
   }
 
+  /**
+   * Resolves a specific alert with notes and the resolver's identity.
+   *
+   * @param alertId - The ID of the alert to resolve.
+   * @param resolvedBy - The identifier of the user who resolved the alert.
+   * @param notes - Optional notes explaining the resolution.
+   */
   resolveAlert(alertId: string, resolvedBy: string, notes?: string): void {
     const alerts = this.getAllAlerts();
     const updatedAlerts = alerts.map(entry => 
@@ -154,12 +229,22 @@ class AlertSystemManager {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedAlerts));
   }
 
+  /**
+   * Deletes a specific alert from the history.
+   *
+   * @param alertId - The ID of the alert to delete.
+   */
   deleteAlert(alertId: string): void {
     const alerts = this.getAllAlerts();
     const filteredAlerts = alerts.filter(entry => entry.alert.id !== alertId);
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filteredAlerts));
   }
 
+  /**
+   * Retrieves the current alert settings.
+   *
+   * @returns The current alert settings, merged with defaults.
+   */
   getSettings(): AlertSettings {
     try {
       const stored = localStorage.getItem(this.SETTINGS_KEY);
@@ -172,12 +257,25 @@ class AlertSystemManager {
     }
   }
 
+  /**
+   * Updates the alert settings with new values.
+   *
+   * @param newSettings - A partial object of the settings to update.
+   */
   updateSettings(newSettings: Partial<AlertSettings>): void {
     const currentSettings = this.getSettings();
     const updatedSettings = { ...currentSettings, ...newSettings };
     localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(updatedSettings));
   }
 
+  /**
+   * Provides a summary of the current alert status.
+   *
+   * This method returns a summary of the alerts, including total counts,
+   * unviewed and unresolved counts, and breakdowns by severity and type.
+   *
+   * @returns An object containing the alert summary.
+   */
   getAlertSummary(): {
     total: number;
     unviewed: number;
@@ -208,6 +306,11 @@ class AlertSystemManager {
     };
   }
 
+  /**
+   * Cleans up old, resolved alerts from the history.
+   *
+   * @param daysToKeep - The number of days to keep resolved alerts. Defaults to 90.
+   */
   cleanupOldAlerts(daysToKeep: number = 90): void {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
@@ -220,6 +323,12 @@ class AlertSystemManager {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filteredAlerts));
   }
 
+  /**
+   * Exports alerts to a JSON string.
+   *
+   * @param studentId - Optional student ID to export alerts for a specific student.
+   * @returns A JSON string representing the exported alerts.
+   */
   exportAlerts(studentId?: string): string {
     const alerts = studentId 
       ? this.getStudentAlerts(studentId)

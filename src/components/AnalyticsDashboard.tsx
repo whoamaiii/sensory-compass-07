@@ -1,176 +1,68 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertManager } from "@/components/AlertManager";
 import { DataVisualization } from "@/components/DataVisualization";
-import { DateRangeSelector, TimeRange } from "@/components/DateRangeSelector";
 import { 
   TrendingUp, 
-  TrendingDown, 
-  AlertTriangle, 
-  CheckCircle, 
   Brain,
   Eye,
   Clock,
   BarChart3
 } from "lucide-react";
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from "@/types/student";
-import { patternAnalysis, PatternResult, CorrelationResult } from "@/lib/patternAnalysis";
-import { alertSystem } from "@/lib/alertSystem";
-import { useDataFiltering } from "@/hooks/useDataFiltering";
-import { startOfDay, endOfDay, subDays } from "date-fns";
+import { PatternResult, CorrelationResult } from "@/lib/patternAnalysis";
+import { useAnalyticsWorker } from "@/hooks/useAnalyticsWorker";
 import { analyticsManager } from "@/lib/analyticsManager";
 import { useTranslation } from "@/hooks/useTranslation";
 
+/**
+ * @interface AnalyticsDashboardProps
+ * Props for the AnalyticsDashboard component.
+ * @property {Student} student - The student object for context.
+ * @property {object} filteredData - The pre-filtered data to be analyzed.
+ */
 interface AnalyticsDashboardProps {
   student: Student;
-  trackingEntries: TrackingEntry[];
-  emotions: EmotionEntry[];
-  sensoryInputs: SensoryEntry[];
+  filteredData: {
+    entries: TrackingEntry[];
+    emotions: EmotionEntry[];
+    sensoryInputs: SensoryEntry[];
+  };
 }
 
+/**
+ * @component AnalyticsDashboard
+ * 
+ * A dashboard component responsible for displaying the results of a student's data analysis.
+ * 
+ * This component has been refactored to be primarily presentational. It offloads all
+ * heavy computation to a web worker via the `useAnalyticsWorker` hook. This ensures
+ * the UI remains responsive, even when analyzing large datasets.
+ * 
+ * It no longer handles its own data filtering; instead, it receives `filteredData`
+ * as a prop from a parent component, ensuring a single source of truth.
+ */
 export const AnalyticsDashboard = ({ 
   student, 
-  trackingEntries, 
-  emotions, 
-  sensoryInputs 
+  filteredData
 }: AnalyticsDashboardProps) => {
   const { tStudent } = useTranslation();
-  const [patterns, setPatterns] = useState<PatternResult[]>([]);
-  const [correlations, setCorrelations] = useState<CorrelationResult[]>([]);
-  const [insights, setInsights] = useState<string[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { results, isAnalyzing, error, runAnalysis } = useAnalyticsWorker();
 
-  const { selectedRange, filteredData, handleRangeChange } = useDataFiltering(
-    trackingEntries,
-    emotions,
-    sensoryInputs
-  );
-
+  // Effect to trigger the analysis in the worker whenever the filtered data changes.
   useEffect(() => {
-    analyzePatterns();
-    // Ensure analytics are initialized for this student
+    runAnalysis(filteredData);
+    // This call remains to ensure student-specific analytics settings are initialized.
     analyticsManager.initializeStudentAnalytics(student.id);
-  }, [filteredData, student.id]);
+  }, [student.id, filteredData, runAnalysis]);
 
-  const analyzePatterns = async () => {
-    setIsAnalyzing(true);
-    
-    try {
-      // Analyze emotion patterns
-      const emotionPatterns = patternAnalysis.analyzeEmotionPatterns(
-        filteredData.emotions,
-        30
-      );
-
-      // Analyze sensory patterns
-      const sensoryPatterns = patternAnalysis.analyzeSensoryPatterns(
-        filteredData.sensoryInputs,
-        30
-      );
-
-      // Analyze environmental correlations
-      const environmentalCorrelations = patternAnalysis.analyzeEnvironmentalCorrelations(
-        filteredData.entries
-      );
-
-      // Generate insights
-      const generatedInsights = generateInsights(
-        emotionPatterns,
-        sensoryPatterns,
-        environmentalCorrelations,
-        filteredData
-      );
-
-      setPatterns([...emotionPatterns, ...sensoryPatterns]);
-      setCorrelations(environmentalCorrelations);
-      setInsights(generatedInsights);
-
-      // Generate alerts for the student
-      alertSystem.generateAlertsForStudent(
-        student,
-        filteredData.emotions,
-        filteredData.sensoryInputs,
-        filteredData.entries
-      );
-
-    } catch (error) {
-      console.error('Error analyzing patterns:', error);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const generateInsights = (
-    emotionPatterns: PatternResult[],
-    sensoryPatterns: PatternResult[],
-    correlations: CorrelationResult[],
-    data: any
-  ): string[] => {
-    const insights: string[] = [];
-
-    // Data availability insight
-    if (data.entries.length < 5) {
-      insights.push(
-        `Limited data available (${data.entries.length} sessions). Consider collecting more tracking sessions for better pattern analysis.`
-      );
-    }
-
-    // Emotion insights
-    const highConfidenceEmotionPatterns = emotionPatterns.filter(p => p.confidence > 0.7);
-    if (highConfidenceEmotionPatterns.length > 0) {
-      const pattern = highConfidenceEmotionPatterns[0];
-      insights.push(
-        `Strong ${pattern.pattern.replace('-', ' ')} pattern detected with ${Math.round(pattern.confidence * 100)}% confidence.`
-      );
-    }
-
-    // Sensory insights
-    const highConfidenceSensoryPatterns = sensoryPatterns.filter(p => p.confidence > 0.6);
-    if (highConfidenceSensoryPatterns.length > 0) {
-      const pattern = highConfidenceSensoryPatterns[0];
-      insights.push(
-        `${pattern.description} - consider implementing the recommended strategies.`
-      );
-    }
-
-    // Correlation insights
-    const strongCorrelations = correlations.filter(c => c.significance === 'high');
-    if (strongCorrelations.length > 0) {
-      strongCorrelations.forEach(correlation => {
-        insights.push(
-          `Strong correlation found: ${correlation.description}`
-        );
-      });
-    }
-
-    // Progress insights
-    const recentEmotions = data.emotions.filter((e: EmotionEntry) => 
-      e.timestamp >= subDays(new Date(), 7)
-    );
-    const positiveEmotions = recentEmotions.filter((e: EmotionEntry) => 
-      ['happy', 'calm', 'focused', 'proud', 'content'].includes(e.emotion.toLowerCase())
-    );
-
-    if (recentEmotions.length > 0) {
-      const positiveRate = positiveEmotions.length / recentEmotions.length;
-      if (positiveRate > 0.6) {
-        insights.push(
-          `Positive trend: ${Math.round(positiveRate * 100)}% of recent emotions have been positive.`
-        );
-      } else if (positiveRate < 0.3) {
-        insights.push(
-          `Consider reviewing current strategies - only ${Math.round(positiveRate * 100)}% of recent emotions have been positive.`
-        );
-      }
-    }
-
-    return insights.length > 0 ? insights : [
-      'Continue collecting data to identify meaningful patterns and insights.'
-    ];
-  };
+  // useMemo hooks to prevent re-calculating derived data on every render.
+  const patterns = useMemo(() => results?.patterns || [], [results]);
+  const correlations = useMemo(() => results?.correlations || [], [results]);
+  const insights = useMemo(() => results?.insights || [], [results]);
 
   const getPatternIcon = (type: string) => {
     switch (type) {
@@ -193,20 +85,14 @@ export const AnalyticsDashboard = ({
 
   return (
     <div className="space-y-6">
-      {/* Date Range Selector */}
+      {/* Header card, displays the student's name. */}
       <Card>
         <CardHeader>
           <CardTitle>Analytics Dashboard - {student.name}</CardTitle>
         </CardHeader>
-        <CardContent>
-          <DateRangeSelector
-            selectedRange={selectedRange}
-            onRangeChange={handleRangeChange}
-          />
-        </CardContent>
       </Card>
 
-      {/* Summary Cards */}
+      {/* Summary cards providing a quick overview of the data volume. */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
@@ -257,7 +143,7 @@ export const AnalyticsDashboard = ({
         </Card>
       </div>
 
-      {/* Main Analytics */}
+      {/* Main tabbed interface for displaying detailed analysis results. */}
       <Tabs defaultValue="visualizations" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="visualizations">Charts</TabsTrigger>
@@ -280,22 +166,35 @@ export const AnalyticsDashboard = ({
               <CardTitle>Behavioral Patterns</CardTitle>
               <Button 
                 variant="outline" 
-                onClick={analyzePatterns}
+                onClick={() => runAnalysis(filteredData)}
                 disabled={isAnalyzing}
               >
                 {isAnalyzing ? 'Analyzing...' : 'Refresh Analysis'}
               </Button>
             </CardHeader>
             <CardContent>
-              {patterns.length === 0 ? (
+              {/* Conditional rendering based on the worker's state (analyzing, error, or results). */}
+              {isAnalyzing && (
+                 <div className="text-center py-8 text-muted-foreground">
+                   <Clock className="h-12 w-12 mx-auto mb-4 animate-spin opacity-50" />
+                   <p>Analyzing data...</p>
+                 </div>
+              )}
+              {!isAnalyzing && error && (
+                <div className="text-center py-8 text-destructive">
+                  <p>{error}</p>
+                </div>
+              )}
+              {!isAnalyzing && !error && patterns.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No significant patterns detected yet.</p>
                   <p className="text-sm">More data may be needed for pattern analysis.</p>
                 </div>
-              ) : (
+              )}
+              {!isAnalyzing && !error && patterns.length > 0 && (
                 <div className="space-y-4">
-                  {patterns.map((pattern, index) => (
+                  {patterns.map((pattern: PatternResult, index) => (
                     <Card key={index} className="border-l-4 border-l-primary">
                       <CardContent className="pt-4">
                         <div className="flex items-start justify-between">
@@ -346,9 +245,11 @@ export const AnalyticsDashboard = ({
               <CardTitle>AI-Generated Insights</CardTitle>
             </CardHeader>
             <CardContent>
-              {insights.length === 0 ? (
+              {isAnalyzing && <p className="text-muted-foreground">Generating insights...</p>}
+              {!isAnalyzing && insights.length === 0 && (
                 <p className="text-muted-foreground">No insights available yet.</p>
-              ) : (
+              )}
+              {!isAnalyzing && insights.length > 0 && (
                 <div className="space-y-3">
                   {insights.map((insight, index) => (
                     <div key={index} className="p-3 bg-muted/50 rounded-lg">
@@ -367,15 +268,27 @@ export const AnalyticsDashboard = ({
               <CardTitle>Environmental Correlations</CardTitle>
             </CardHeader>
             <CardContent>
-              {correlations.length === 0 ? (
+              {isAnalyzing && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="h-12 w-12 mx-auto mb-4 animate-spin opacity-50" />
+                  <p>Analyzing correlations...</p>
+                </div>
+              )}
+              {!isAnalyzing && error && (
+                <div className="text-center py-8 text-destructive">
+                  <p>{error}</p>
+                </div>
+              )}
+              {!isAnalyzing && !error && correlations.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No significant correlations found.</p>
                   <p className="text-sm">Environmental data may be needed for correlation analysis.</p>
                 </div>
-              ) : (
+              )}
+              {!isAnalyzing && !error && correlations.length > 0 && (
                 <div className="space-y-4">
-                  {correlations.map((correlation, index) => (
+                  {correlations.map((correlation: CorrelationResult, index) => (
                     <Card key={index} className="border-l-4 border-l-blue-500">
                       <CardContent className="pt-4">
                         <div className="flex items-start justify-between">

@@ -1,5 +1,18 @@
 import { Student, TrackingEntry, Goal, Intervention, Alert, CorrelationData, DataVersion, StorageIndex } from "@/types/student";
 
+/**
+ * @interface IDataStorage
+ * @description Defines the contract for data storage operations that analytics services depend on.
+ * This ensures a consistent API for fetching data, regardless of the underlying storage implementation.
+ */
+export interface IDataStorage {
+  getStudents(): Student[];
+  getTrackingEntriesForStudent(studentId: string): TrackingEntry[];
+  getGoalsForStudent(studentId: string): Goal[];
+  saveTrackingEntry(entry: TrackingEntry): void;
+  getGoals(): Goal[];
+}
+
 // Storage keys
 const STORAGE_KEYS = {
   STUDENTS: 'sensoryTracker_students',
@@ -17,17 +30,25 @@ const STORAGE_KEYS = {
 const CURRENT_DATA_VERSION = 1;
 
 // Data validation schemas
-const validateStudent = (data: any): data is Student => {
-  return data && typeof data.id === 'string' && typeof data.name === 'string';
+const validateStudent = (data: unknown): data is Student => {
+  const student = data as Student;
+  return !!(student && typeof student.id === 'string' && typeof student.name === 'string');
 };
 
-const validateTrackingEntry = (data: any): data is TrackingEntry => {
-  return data && typeof data.id === 'string' && typeof data.studentId === 'string' && 
-         data.timestamp && Array.isArray(data.emotions) && Array.isArray(data.sensoryInputs);
+const validateTrackingEntry = (data: unknown): data is TrackingEntry => {
+  const entry = data as TrackingEntry;
+  return !!(entry && typeof entry.id === 'string' && typeof entry.studentId === 'string' &&
+         entry.timestamp && Array.isArray(entry.emotions) && Array.isArray(entry.sensoryInputs));
 };
 
-// Enhanced storage manager class
-export class DataStorageManager {
+/**
+ * @class DataStorageManager
+ * @implements {IDataStorage}
+ * @singleton
+ * @description Manages all application data in localStorage, providing a structured,
+ * safe, and versioned approach to data persistence.
+ */
+export class DataStorageManager implements IDataStorage {
   private static instance: DataStorageManager;
   private storageIndex: StorageIndex;
 
@@ -36,6 +57,10 @@ export class DataStorageManager {
     this.initializeDataVersion();
   }
 
+  /**
+   * Retrieves the singleton instance of the DataStorageManager.
+   * @returns {DataStorageManager} The singleton instance.
+   */
   static getInstance(): DataStorageManager {
     if (!DataStorageManager.instance) {
       DataStorageManager.instance = new DataStorageManager();
@@ -150,7 +175,7 @@ export class DataStorageManager {
   }
 
   // Generic get all method with validation
-  private getAll<T>(key: string, validator?: (data: any) => data is T): T[] {
+  private getAll<T>(key: string, validator?: (data: unknown) => data is T): T[] {
     try {
       const data = localStorage.getItem(key);
       if (!data) return [];
@@ -184,7 +209,7 @@ export class DataStorageManager {
   }
 
   // Convert date strings to Date objects recursively
-  private convertDates(obj: any): any {
+  private convertDates(obj: unknown): unknown {
     if (!obj) return obj;
     
     if (typeof obj === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(obj)) {
@@ -195,8 +220,8 @@ export class DataStorageManager {
       return obj.map(item => this.convertDates(item));
     }
     
-    if (typeof obj === 'object') {
-      const converted: any = {};
+    if (typeof obj === 'object' && obj !== null) {
+      const converted: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(obj)) {
         converted[key] = this.convertDates(value);
       }
@@ -207,10 +232,42 @@ export class DataStorageManager {
   }
 
   // Public methods for data access
+
+  /**
+   * Retrieves all students from storage.
+   * @returns {Student[]} An array of student objects.
+   */
   public getStudents(): Student[] {
     return this.getAll<Student>(STORAGE_KEYS.STUDENTS, validateStudent);
   }
 
+  /**
+   * Retrieves a single student by ID from storage.
+   * @param {string} studentId - The ID of the student to retrieve.
+   * @returns {Student | null} The student object if found, otherwise null.
+   */
+  public getStudentById(studentId: string): Student | null {
+    try {
+      const students = this.getStudents();
+      const foundStudent = students.find((s) => s.id === studentId);
+
+      if (foundStudent) {
+        return {
+          ...foundStudent,
+          createdAt: new Date(foundStudent.createdAt),
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to parse student data from localStorage', error);
+      return null;
+    }
+  }
+
+  /**
+   * Saves a student object to storage, either creating a new one or updating an existing one.
+   * @param {Student} student - The student object to save.
+   */
   public saveStudent(student: Student): void {
     const students = this.getStudents();
     const existingIndex = students.findIndex(s => s.id === student.id);
@@ -229,10 +286,59 @@ export class DataStorageManager {
     this.saveStorageIndex();
   }
 
+  /**
+   * Retrieves all tracking entries for all students.
+   * @returns {TrackingEntry[]} An array of tracking entry objects.
+   */
   public getTrackingEntries(): TrackingEntry[] {
     return this.getAll<TrackingEntry>(STORAGE_KEYS.TRACKING_ENTRIES, validateTrackingEntry);
   }
 
+  /**
+   * Retrieves all tracking entries for a specific student.
+   * @param {string} studentId - The ID of the student.
+   * @returns {TrackingEntry[]} An array of tracking entries for the specified student.
+   */
+  public getTrackingEntriesForStudent(studentId: string): TrackingEntry[] {
+    return this.getTrackingEntries().filter(entry => entry.studentId === studentId);
+  }
+
+  /**
+   * Retrieves all tracking entries for a specific student, with date parsing.
+   * @param {string} studentId - The ID of the student.
+   * @returns {TrackingEntry[]} An array of tracking entries for the specified student.
+   */
+  public getEntriesForStudent(studentId: string): TrackingEntry[] {
+    try {
+      const entries = this.getTrackingEntries();
+      return entries
+        .filter((entry) => entry.studentId === studentId)
+        .map((entry) => ({
+          ...entry,
+          timestamp: new Date(entry.timestamp),
+          emotions: entry.emotions.map((e) => ({
+            ...e,
+            timestamp: new Date(e.timestamp),
+          })),
+          sensoryInputs: entry.sensoryInputs.map((s) => ({
+            ...s,
+            timestamp: new Date(s.timestamp),
+          })),
+        }))
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    } catch (error) {
+      console.error(
+        'Failed to parse tracking entries from localStorage',
+        error
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Saves a tracking entry to storage.
+   * @param {TrackingEntry} entry - The tracking entry to save.
+   */
   public saveTrackingEntry(entry: TrackingEntry): void {
     const entries = this.getTrackingEntries();
     const existingIndex = entries.findIndex(e => e.id === entry.id);
@@ -250,10 +356,27 @@ export class DataStorageManager {
     this.saveStorageIndex();
   }
 
+  /**
+   * Retrieves all goals for all students.
+   * @returns {Goal[]} An array of goal objects.
+   */
   public getGoals(): Goal[] {
     return this.getAll<Goal>(STORAGE_KEYS.GOALS);
   }
 
+  /**
+   * Retrieves all goals for a specific student.
+   * @param {string} studentId - The ID of the student.
+   * @returns {Goal[]} An array of goals for the specified student.
+   */
+  public getGoalsForStudent(studentId: string): Goal[] {
+    return this.getGoals().filter(goal => goal.studentId === studentId);
+  }
+
+  /**
+   * Saves a goal to storage.
+   * @param {Goal} goal - The goal object to save.
+   */
   public saveGoal(goal: Goal): void {
     const goals = this.getGoals();
     const existingIndex = goals.findIndex(g => g.id === goal.id);
@@ -269,10 +392,27 @@ export class DataStorageManager {
     this.saveStorageIndex();
   }
 
+  /**
+   * Retrieves all interventions from storage.
+   * @returns {Intervention[]} An array of intervention objects.
+   */
   public getInterventions(): Intervention[] {
     return this.getAll<Intervention>(STORAGE_KEYS.INTERVENTIONS);
   }
 
+  /**
+   * Retrieves all interventions for a specific student.
+   * @param {string} studentId - The ID of the student.
+   * @returns {Intervention[]} An array of interventions for the specified student.
+   */
+  public getInterventionsForStudent(studentId: string): Intervention[] {
+    return this.getInterventions().filter(intervention => intervention.studentId === studentId);
+  }
+
+  /**
+   * Saves an intervention to storage.
+   * @param {Intervention} intervention - The intervention object to save.
+   */
   public saveIntervention(intervention: Intervention): void {
     const interventions = this.getInterventions();
     const existingIndex = interventions.findIndex(i => i.id === intervention.id);
@@ -288,10 +428,27 @@ export class DataStorageManager {
     this.saveStorageIndex();
   }
 
+  /**
+   * Retrieves all alerts from storage.
+   * @returns {Alert[]} An array of alert objects.
+   */
   public getAlerts(): Alert[] {
     return this.getAll<Alert>(STORAGE_KEYS.ALERTS);
   }
 
+  /**
+   * Retrieves all alerts for a specific student.
+   * @param {string} studentId - The ID of the student.
+   * @returns {Alert[]} An array of alerts for the specified student.
+   */
+  public getAlertsForStudent(studentId: string): Alert[] {
+    return this.getAlerts().filter(alert => alert.studentId === studentId);
+  }
+
+  /**
+   * Saves an alert to storage.
+   * @param {Alert} alert - The alert object to save.
+   */
   public saveAlert(alert: Alert): void {
     const alerts = this.getAlerts();
     const existingIndex = alerts.findIndex(a => a.id === alert.id);
@@ -307,10 +464,27 @@ export class DataStorageManager {
     this.saveStorageIndex();
   }
 
+  /**
+   * Retrieves all correlation data from storage.
+   * @returns {CorrelationData[]} An array of correlation data objects.
+   */
   public getCorrelations(): CorrelationData[] {
     return this.getAll<CorrelationData>(STORAGE_KEYS.CORRELATIONS);
   }
 
+  /**
+   * Retrieves all correlation data for a specific student.
+   * @param {string} studentId - The ID of the student.
+   * @returns {CorrelationData[]} An array of correlations for the specified student.
+   */
+  public getCorrelationsForStudent(studentId: string): CorrelationData[] {
+    return this.getCorrelations().filter(correlation => correlation.studentId === studentId);
+  }
+
+  /**
+   * Saves correlation data to storage.
+   * @param {CorrelationData} correlation - The correlation data object to save.
+   */
   public saveCorrelation(correlation: CorrelationData): void {
     const correlations = this.getCorrelations();
     const existingIndex = correlations.findIndex(c => c.id === correlation.id);
@@ -324,7 +498,10 @@ export class DataStorageManager {
     this.saveAll(STORAGE_KEYS.CORRELATIONS, correlations);
   }
 
-  // Export all data for backup
+  /**
+   * Exports all data from localStorage into a single JSON string for backup purposes.
+   * @returns {string} A JSON string representing all application data.
+   */
   public exportAllData(): string {
     const data = {
       version: this.getDataVersion(),
@@ -341,7 +518,10 @@ export class DataStorageManager {
     return JSON.stringify(data, null, 2);
   }
 
-  // Import data from backup
+  /**
+   * Imports data from a JSON backup string, overwriting existing data.
+   * @param {string} jsonData - The JSON string from a backup file.
+   */
   public importAllData(jsonData: string): void {
     try {
       const data = JSON.parse(jsonData);
@@ -361,7 +541,7 @@ export class DataStorageManager {
       
       // Update index
       if (data.index) {
-        this.storageIndex = this.convertDates(data.index);
+        this.storageIndex = this.convertDates(data.index) as StorageIndex;
         this.saveStorageIndex();
       }
       
@@ -372,7 +552,9 @@ export class DataStorageManager {
     }
   }
 
-  // Clear all data (with confirmation)
+  /**
+   * Clears all application data from localStorage. This is a destructive operation.
+   */
   public clearAllData(): void {
     Object.values(STORAGE_KEYS).forEach(key => {
       localStorage.removeItem(key);
@@ -390,7 +572,10 @@ export class DataStorageManager {
     // All data has been cleared successfully
   }
 
-  // Get storage statistics
+  /**
+   * Calculates and returns statistics about the data currently in storage.
+   * @returns {object} An object containing counts of data types and total size.
+   */
   public getStorageStats(): {
     studentsCount: number;
     entriesCount: number;
