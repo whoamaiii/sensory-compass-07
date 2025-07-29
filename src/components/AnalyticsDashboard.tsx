@@ -1,22 +1,36 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AlertManager } from "@/components/AlertManager";
 import { DataVisualization } from "@/components/DataVisualization";
-import { 
-  TrendingUp, 
+import { AnalyticsSettings } from "@/components/AnalyticsSettings";
+import {
+  TrendingUp,
   Brain,
   Eye,
   Clock,
-  BarChart3
+  BarChart3,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  FileJson,
+  Settings
 } from "lucide-react";
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from "@/types/student";
 import { PatternResult, CorrelationResult } from "@/lib/patternAnalysis";
 import { useAnalyticsWorker } from "@/hooks/useAnalyticsWorker";
 import { analyticsManager } from "@/lib/analyticsManager";
 import { useTranslation } from "@/hooks/useTranslation";
+import { analyticsExport, ExportFormat } from "@/lib/analyticsExport";
+import { toast } from "sonner";
 
 /**
  * @interface AnalyticsDashboardProps
@@ -45,12 +59,15 @@ interface AnalyticsDashboardProps {
  * It no longer handles its own data filtering; instead, it receives `filteredData`
  * as a prop from a parent component, ensuring a single source of truth.
  */
-export const AnalyticsDashboard = ({ 
-  student, 
+export const AnalyticsDashboard = ({
+  student,
   filteredData
 }: AnalyticsDashboardProps) => {
   const { tStudent } = useTranslation();
-  const { results, isAnalyzing, error, runAnalysis } = useAnalyticsWorker();
+  const { results, isAnalyzing, error, runAnalysis, invalidateCacheForStudent } = useAnalyticsWorker();
+  const [isExporting, setIsExporting] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const visualizationRef = useRef<HTMLDivElement>(null);
 
   // Effect to trigger the analysis in the worker whenever the filtered data changes.
   useEffect(() => {
@@ -63,6 +80,66 @@ export const AnalyticsDashboard = ({
   const patterns = useMemo(() => results?.patterns || [], [results]);
   const correlations = useMemo(() => results?.correlations || [], [results]);
   const insights = useMemo(() => results?.insights || [], [results]);
+
+  // Export handler
+  const handleExport = async (format: ExportFormat) => {
+    setIsExporting(true);
+    try {
+      const dateRange = {
+        start: filteredData.entries.length > 0
+          ? filteredData.entries.reduce((min, entry) =>
+              entry.timestamp < min ? entry.timestamp : min,
+              filteredData.entries[0].timestamp
+            )
+          : new Date(),
+        end: filteredData.entries.length > 0
+          ? filteredData.entries.reduce((max, entry) =>
+              entry.timestamp > max ? entry.timestamp : max,
+              filteredData.entries[0].timestamp
+            )
+          : new Date()
+      };
+
+      const exportData = {
+        student,
+        dateRange,
+        data: filteredData,
+        analytics: {
+          patterns,
+          correlations,
+          insights,
+          predictiveInsights: results?.predictiveInsights || [],
+          anomalies: results?.anomalies || []
+        },
+        charts: format === 'pdf' && visualizationRef.current
+          ? [{
+              element: visualizationRef.current,
+              title: 'Emotion & Sensory Trends'
+            }]
+          : undefined
+      };
+
+      switch (format) {
+        case 'pdf':
+          await analyticsExport.exportToPDF(exportData);
+          toast.success('PDF report exported successfully');
+          break;
+        case 'csv':
+          analyticsExport.exportToCSV(exportData);
+          toast.success('CSV data exported successfully');
+          break;
+        case 'json':
+          analyticsExport.exportToJSON(exportData);
+          toast.success('JSON data exported successfully');
+          break;
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast.error('Failed to export analytics data');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const getPatternIcon = (type: string) => {
     switch (type) {
@@ -85,10 +162,51 @@ export const AnalyticsDashboard = ({
 
   return (
     <div className="space-y-6">
-      {/* Header card, displays the student's name. */}
+      {/* Header card, displays the student's name and export options. */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Analytics Dashboard - {student.name}</CardTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSettings(true)}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isExporting}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {isExporting ? 'Exporting...' : 'Export'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => handleExport('pdf')}
+                  disabled={isExporting}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleExport('csv')}
+                  disabled={isExporting}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleExport('json')}
+                  disabled={isExporting}
+                >
+                  <FileJson className="h-4 w-4 mr-2" />
+                  Export as JSON
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </CardHeader>
       </Card>
 
@@ -153,11 +271,13 @@ export const AnalyticsDashboard = ({
         </TabsList>
 
         <TabsContent value="visualizations" className="space-y-6">
-          <DataVisualization
-            emotions={filteredData.emotions}
-            sensoryInputs={filteredData.sensoryInputs}
-            studentName={student.name}
-          />
+          <div ref={visualizationRef}>
+            <DataVisualization
+              emotions={filteredData.emotions}
+              sensoryInputs={filteredData.sensoryInputs}
+              studentName={student.name}
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="patterns" className="space-y-6">
@@ -337,6 +457,19 @@ export const AnalyticsDashboard = ({
           <AlertManager studentId={student.id} />
         </TabsContent>
       </Tabs>
+
+      {/* Analytics Settings Dialog */}
+      {showSettings && (
+        <AnalyticsSettings
+          onConfigChange={() => {
+            // Invalidate cache for this student when config changes
+            invalidateCacheForStudent(student.id);
+            // Re-run analysis with new configuration
+            runAnalysis(filteredData);
+          }}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import { EmotionEntry, SensoryEntry, EnvironmentalEntry, TrackingEntry } from "@/types/student";
 import { isWithinInterval, subDays, startOfDay, endOfDay } from "date-fns";
+import { analyticsConfig, AnalyticsConfiguration } from "@/lib/analyticsConfig";
 
 export interface PatternResult {
   type: 'emotion' | 'sensory' | 'environmental' | 'correlation';
@@ -34,31 +35,45 @@ export interface TriggerAlert {
 }
 
 class PatternAnalysisEngine {
-  private readonly MIN_DATA_POINTS = 3;
-  private readonly CORRELATION_THRESHOLD = 0.25;
-  private readonly HIGH_INTENSITY_THRESHOLD = 4; // Fixed: emotions are 1-5 scale
-  private readonly CONCERN_FREQUENCY_THRESHOLD = 0.3; // 30% of sessions
+  private config: AnalyticsConfiguration;
 
-  analyzeEmotionPatterns(emotions: EmotionEntry[], timeframeDays: number = 30): PatternResult[] {
-    if (emotions.length < this.MIN_DATA_POINTS) return [];
+  constructor() {
+    this.config = analyticsConfig.getConfig();
+    
+    // Subscribe to configuration changes
+    analyticsConfig.subscribe((newConfig) => {
+      this.config = newConfig;
+    });
+  }
+
+  analyzeEmotionPatterns(emotions: EmotionEntry[], timeframeDays?: number): PatternResult[] {
+    const actualTimeframe = timeframeDays || this.config.timeWindows.defaultAnalysisDays;
+    
+    if (emotions.length < this.config.patternAnalysis.minDataPoints) return [];
 
     const patterns: PatternResult[] = [];
-    const cutoffDate = subDays(new Date(), timeframeDays);
+    const cutoffDate = subDays(new Date(), actualTimeframe);
     const recentEmotions = emotions.filter(e => e.timestamp >= cutoffDate);
 
+    // Apply sensitivity multipliers based on alert sensitivity level
+    const intensityThreshold = this.config.patternAnalysis.highIntensityThreshold *
+      (1 / this.config.alertSensitivity.emotionIntensityMultiplier);
+    const frequencyThreshold = this.config.patternAnalysis.concernFrequencyThreshold *
+      (1 / this.config.alertSensitivity.frequencyMultiplier);
+
     // Analyze high-intensity negative emotions
-    const highIntensityNegative = recentEmotions.filter(e => 
-      e.intensity >= this.HIGH_INTENSITY_THRESHOLD && 
+    const highIntensityNegative = recentEmotions.filter(e =>
+      e.intensity >= intensityThreshold &&
       ['anxious', 'frustrated', 'angry', 'overwhelmed', 'sad'].includes(e.emotion.toLowerCase())
     );
 
     // Also analyze moderate intensity patterns for better detection
-    const moderateIntensityNegative = recentEmotions.filter(e => 
-      e.intensity >= 3 && 
+    const moderateIntensityNegative = recentEmotions.filter(e =>
+      e.intensity >= 3 &&
       ['anxious', 'frustrated', 'angry', 'overwhelmed', 'sad'].includes(e.emotion.toLowerCase())
     );
 
-    if (highIntensityNegative.length / recentEmotions.length > this.CONCERN_FREQUENCY_THRESHOLD) {
+    if (highIntensityNegative.length / recentEmotions.length > frequencyThreshold) {
       patterns.push({
         type: 'emotion',
         pattern: 'high-intensity-negative',
@@ -71,7 +86,7 @@ class PatternAnalysisEngine {
           'Discuss coping mechanisms with student'
         ],
         dataPoints: recentEmotions.length,
-        timeframe: `${timeframeDays} days`
+        timeframe: `${actualTimeframe} days`
       });
     }
 
@@ -84,7 +99,7 @@ class PatternAnalysisEngine {
     const dominantEmotion = Object.entries(emotionCounts)
       .sort(([,a], [,b]) => b - a)[0];
 
-    if (dominantEmotion && dominantEmotion[1] / recentEmotions.length > 0.4) {
+    if (dominantEmotion && dominantEmotion[1] / recentEmotions.length > this.config.patternAnalysis.emotionConsistencyThreshold) {
       patterns.push({
         type: 'emotion',
         pattern: 'consistent-emotion',
@@ -93,12 +108,12 @@ class PatternAnalysisEngine {
         description: `Consistent ${dominantEmotion[0]} emotion pattern detected`,
         recommendations: this.getEmotionRecommendations(dominantEmotion[0]),
         dataPoints: recentEmotions.length,
-        timeframe: `${timeframeDays} days`
+        timeframe: `${actualTimeframe} days`
       });
     }
 
     // Add moderate negative emotion pattern if high intensity doesn't trigger
-    if (highIntensityNegative.length === 0 && moderateIntensityNegative.length / recentEmotions.length > 0.4) {
+    if (highIntensityNegative.length === 0 && moderateIntensityNegative.length / recentEmotions.length > this.config.patternAnalysis.moderateNegativeThreshold) {
       patterns.push({
         type: 'emotion',
         pattern: 'moderate-negative-trend',
@@ -111,18 +126,20 @@ class PatternAnalysisEngine {
           'Consider environmental adjustments'
         ],
         dataPoints: recentEmotions.length,
-        timeframe: `${timeframeDays} days`
+        timeframe: `${actualTimeframe} days`
       });
     }
 
     return patterns;
   }
 
-  analyzeSensoryPatterns(sensoryInputs: SensoryEntry[], timeframeDays: number = 30): PatternResult[] {
-    if (sensoryInputs.length < this.MIN_DATA_POINTS) return [];
+  analyzeSensoryPatterns(sensoryInputs: SensoryEntry[], timeframeDays?: number): PatternResult[] {
+    const actualTimeframe = timeframeDays || this.config.timeWindows.defaultAnalysisDays;
+    
+    if (sensoryInputs.length < this.config.patternAnalysis.minDataPoints) return [];
 
     const patterns: PatternResult[] = [];
-    const cutoffDate = subDays(new Date(), timeframeDays);
+    const cutoffDate = subDays(new Date(), actualTimeframe);
     const recentSensory = sensoryInputs.filter(s => s.timestamp >= cutoffDate);
 
     // Analyze sensory seeking vs avoiding patterns
@@ -149,7 +166,7 @@ class PatternAnalysisEngine {
           'Consider sensory-rich learning activities'
         ],
         dataPoints: recentSensory.length,
-        timeframe: `${timeframeDays} days`
+        timeframe: `${actualTimeframe} days`
       });
     } else if (avoidingBehaviors.length > seekingBehaviors.length * 2) {
       patterns.push({
@@ -164,7 +181,7 @@ class PatternAnalysisEngine {
           'Gradually introduce sensory experiences'
         ],
         dataPoints: recentSensory.length,
-        timeframe: `${timeframeDays} days`
+        timeframe: `${actualTimeframe} days`
       });
     }
 
@@ -172,7 +189,7 @@ class PatternAnalysisEngine {
   }
 
   analyzeEnvironmentalCorrelations(trackingEntries: TrackingEntry[]): CorrelationResult[] {
-    if (trackingEntries.length < this.MIN_DATA_POINTS) return [];
+    if (trackingEntries.length < this.config.patternAnalysis.minDataPoints) return [];
 
     const correlations: CorrelationResult[] = [];
 
@@ -184,13 +201,13 @@ class PatternAnalysisEngine {
         avgEmotionIntensity: entry.emotions.reduce((sum, e) => sum + e.intensity, 0) / entry.emotions.length
       }));
 
-    if (noiseEmotionData.length >= this.MIN_DATA_POINTS) {
+    if (noiseEmotionData.length >= this.config.patternAnalysis.minDataPoints) {
       const correlation = this.calculateCorrelation(
         noiseEmotionData.map(d => d.noise),
         noiseEmotionData.map(d => d.avgEmotionIntensity)
       );
 
-      if (Math.abs(correlation) > this.CORRELATION_THRESHOLD) {
+      if (Math.abs(correlation) > this.config.patternAnalysis.correlationThreshold) {
         correlations.push({
           factor1: 'Noise Level',
           factor2: 'Emotion Intensity',
@@ -263,14 +280,18 @@ class PatternAnalysisEngine {
   ): TriggerAlert[] {
     const alerts: TriggerAlert[] = [];
 
-    // Check for recent concerning patterns (last 7 days)
-    const recentCutoff = subDays(new Date(), 7);
+    // Check for recent concerning patterns
+    const recentCutoff = subDays(new Date(), this.config.timeWindows.recentDataDays);
     const recentEmotions = emotions.filter(e => e.timestamp >= recentCutoff);
     const recentEntries = trackingEntries.filter(e => e.timestamp >= recentCutoff);
 
+    // Apply sensitivity multipliers
+    const intensityThreshold = this.config.patternAnalysis.highIntensityThreshold *
+      (1 / this.config.alertSensitivity.emotionIntensityMultiplier);
+
     // High stress pattern alert
-    const highStressEmotions = recentEmotions.filter(e => 
-      e.intensity >= this.HIGH_INTENSITY_THRESHOLD && 
+    const highStressEmotions = recentEmotions.filter(e =>
+      e.intensity >= intensityThreshold &&
       ['anxious', 'frustrated', 'overwhelmed', 'angry'].includes(e.emotion.toLowerCase())
     );
 
@@ -355,8 +376,12 @@ class PatternAnalysisEngine {
   }
 
   private getSignificance(correlation: number): 'low' | 'moderate' | 'high' {
-    if (correlation < 0.3) return 'low';
-    if (correlation < 0.6) return 'moderate';
+    // Adjust thresholds based on configuration
+    const lowThreshold = this.config.patternAnalysis.correlationThreshold;
+    const highThreshold = this.config.patternAnalysis.correlationThreshold * 2;
+    
+    if (correlation < lowThreshold) return 'low';
+    if (correlation < highThreshold) return 'moderate';
     return 'high';
   }
 

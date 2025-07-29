@@ -6,9 +6,88 @@
  * It listens for messages containing student data, runs a series of analyses,
  * and posts the results back to the main thread.
  */
-import { patternAnalysis, PatternResult, CorrelationResult } from '@/lib/patternAnalysis';
-import { enhancedPatternAnalysis, PredictiveInsight, AnomalyDetection } from '@/lib/enhancedPatternAnalysis';
+import { PatternResult, CorrelationResult } from '@/lib/patternAnalysis';
+import { PredictiveInsight, AnomalyDetection } from '@/lib/enhancedPatternAnalysis';
 import { TrackingEntry, EmotionEntry, SensoryEntry } from '@/types/student';
+import { createCachedPatternAnalysis } from '@/lib/cachedPatternAnalysis';
+import { AnalyticsConfiguration } from '@/lib/analyticsConfig';
+
+interface CacheEntry {
+  data: unknown;
+  expires: number;
+  tags?: string[];
+}
+
+// Create a simple cache implementation for the worker
+const workerCache = {
+  storage: new Map<string, CacheEntry>(),
+  
+  get(key: string): unknown | undefined {
+    const entry = this.storage.get(key);
+    if (entry && entry.expires > Date.now()) {
+      return entry.data;
+    }
+    this.storage.delete(key);
+    return undefined;
+  },
+  
+  set(key: string, value: unknown, tags: string[] = []): void {
+    this.storage.set(key, {
+      data: value,
+      expires: Date.now() + 5 * 60 * 1000, // 5 minutes TTL
+      tags
+    });
+  },
+  
+  has(key: string): boolean {
+    return this.get(key) !== undefined;
+  },
+  
+  invalidateByTag(tag: string): number {
+    let count = 0;
+    for (const [key, entry] of this.storage.entries()) {
+      if (entry.tags && entry.tags.includes(tag)) {
+        this.storage.delete(key);
+        count++;
+      }
+    }
+    return count;
+  },
+  
+  getDataFingerprint(data: unknown): string {
+    const stringify = (obj: unknown): string => {
+      if (obj === null || obj === undefined) return 'null';
+      if (typeof obj !== 'object') return String(obj);
+      if (Array.isArray(obj)) return `[${obj.map(stringify).join(',')}]`;
+      
+      const keys = Object.keys(obj as Record<string, unknown>).sort();
+      return `{${keys.map(k => `${k}:${stringify((obj as Record<string, unknown>)[k])}`).join(',')}}`;
+    };
+
+    const str = stringify(data);
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36);
+  },
+  
+  createKey(prefix: string, params: Record<string, unknown>): string {
+    const sortedParams = Object.keys(params)
+      .sort()
+      .map(key => `${key}:${JSON.stringify(params[key])}`)
+      .join(':');
+    return `${prefix}:${sortedParams}`;
+  }
+};
+
+// Create cached pattern analysis instance
+const cachedAnalysis = createCachedPatternAnalysis(workerCache);
+
+// Configuration passed from main thread
+let currentConfig: AnalyticsConfiguration | null = null;
 
 /**
  * @interface AnalyticsData
@@ -18,6 +97,8 @@ export interface AnalyticsData {
   entries: TrackingEntry[];
   emotions: EmotionEntry[];
   sensoryInputs: SensoryEntry[];
+  cacheKey?: string; // Optional cache key for storing results
+  config?: AnalyticsConfiguration; // Configuration passed from main thread
 }
 
 /**
@@ -30,6 +111,7 @@ export interface AnalyticsResults {
   predictiveInsights: PredictiveInsight[];
   anomalies: AnomalyDetection[];
   insights: string[];
+  cacheKey?: string; // Include cache key in results for storage
 }
 
 /**
@@ -90,8 +172,13 @@ const generateInsights = (
  * This function is triggered when the main thread calls `worker.postMessage()`.
  * It orchestrates the analysis process and posts the results back.
  */
-self.onmessage = (e: MessageEvent<AnalyticsData>) => {
+self.onmessage = async (e: MessageEvent<AnalyticsData>) => {
   const filteredData = e.data;
+  
+  // Update configuration if provided
+  if (filteredData.config) {
+    currentConfig = filteredData.config;
+  }
 
   // Early exit if there is no data to analyze.
   if (filteredData.emotions.length === 0 && filteredData.sensoryInputs.length === 0) {
@@ -106,31 +193,34 @@ self.onmessage = (e: MessageEvent<AnalyticsData>) => {
   }
 
   try {
-    const emotionPatterns = filteredData.emotions.length > 0 
-      ? patternAnalysis.analyzeEmotionPatterns(filteredData.emotions, 30)
+    // Use configured time window or default to 30 days
+    const timeWindow = currentConfig?.timeWindows?.defaultAnalysisDays || 30;
+    
+    const emotionPatterns = filteredData.emotions.length > 0
+      ? cachedAnalysis.analyzeEmotionPatterns(filteredData.emotions, timeWindow)
       : [];
     const sensoryPatterns = filteredData.sensoryInputs.length > 0
-      ? patternAnalysis.analyzeSensoryPatterns(filteredData.sensoryInputs, 30)
+      ? cachedAnalysis.analyzeSensoryPatterns(filteredData.sensoryInputs, timeWindow)
       : [];
     
     const patterns = [...emotionPatterns, ...sensoryPatterns];
 
     let correlations: CorrelationResult[] = [];
     if (filteredData.entries.length > 2) {
-      correlations = patternAnalysis.analyzeEnvironmentalCorrelations(filteredData.entries);
+      correlations = cachedAnalysis.analyzeEnvironmentalCorrelations(filteredData.entries);
     }
 
     let predictiveInsights: PredictiveInsight[] = [];
     let anomalies: AnomalyDetection[] = [];
     if (filteredData.entries.length > 1) {
-      predictiveInsights = enhancedPatternAnalysis.generatePredictiveInsights(
+      predictiveInsights = await cachedAnalysis.generatePredictiveInsights(
         filteredData.emotions,
         filteredData.sensoryInputs,
         filteredData.entries,
         []
       );
 
-      anomalies = enhancedPatternAnalysis.detectAnomalies(
+      anomalies = cachedAnalysis.detectAnomalies(
         filteredData.emotions,
         filteredData.sensoryInputs,
         filteredData.entries
@@ -145,6 +235,7 @@ self.onmessage = (e: MessageEvent<AnalyticsData>) => {
       predictiveInsights,
       anomalies,
       insights,
+      cacheKey: filteredData.cacheKey, // Include cache key if provided
     };
 
     // Post the final results back to the main thread.

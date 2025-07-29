@@ -49,6 +49,9 @@ export const MockDataLoader = () => {
         key: 'sensoryTracker_students',
         newValue: JSON.stringify(dataStorage.getStudents())
       }));
+      // Dispatch a custom event to notify other components (like the dashboard) that mock data has been loaded.
+      // This allows for dynamic updates without requiring a full page reload.
+      window.dispatchEvent(new CustomEvent('mockDataLoaded'));
       
       // Fallback: refresh the page if storage event doesn't work
       setTimeout(() => {

@@ -1,10 +1,20 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Toggle } from "@/components/ui/toggle";
+import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { 
   LineChart, 
   Line, 
@@ -22,7 +32,7 @@ import {
   AreaChart,
   ComposedChart
 } from 'recharts';
-import { EmotionEntry, SensoryEntry, TrackingEntry } from "@/types/student";
+import { EmotionEntry, SensoryEntry, TrackingEntry, Student } from "@/types/student";
 import { enhancedPatternAnalysis, CorrelationMatrix, PredictiveInsight, AnomalyDetection } from "@/lib/enhancedPatternAnalysis";
 import { patternAnalysis, PatternResult } from "@/lib/patternAnalysis";
 import { ConfidenceIndicator } from '@/components/ConfidenceIndicator';
@@ -43,9 +53,32 @@ import {
   TrendingDown,
   Lightbulb,
   Shield,
-  Clock
+  Clock,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  FileJson,
+  Maximize2,
+  Grid3x3,
+  Focus,
+  Columns,
+  PictureInPicture2,
+  Filter,
+  RefreshCw,
+  Settings,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { format, subDays, isWithinInterval } from "date-fns";
+import { analyticsExport, ExportFormat, AnalyticsExportData } from "@/lib/analyticsExport";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+// Import new components
+import { Visualization3D } from './Visualization3D';
+import { TimelineVisualization } from './TimelineVisualization';
+import { AdvancedFilterPanel, FilterCriteria, applyFilters } from './AdvancedFilterPanel';
+import { useRealtimeData, RealtimeDataReturn } from '@/hooks/useRealtimeData';
 
 interface InteractiveDataVisualizationProps {
   emotions: EmotionEntry[];
@@ -56,11 +89,19 @@ interface InteractiveDataVisualizationProps {
 
 type ChartType = 'line' | 'area' | 'scatter' | 'composed';
 type TimeRange = '7d' | '30d' | '90d' | 'all';
+type LayoutMode = 'grid' | 'focus' | 'comparison' | 'dashboard';
+type VisualizationType = 'trends' | 'correlations' | 'patterns' | '3d' | 'timeline';
+
+interface HighlightState {
+  type: 'emotion' | 'sensory' | 'tracking' | 'anomaly' | null;
+  id: string | null;
+  relatedIds: string[];
+}
 
 export const InteractiveDataVisualization = ({ 
-  emotions, 
-  sensoryInputs, 
-  trackingEntries, 
+  emotions: initialEmotions, 
+  sensoryInputs: initialSensoryInputs, 
+  trackingEntries: initialTrackingEntries, 
   studentName 
 }: InteractiveDataVisualizationProps) => {
   const [selectedChartType, setSelectedChartType] = useState<ChartType>('line');
@@ -71,24 +112,133 @@ export const InteractiveDataVisualization = ({
   const [predictiveInsights, setPredictiveInsights] = useState<PredictiveInsight[]>([]);
   const [anomalies, setAnomalies] = useState<AnomalyDetection[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  
+  // New state for advanced features
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('dashboard');
+  const [focusedVisualization, setFocusedVisualization] = useState<VisualizationType | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPictureInPicture, setIsPictureInPicture] = useState(false);
+  const [highlightState, setHighlightState] = useState<HighlightState>({ type: null, id: null, relatedIds: [] });
+  const [filterCriteria, setFilterCriteria] = useState<FilterCriteria>({
+    dateRange: { start: null, end: null },
+    emotions: { types: [], intensityRange: [0, 10], includeTriggers: [], excludeTriggers: [] },
+    sensory: { types: [], responses: [], intensityRange: [0, 10] },
+    environmental: {
+      locations: [],
+      activities: [],
+      conditions: { noiseLevel: [0, 10], temperature: [15, 30], lighting: [] },
+      weather: [],
+      timeOfDay: []
+    },
+    patterns: { anomaliesOnly: false, minConfidence: 0, patternTypes: [] },
+    realtime: false
+  });
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [selectedVisualizations, setSelectedVisualizations] = useState<VisualizationType[]>(['trends', 'patterns']);
+  
+  // Refs for chart elements
+  const containerRef = useRef<HTMLDivElement>(null);
+  const trendsChartRef = useRef<HTMLDivElement>(null);
+  const correlationChartRef = useRef<HTMLDivElement>(null);
+  const patternsChartRef = useRef<HTMLDivElement>(null);
 
-  // Filter data based on time range
+  // Real-time data hook
+  const realtimeData = useRealtimeData(
+    {
+      emotions: initialEmotions,
+      sensoryInputs: initialSensoryInputs,
+      trackingEntries: initialTrackingEntries
+    },
+    {
+      enabled: filterCriteria.realtime,
+      windowSize: selectedTimeRange === '7d' ? 7 * 24 * 60 : 
+                  selectedTimeRange === '30d' ? 30 * 24 * 60 : 
+                  selectedTimeRange === '90d' ? 90 * 24 * 60 : 0,
+      updateInterval: 1000,
+      smoothTransitions: true,
+      simulateData: true // For demo purposes
+    }
+  );
+
+  // Use real-time data if enabled, otherwise use initial data
+  const emotions = filterCriteria.realtime ? realtimeData.emotions : initialEmotions;
+  const sensoryInputs = filterCriteria.realtime ? realtimeData.sensoryInputs : initialSensoryInputs;
+  const trackingEntries = filterCriteria.realtime ? realtimeData.trackingEntries : initialTrackingEntries;
+
+  // Apply filters to data
   const filteredData = useMemo(() => {
     const now = new Date();
     const cutoff = selectedTimeRange === '7d' ? subDays(now, 7) :
                    selectedTimeRange === '30d' ? subDays(now, 30) :
                    selectedTimeRange === '90d' ? subDays(now, 90) : null;
 
+    // Apply time range filter first
+    let filteredEmotions = cutoff ? emotions.filter(e => e.timestamp >= cutoff) : emotions;
+    let filteredSensory = cutoff ? sensoryInputs.filter(s => s.timestamp >= cutoff) : sensoryInputs;
+    let filteredTracking = cutoff ? trackingEntries.filter(t => t.timestamp >= cutoff) : trackingEntries;
+
+    // Apply advanced filters
+    filteredEmotions = applyFilters(
+      filteredEmotions,
+      filterCriteria,
+      (e) => e,
+      null,
+      null
+    );
+
+    filteredSensory = applyFilters(
+      filteredSensory,
+      filterCriteria,
+      null,
+      (s) => s,
+      null
+    );
+
+    filteredTracking = applyFilters(
+      filteredTracking,
+      filterCriteria,
+      (t) => t.emotions?.[0] || null,
+      (t) => t.sensoryInputs?.[0] || null,
+      (t) => t.environmentalData || null
+    );
+
+    // Apply highlight filter if active
+    if (highlightState.type && highlightState.id) {
+      // Filter to show only highlighted items and related items
+      filteredEmotions = filteredEmotions.filter(e => 
+        e.id === highlightState.id || highlightState.relatedIds.includes(e.id)
+      );
+      filteredSensory = filteredSensory.filter(s => 
+        s.id === highlightState.id || highlightState.relatedIds.includes(s.id)
+      );
+      filteredTracking = filteredTracking.filter(t => 
+        t.id === highlightState.id || highlightState.relatedIds.includes(t.id)
+      );
+    }
+
     return {
-      emotions: cutoff ? emotions.filter(e => e.timestamp >= cutoff) : emotions,
-      sensoryInputs: cutoff ? sensoryInputs.filter(s => s.timestamp >= cutoff) : sensoryInputs,
-      trackingEntries: cutoff ? trackingEntries.filter(t => t.timestamp >= cutoff) : trackingEntries
+      emotions: filteredEmotions,
+      sensoryInputs: filteredSensory,
+      trackingEntries: filteredTracking
     };
-  }, [emotions, sensoryInputs, trackingEntries, selectedTimeRange]);
+  }, [emotions, sensoryInputs, trackingEntries, selectedTimeRange, filterCriteria, highlightState]);
 
   // Process data for charts
   const chartData = useMemo(() => {
-    const dataMap = new Map<string, any>();
+    interface ChartDataPoint {
+      date: string;
+      timestamp: Date;
+      emotionCount: number;
+      avgEmotionIntensity: number;
+      positiveEmotions: number;
+      negativeEmotions: number;
+      sensorySeekingCount: number;
+      sensoryAvoidingCount: number;
+      totalSensoryInputs: number;
+      [key: string]: string | number | Date;
+    }
+    const dataMap = new Map<string, ChartDataPoint>();
 
     // Process emotions
     filteredData.emotions.forEach(emotion => {
@@ -107,7 +257,7 @@ export const InteractiveDataVisualization = ({
         });
       }
       
-      const data = dataMap.get(date);
+      const data = dataMap.get(date)!;
       data.emotionCount++;
       data.avgEmotionIntensity = ((data.avgEmotionIntensity * (data.emotionCount - 1)) + emotion.intensity) / data.emotionCount;
       
@@ -117,7 +267,7 @@ export const InteractiveDataVisualization = ({
         data.negativeEmotions++;
       }
       
-      data[emotion.emotion] = (data[emotion.emotion] || 0) + emotion.intensity;
+      data[emotion.emotion] = ((data[emotion.emotion] as number) || 0) + emotion.intensity;
     });
 
     // Process sensory inputs
@@ -137,7 +287,7 @@ export const InteractiveDataVisualization = ({
         });
       }
       
-      const data = dataMap.get(date);
+      const data = dataMap.get(date)!;
       data.totalSensoryInputs++;
       
       if (sensory.response.toLowerCase().includes('seeking')) {
@@ -168,11 +318,11 @@ export const InteractiveDataVisualization = ({
 
         // Enhanced pattern analysis
         if (filteredData.trackingEntries.length >= 5) {
-          const insights = enhancedPatternAnalysis.generatePredictiveInsights(
+          const insights = await enhancedPatternAnalysis.generatePredictiveInsights(
             filteredData.emotions,
             filteredData.sensoryInputs,
             filteredData.trackingEntries,
-            [] // No goals for now
+            []
           );
           setPredictiveInsights(insights);
 
@@ -199,12 +349,84 @@ export const InteractiveDataVisualization = ({
     analyzePatterns();
   }, [filteredData]);
 
-  // Get unique emotions for filter
-  const uniqueEmotions = useMemo(() => {
-    const emotions = [...new Set(filteredData.emotions.map(e => e.emotion))];
-    return ['all', ...emotions];
-  }, [filteredData.emotions]);
+  // Cross-highlighting functions
+  const handleHighlight = useCallback((type: HighlightState['type'], id: string) => {
+    if (highlightState.id === id) {
+      // Clear highlight if clicking the same item
+      setHighlightState({ type: null, id: null, relatedIds: [] });
+      return;
+    }
 
+    // Find related items based on temporal proximity
+    const relatedIds: string[] = [];
+    const targetItem = type === 'emotion' 
+      ? filteredData.emotions.find(e => e.id === id)
+      : type === 'sensory'
+      ? filteredData.sensoryInputs.find(s => s.id === id)
+      : filteredData.trackingEntries.find(t => t.id === id);
+
+    if (targetItem) {
+      const targetTime = targetItem.timestamp.getTime();
+      const timeWindow = 60 * 60 * 1000; // 1 hour window
+
+      // Find related emotions
+      filteredData.emotions.forEach(e => {
+        if (e.id !== id && Math.abs(e.timestamp.getTime() - targetTime) < timeWindow) {
+          relatedIds.push(e.id);
+        }
+      });
+
+      // Find related sensory inputs
+      filteredData.sensoryInputs.forEach(s => {
+        if (s.id !== id && Math.abs(s.timestamp.getTime() - targetTime) < timeWindow) {
+          relatedIds.push(s.id);
+        }
+      });
+
+      // Find related tracking entries
+      filteredData.trackingEntries.forEach(t => {
+        if (t.id !== id && Math.abs(t.timestamp.getTime() - targetTime) < timeWindow) {
+          relatedIds.push(t.id);
+        }
+      });
+    }
+
+    setHighlightState({ type, id, relatedIds });
+  }, [filteredData, highlightState.id]);
+
+  // Fullscreen handling
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  // Picture-in-picture simulation (would need actual implementation)
+  const togglePictureInPicture = useCallback(() => {
+    setIsPictureInPicture(!isPictureInPicture);
+    toast.info(isPictureInPicture ? 'Exited picture-in-picture mode' : 'Entered picture-in-picture mode');
+  }, [isPictureInPicture]);
+
+  // Layout grid configuration
+  const getLayoutClasses = useCallback(() => {
+    switch (layoutMode) {
+      case 'grid':
+        return 'grid grid-cols-1 lg:grid-cols-2 gap-6';
+      case 'focus':
+        return 'space-y-6';
+      case 'comparison':
+        return 'grid grid-cols-1 xl:grid-cols-2 gap-6';
+      case 'dashboard':
+      default:
+        return 'space-y-6';
+    }
+  }, [layoutMode]);
+
+  // Render chart based on type
   const renderChart = () => {
     if (chartData.length === 0) {
       return (
@@ -472,6 +694,129 @@ export const InteractiveDataVisualization = ({
     return 'text-red-600 bg-red-50 border-red-200';
   };
 
+  // Export handler
+  const handleExport = async (format: ExportFormat) => {
+    setIsExporting(true);
+    try {
+      // Calculate date range from filtered data
+      const allTimestamps = [
+        ...filteredData.emotions.map(e => e.timestamp),
+        ...filteredData.sensoryInputs.map(s => s.timestamp),
+        ...filteredData.trackingEntries.map(t => t.timestamp)
+      ].filter(t => t);
+
+      const dateRange = allTimestamps.length > 0 ? {
+        start: new Date(Math.min(...allTimestamps.map(t => t.getTime()))),
+        end: new Date(Math.max(...allTimestamps.map(t => t.getTime())))
+      } : {
+        start: new Date(),
+        end: new Date()
+      };
+
+      // Prepare student data (minimal as we don't have full student object)
+      const studentData: Student = {
+        id: 'current-student',
+        name: studentName,
+        grade: '',
+        createdAt: new Date(),
+        baselineData: {
+          emotionalRegulation: {
+            averageIntensity: 5,
+            mostCommonEmotion: 'neutral',
+            triggerFrequency: {}
+          },
+          sensoryProcessing: {
+            seekingBehaviors: {},
+            avoidingBehaviors: {},
+            preferredSensoryInput: []
+          },
+          environmentalFactors: {
+            optimalConditions: {},
+            challengingConditions: []
+          },
+          collectedDate: new Date(),
+          collectedBy: 'System'
+        }
+      };
+
+      // Prepare export data
+      const exportData: AnalyticsExportData = {
+        student: studentData,
+        dateRange,
+        data: {
+          entries: filteredData.trackingEntries,
+          emotions: filteredData.emotions,
+          sensoryInputs: filteredData.sensoryInputs
+        },
+        analytics: {
+          patterns,
+          correlations: correlationMatrix?.significantPairs.map(pair => ({
+            id: crypto.randomUUID(),
+            factor1: pair.factor1,
+            factor2: pair.factor2,
+            correlation: pair.correlation,
+            significance: pair.significance,
+            description: `${pair.correlation > 0 ? 'Positive' : 'Negative'} correlation between ${pair.factor1} and ${pair.factor2}`,
+            dataPoints: filteredData.trackingEntries.length,
+            recommendations: []
+          })) || [],
+          insights: patterns.map(p => p.description),
+          predictiveInsights,
+          anomalies
+        }
+      };
+
+      // Add charts for PDF export
+      if (format === 'pdf') {
+        const charts: { element: HTMLElement; title: string }[] = [];
+        
+        if (trendsChartRef.current) {
+          charts.push({
+            element: trendsChartRef.current,
+            title: 'Emotion & Sensory Trends'
+          });
+        }
+        
+        if (correlationChartRef.current) {
+          charts.push({
+            element: correlationChartRef.current,
+            title: 'Correlation Heatmap'
+          });
+        }
+        
+        if (patternsChartRef.current) {
+          charts.push({
+            element: patternsChartRef.current,
+            title: 'AI Pattern Recognition'
+          });
+        }
+        
+        exportData.charts = charts;
+      }
+
+      // Execute export
+      switch (format) {
+        case 'pdf':
+          await analyticsExport.exportToPDF(exportData);
+          toast.success('Interactive analytics PDF exported successfully');
+          break;
+        case 'csv':
+          analyticsExport.exportToCSV(exportData);
+          toast.success('Interactive analytics CSV exported successfully');
+          break;
+        case 'json':
+          analyticsExport.exportToJSON(exportData);
+          toast.success('Interactive analytics JSON exported successfully');
+          break;
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast.error('Failed to export interactive analytics data');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const renderPatternAnalysis = () => {
     if (isAnalyzing) {
       return (
@@ -508,7 +853,14 @@ export const InteractiveDataVisualization = ({
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {patterns.map((pattern, index) => (
-                <Card key={index} className="bg-gradient-card">
+                <Card 
+                  key={index} 
+                  className={cn(
+                    "bg-gradient-card cursor-pointer transition-all",
+                    highlightState.type === 'emotion' && pattern.type === 'emotion' && "ring-2 ring-primary"
+                  )}
+                  onClick={() => handleHighlight('emotion', `pattern-${index}`)}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       {getPatternIcon(pattern.type)}
@@ -554,7 +906,7 @@ export const InteractiveDataVisualization = ({
                 <Card key={index} className="bg-gradient-card">
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0">
+                      <div className="flex-shrink-0">
                         {insight.severity === 'high' ? (
                           <AlertTriangle className="h-5 w-5 text-red-500" />
                         ) : insight.severity === 'medium' ? (
@@ -575,29 +927,29 @@ export const InteractiveDataVisualization = ({
                           {insight.description}
                         </p>
 
-                         {insight.prediction && (
-                           <div className="mb-2">
-                             <p className="text-sm font-medium mb-1">Prediction:</p>
-                             <div className="flex items-center gap-2 text-sm">
-                               {insight.prediction.trend === 'increasing' ? (
-                                 <TrendingUp className="h-4 w-4 text-green-500" />
-                               ) : insight.prediction.trend === 'decreasing' ? (
-                                 <TrendingDown className="h-4 w-4 text-red-500" />
-                               ) : (
-                                 <Activity className="h-4 w-4 text-blue-500" />
-                               )}
-                               <span className="capitalize">{insight.prediction.trend}</span>
-                               <ConfidenceIndicator 
-                                 confidence={insight.prediction.accuracy}
-                                 dataPoints={filteredData.emotions.length + filteredData.sensoryInputs.length}
-                                 timeSpanDays={filteredData.emotions.length > 0 && filteredData.emotions[0] ? 
-                                   Math.abs(differenceInDays(new Date(), filteredData.emotions[0].timestamp)) : 0}
-                                 rSquared={insight.prediction.accuracy}
-                                 className="ml-1"
-                               />
-                             </div>
-                           </div>
-                         )}
+                        {insight.prediction && (
+                          <div className="mb-2">
+                            <p className="text-sm font-medium mb-1">Prediction:</p>
+                            <div className="flex items-center gap-2 text-sm">
+                              {insight.prediction.trend === 'increasing' ? (
+                                <TrendingUp className="h-4 w-4 text-green-500" />
+                              ) : insight.prediction.trend === 'decreasing' ? (
+                                <TrendingDown className="h-4 w-4 text-red-500" />
+                              ) : (
+                                <Activity className="h-4 w-4 text-blue-500" />
+                              )}
+                              <span className="capitalize">{insight.prediction.trend}</span>
+                              <ConfidenceIndicator 
+                                confidence={insight.prediction.accuracy}
+                                dataPoints={filteredData.emotions.length + filteredData.sensoryInputs.length}
+                                timeSpanDays={filteredData.emotions.length > 0 && filteredData.emotions[0] ? 
+                                  Math.abs(differenceInDays(new Date(), filteredData.emotions[0].timestamp)) : 0}
+                                rSquared={insight.prediction.accuracy}
+                                className="ml-1"
+                              />
+                            </div>
+                          </div>
+                        )}
 
                         {insight.recommendations.length > 0 && (
                           <div className="space-y-1">
@@ -637,7 +989,14 @@ export const InteractiveDataVisualization = ({
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {anomalies.map((anomaly, index) => (
-                <Card key={index} className="bg-gradient-card border-orange-200">
+                <Card 
+                  key={index} 
+                  className={cn(
+                    "bg-gradient-card border-orange-200 cursor-pointer",
+                    highlightState.type === 'anomaly' && highlightState.id === `anomaly-${index}` && "ring-2 ring-orange-500"
+                  )}
+                  onClick={() => handleHighlight('anomaly', `anomaly-${index}`)}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
@@ -661,17 +1020,246 @@ export const InteractiveDataVisualization = ({
     );
   };
 
+  // Render visualization based on type and layout
+  const renderVisualization = (type: VisualizationType) => {
+    switch (type) {
+      case 'trends':
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Emotion & Sensory Trends</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div ref={trendsChartRef}>
+                {renderChart()}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case 'correlations':
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Correlation Heatmap</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Relationships between emotional, sensory, and environmental factors
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div ref={correlationChartRef}>
+                {renderCorrelationHeatmap()}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case 'patterns':
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Pattern Recognition</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div ref={patternsChartRef}>
+                {renderPatternAnalysis()}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case '3d':
+        return (
+          <Visualization3D
+            emotions={filteredData.emotions}
+            sensoryInputs={filteredData.sensoryInputs}
+            trackingEntries={filteredData.trackingEntries}
+          />
+        );
+
+      case 'timeline':
+        return (
+          <TimelineVisualization
+            emotions={filteredData.emotions}
+            sensoryInputs={filteredData.sensoryInputs}
+            trackingEntries={filteredData.trackingEntries}
+            anomalies={anomalies.map(a => ({
+              timestamp: a.timestamp,
+              type: a.type,
+              severity: a.severity
+            }))}
+            onTimeRangeChange={(start, end) => {
+              setFilterCriteria(prev => ({
+                ...prev,
+                dateRange: { start, end }
+              }));
+            }}
+            realtime={filterCriteria.realtime}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="space-y-6 font-dyslexia">
-      {/* Controls */}
+    <div ref={containerRef} className="space-y-6 font-dyslexia">
+      {/* Main Controls Bar */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
             Interactive Data Analysis - {studentName}
+            {filterCriteria.realtime && (
+              <Badge variant="default" className="animate-pulse ml-2">
+                <Wifi className="h-3 w-3 mr-1" />
+                Live
+              </Badge>
+            )}
           </CardTitle>
+          <div className="flex items-center gap-2">
+            {/* Filter Toggle */}
+            <Sheet open={showFilterPanel} onOpenChange={setShowFilterPanel}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filters
+                  {Object.keys(filterCriteria).filter(k => 
+                    JSON.stringify(filterCriteria[k as keyof FilterCriteria]) !== 
+                    JSON.stringify({
+                      dateRange: { start: null, end: null },
+                      emotions: { types: [], intensityRange: [0, 10], includeTriggers: [], excludeTriggers: [] },
+                      sensory: { types: [], responses: [], intensityRange: [0, 10] },
+                      environmental: {
+                        locations: [],
+                        activities: [],
+                        conditions: { noiseLevel: [0, 10], temperature: [15, 30], lighting: [] },
+                        weather: [],
+                        timeOfDay: []
+                      },
+                      patterns: { anomaliesOnly: false, minConfidence: 0, patternTypes: [] },
+                      realtime: false
+                    }[k as keyof FilterCriteria])
+                  ).length > 0 && (
+                    <Badge variant="default" className="ml-1">
+                      Active
+                    </Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[400px] sm:w-[540px]">
+                <SheetHeader>
+                  <SheetTitle>Advanced Filters</SheetTitle>
+                  <SheetDescription>
+                    Configure multi-dimensional filters for your data analysis
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="mt-6">
+                  <AdvancedFilterPanel
+                    emotions={emotions}
+                    sensoryInputs={sensoryInputs}
+                    trackingEntries={trackingEntries}
+                    onFilterChange={setFilterCriteria}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Layout Mode Selector */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  {layoutMode === 'grid' && <Grid3x3 className="h-4 w-4 mr-2" />}
+                  {layoutMode === 'focus' && <Focus className="h-4 w-4 mr-2" />}
+                  {layoutMode === 'comparison' && <Columns className="h-4 w-4 mr-2" />}
+                  {layoutMode === 'dashboard' && <Activity className="h-4 w-4 mr-2" />}
+                  Layout
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setLayoutMode('dashboard')}>
+                  <Activity className="h-4 w-4 mr-2" />
+                  Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLayoutMode('grid')}>
+                  <Grid3x3 className="h-4 w-4 mr-2" />
+                  Grid View
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLayoutMode('focus')}>
+                  <Focus className="h-4 w-4 mr-2" />
+                  Focus Mode
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLayoutMode('comparison')}>
+                  <Columns className="h-4 w-4 mr-2" />
+                  Comparison
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* View Options */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  View
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={toggleFullscreen}>
+                  <Maximize2 className="h-4 w-4 mr-2" />
+                  {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={togglePictureInPicture}>
+                  <PictureInPicture2 className="h-4 w-4 mr-2" />
+                  Picture-in-Picture
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => {
+                  setHighlightState({ type: null, id: null, relatedIds: [] });
+                }}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Clear Highlights
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Export Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isExporting}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {isExporting ? 'Exporting...' : 'Export'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => handleExport('pdf')}
+                  disabled={isExporting}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleExport('csv')}
+                  disabled={isExporting}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleExport('json')}
+                  disabled={isExporting}
+                >
+                  <FileJson className="h-4 w-4 mr-2" />
+                  Export as JSON
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </CardHeader>
         <CardContent>
+          {/* Quick Controls */}
           <div className="flex flex-wrap gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Chart Type</label>
@@ -713,163 +1301,305 @@ export const InteractiveDataVisualization = ({
               <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                 {filteredData.trackingEntries.length} sessions
               </Badge>
+              {filterCriteria.realtime && (
+                <Badge variant="default" className="bg-orange-500">
+                  {realtimeData.newDataCount} new
+                </Badge>
+              )}
             </div>
           </div>
+
+          {/* Visualization Selection for Focus Mode */}
+          {layoutMode === 'focus' && (
+            <div className="mt-4 flex gap-2">
+              {(['trends', 'correlations', 'patterns', '3d', 'timeline'] as VisualizationType[]).map(type => (
+                <Toggle
+                  key={type}
+                  size="sm"
+                  pressed={focusedVisualization === type}
+                  onPressedChange={() => setFocusedVisualization(focusedVisualization === type ? null : type)}
+                  className="capitalize"
+                >
+                  {type === '3d' ? '3D View' : type}
+                </Toggle>
+              ))}
+            </div>
+          )}
+
+          {/* Multi-select for Grid/Comparison modes */}
+          {(layoutMode === 'grid' || layoutMode === 'comparison') && (
+            <div className="mt-4 flex gap-2">
+              {(['trends', 'correlations', 'patterns', '3d', 'timeline'] as VisualizationType[]).map(type => (
+                <Toggle
+                  key={type}
+                  size="sm"
+                  pressed={selectedVisualizations.includes(type)}
+                  onPressedChange={(pressed) => {
+                    if (pressed) {
+                      setSelectedVisualizations([...selectedVisualizations, type]);
+                    } else {
+                      setSelectedVisualizations(selectedVisualizations.filter(v => v !== type));
+                    }
+                  }}
+                  className="capitalize"
+                >
+                  {type === '3d' ? '3D View' : type}
+                </Toggle>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Main Visualization Tabs */}
-      <Tabs defaultValue="trends" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="trends" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Trends
-          </TabsTrigger>
-          <TabsTrigger value="correlations" className="flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            Correlations
-          </TabsTrigger>
-          <TabsTrigger value="patterns" className="flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            Patterns
-          </TabsTrigger>
-        </TabsList>
+      {/* Real-time Connection Status */}
+      {filterCriteria.realtime && (
+        <Card>
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  realtimeData.connectionStatus === 'connected' ? "bg-green-500 animate-pulse" :
+                  realtimeData.connectionStatus === 'connecting' ? "bg-yellow-500" :
+                  realtimeData.connectionStatus === 'error' ? "bg-red-500" :
+                  "bg-gray-500"
+                )} />
+                <span className="text-sm font-medium">
+                  {realtimeData.connectionStatus === 'connected' ? 'Live Data Stream' :
+                   realtimeData.connectionStatus === 'connecting' ? 'Connecting...' :
+                   realtimeData.connectionStatus === 'error' ? 'Connection Error' :
+                   'Disconnected'}
+                </span>
+                {realtimeData.lastUpdate && (
+                  <span className="text-xs text-muted-foreground">
+                    Last update: {format(realtimeData.lastUpdate, 'HH:mm:ss')}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {realtimeData.newDataCount > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => realtimeData.clearNewDataIndicator()}
+                  >
+                    Clear {realtimeData.newDataCount} new
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => realtimeData.getHistoricalData(60)}
+                >
+                  Load History
+                </Button>
+                {realtimeData.isLive ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => realtimeData.stopStream()}
+                  >
+                    <WifiOff className="h-4 w-4 mr-1" />
+                    Stop
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => realtimeData.startStream()}
+                  >
+                    <Wifi className="h-4 w-4 mr-1" />
+                    Start
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-        <TabsContent value="trends" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Emotion & Sensory Trends</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {renderChart()}
-            </CardContent>
-          </Card>
+      {/* Main Visualization Area */}
+      {layoutMode === 'dashboard' ? (
+        // Dashboard Layout with Tabs
+        <Tabs defaultValue="trends" className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="trends" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Trends
+            </TabsTrigger>
+            <TabsTrigger value="correlations" className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Correlations
+            </TabsTrigger>
+            <TabsTrigger value="patterns" className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              Patterns
+            </TabsTrigger>
+            <TabsTrigger value="3d" className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              3D View
+            </TabsTrigger>
+            <TabsTrigger value="timeline" className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Timeline
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Summary Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Avg Emotion Intensity</p>
-                    <p className="text-2xl font-bold">
-                      {filteredData.emotions.length > 0 
-                        ? (filteredData.emotions.reduce((sum, e) => sum + e.intensity, 0) / filteredData.emotions.length).toFixed(1)
-                        : '0'
-                      }
-                    </p>
-                  </div>
-                  <Brain className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Positive Emotion Rate</p>
-                    <p className="text-2xl font-bold">
-                      {filteredData.emotions.length > 0 
-                        ? Math.round((filteredData.emotions.filter(e => 
-                            ['happy', 'calm', 'focused', 'excited', 'proud'].includes(e.emotion.toLowerCase())
-                          ).length / filteredData.emotions.length) * 100)
-                        : 0
-                      }%
-                    </p>
-                  </div>
-                  <Eye className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Sensory Seeking Rate</p>
-                    <p className="text-2xl font-bold">
-                      {filteredData.sensoryInputs.length > 0 
-                        ? Math.round((filteredData.sensoryInputs.filter(s => 
-                            s.response.toLowerCase().includes('seeking')
-                          ).length / filteredData.sensoryInputs.length) * 100)
-                        : 0
-                      }%
-                    </p>
-                  </div>
-                  <Activity className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="correlations" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Correlation Heatmap</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Relationships between emotional, sensory, and environmental factors
-              </p>
-            </CardHeader>
-            <CardContent>
-              {renderCorrelationHeatmap()}
-            </CardContent>
-          </Card>
-
-          {/* Significant Correlations */}
-          {correlationMatrix && correlationMatrix.significantPairs.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Significant Correlations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {correlationMatrix.significantPairs.slice(0, 5).map((pair, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex-1">
-                        <p className="font-medium">
-                          {pair.factor1.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} ↔{' '}
-                          {pair.factor2.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {pair.correlation > 0 ? 'Positive' : 'Negative'} correlation (r = {pair.correlation.toFixed(3)})
-                        </p>
-                      </div>
-                      <Badge variant={pair.significance === 'high' ? 'default' : 'outline'}>
-                        {pair.significance}
-                      </Badge>
+          <TabsContent value="trends" className="space-y-6">
+            {renderVisualization('trends')}
+            
+            {/* Summary Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Avg Emotion Intensity</p>
+                      <p className="text-2xl font-bold">
+                        {filteredData.emotions.length > 0 
+                          ? (filteredData.emotions.reduce((sum, e) => sum + e.intensity, 0) / filteredData.emotions.length).toFixed(1)
+                          : '0'
+                        }
+                      </p>
                     </div>
-                  ))}
+                    <Brain className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Positive Emotion Rate</p>
+                      <p className="text-2xl font-bold">
+                        {filteredData.emotions.length > 0 
+                          ? Math.round((filteredData.emotions.filter(e => 
+                              ['happy', 'calm', 'focused', 'excited', 'proud'].includes(e.emotion.toLowerCase())
+                            ).length / filteredData.emotions.length) * 100)
+                          : 0
+                        }%
+                      </p>
+                    </div>
+                    <Eye className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Sensory Seeking Rate</p>
+                      <p className="text-2xl font-bold">
+                        {filteredData.sensoryInputs.length > 0 
+                          ? Math.round((filteredData.sensoryInputs.filter(s => 
+                              s.response.toLowerCase().includes('seeking')
+                            ).length / filteredData.sensoryInputs.length) * 100)
+                          : 0
+                        }%
+                      </p>
+                    </div>
+                    <Activity className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="correlations" className="space-y-6">
+            {renderVisualization('correlations')}
+            
+            {/* Significant Correlations */}
+            {correlationMatrix && correlationMatrix.significantPairs.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Significant Correlations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {correlationMatrix.significantPairs.slice(0, 5).map((pair, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium">
+                            {pair.factor1.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} ↔{' '}
+                            {pair.factor2.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {pair.correlation > 0 ? 'Positive' : 'Negative'} correlation (r = {pair.correlation.toFixed(3)})
+                          </p>
+                        </div>
+                        <Badge variant={pair.significance === 'high' ? 'default' : 'outline'}>
+                          {pair.significance}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="patterns" className="space-y-6">
+            {/* Detailed Confidence Analysis for Teachers */}
+            <DetailedConfidenceExplanation
+              confidence={predictiveInsights.length > 0 ? predictiveInsights[0].confidence : 
+                        patterns.length > 0 ? patterns[0].confidence : 0.03}
+              dataPoints={filteredData.emotions.length + filteredData.sensoryInputs.length + filteredData.trackingEntries.length}
+              timeSpanDays={filteredData.emotions.length > 0 && filteredData.emotions[0] ? 
+                Math.abs(differenceInDays(new Date(), filteredData.emotions[0].timestamp)) : 0}
+              rSquared={predictiveInsights.length > 0 && predictiveInsights[0].prediction ? 
+                predictiveInsights[0].prediction.accuracy : 
+                patterns.length > 0 ? patterns[0].confidence : 0.03}
+            />
+            
+            {renderVisualization('patterns')}
+          </TabsContent>
+
+          <TabsContent value="3d">
+            {renderVisualization('3d')}
+          </TabsContent>
+
+          <TabsContent value="timeline">
+            {renderVisualization('timeline')}
+          </TabsContent>
+        </Tabs>
+      ) : layoutMode === 'focus' ? (
+        // Focus Mode - Single visualization
+        <div className="space-y-6">
+          {focusedVisualization ? (
+            renderVisualization(focusedVisualization)
+          ) : (
+            <Card>
+              <CardContent className="flex items-center justify-center h-96">
+                <div className="text-center text-muted-foreground">
+                  <Focus className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg">Select a visualization to focus on</p>
+                  <p className="text-sm">Choose from the options above</p>
                 </div>
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-
-        <TabsContent value="patterns" className="space-y-6">
-          {/* Detailed Confidence Analysis for Teachers */}
-          <DetailedConfidenceExplanation
-            confidence={predictiveInsights.length > 0 ? predictiveInsights[0].confidence : 
-                      patterns.length > 0 ? patterns[0].confidence : 0.03}
-            dataPoints={filteredData.emotions.length + filteredData.sensoryInputs.length + filteredData.trackingEntries.length}
-            timeSpanDays={filteredData.emotions.length > 0 && filteredData.emotions[0] ? 
-              Math.abs(differenceInDays(new Date(), filteredData.emotions[0].timestamp)) : 0}
-            rSquared={predictiveInsights.length > 0 && predictiveInsights[0].prediction ? 
-              predictiveInsights[0].prediction.accuracy : 
-              patterns.length > 0 ? patterns[0].confidence : 0.03}
-          />
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>AI Pattern Recognition</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {renderPatternAnalysis()}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      ) : (
+        // Grid or Comparison Layout
+        <div className={getLayoutClasses()}>
+          {selectedVisualizations.map(type => (
+            <div key={type}>{renderVisualization(type)}</div>
+          ))}
+          {selectedVisualizations.length === 0 && (
+            <Card className="col-span-full">
+              <CardContent className="flex items-center justify-center h-96">
+                <div className="text-center text-muted-foreground">
+                  <Grid3x3 className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg">Select visualizations to display</p>
+                  <p className="text-sm">Choose from the options above</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 };

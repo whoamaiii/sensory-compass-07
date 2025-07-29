@@ -4,55 +4,76 @@ interface CacheEntry<T> {
   data: T;
   timestamp: number;
   hits: number;
+  tags?: string[];
+  version?: string;
 }
 
 interface CacheOptions {
   maxSize?: number;
   ttl?: number; // time to live in milliseconds
   enableStats?: boolean;
+  versioning?: boolean;
+}
+
+interface CacheStats {
+  hits: number;
+  misses: number;
+  sets: number;
+  evictions: number;
+  invalidations: number;
+  hitRate: number;
+  size: number;
+  memoryUsage?: number;
 }
 
 /**
- * High-performance caching hook with LRU eviction, TTL, and performance statistics
+ * Enhanced high-performance caching hook with LRU eviction, TTL, tagging, and performance statistics
  * 
  * @param options Configuration object for cache behavior
  * @param options.maxSize Maximum number of entries (default: 100)
  * @param options.ttl Time to live in milliseconds (default: 5 minutes)
  * @param options.enableStats Whether to track performance statistics (default: false)
+ * @param options.versioning Whether to enable cache versioning (default: false)
  * 
- * @returns Cache interface with get, set, has, clear, cleanup methods and optional stats
+ * @returns Cache interface with get, set, has, clear, cleanup, invalidate methods and optional stats
  * 
  * @example
  * ```typescript
- * const cache = usePerformanceCache<string>({ 
+ * const cache = usePerformanceCache<AnalyticsResult>({ 
  *   maxSize: 50, 
  *   ttl: 10 * 60 * 1000, // 10 minutes
- *   enableStats: true 
+ *   enableStats: true,
+ *   versioning: true
  * });
  * 
- * // Store data
- * cache.set('key1', 'value1');
+ * // Store data with tags
+ * cache.set('analytics:student:123', result, ['student-123', 'analytics']);
  * 
- * // Retrieve data
- * const value = cache.get('key1');
+ * // Invalidate by tag
+ * cache.invalidateByTag('student-123');
  * 
- * // Check cache stats
- * // cache.stats?.hitRate; // Hit rate percentage
+ * // Create composite cache key
+ * const key = cache.createKey('analytics', { studentId: '123', dateRange: '7d' });
  * ```
  */
 export function usePerformanceCache<T>(options: CacheOptions = {}) {
   const {
     maxSize = 100,
     ttl = 5 * 60 * 1000, // 5 minutes default
-    enableStats = false
+    enableStats = false,
+    versioning = false
   } = options;
 
   const cache = useRef<Map<string, CacheEntry<T>>>(new Map());
+  const tagIndex = useRef<Map<string, Set<string>>>(new Map());
+  const currentVersion = useRef<string>(Date.now().toString());
+  
   const [stats, setStats] = useState({
     hits: 0,
     misses: 0,
     sets: 0,
-    evictions: 0
+    evictions: 0,
+    invalidations: 0
   });
 
   const updateStats = useCallback((operation: keyof typeof stats) => {
@@ -80,10 +101,35 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
     });
 
     if (lruKey) {
+      const entry = cache.current.get(lruKey);
+      if (entry?.tags) {
+        removeFromTagIndex(lruKey, entry.tags);
+      }
       cache.current.delete(lruKey);
       updateStats('evictions');
     }
   }, [updateStats]);
+
+  const removeFromTagIndex = useCallback((key: string, tags: string[]) => {
+    tags.forEach(tag => {
+      const keys = tagIndex.current.get(tag);
+      if (keys) {
+        keys.delete(key);
+        if (keys.size === 0) {
+          tagIndex.current.delete(tag);
+        }
+      }
+    });
+  }, []);
+
+  const addToTagIndex = useCallback((key: string, tags: string[]) => {
+    tags.forEach(tag => {
+      if (!tagIndex.current.has(tag)) {
+        tagIndex.current.set(tag, new Set());
+      }
+      tagIndex.current.get(tag)!.add(key);
+    });
+  }, []);
 
   const get = useCallback((key: string): T | undefined => {
     const entry = cache.current.get(key);
@@ -94,6 +140,18 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
     }
     
     if (isExpired(entry)) {
+      if (entry.tags) {
+        removeFromTagIndex(key, entry.tags);
+      }
+      cache.current.delete(key);
+      updateStats('misses');
+      return undefined;
+    }
+
+    if (versioning && entry.version !== currentVersion.current) {
+      if (entry.tags) {
+        removeFromTagIndex(key, entry.tags);
+      }
       cache.current.delete(key);
       updateStats('misses');
       return undefined;
@@ -105,39 +163,157 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
     updateStats('hits');
     
     return entry.data;
-  }, [isExpired, updateStats]);
+  }, [isExpired, updateStats, versioning, removeFromTagIndex]);
 
-  const set = useCallback((key: string, value: T): void => {
+  const set = useCallback((key: string, value: T, tags: string[] = []): void => {
     // Check if we need to evict
     if (cache.current.size >= maxSize && !cache.current.has(key)) {
       evictLRU();
     }
 
+    // If updating existing entry, remove old tags
+    const existingEntry = cache.current.get(key);
+    if (existingEntry?.tags) {
+      removeFromTagIndex(key, existingEntry.tags);
+    }
+
     cache.current.set(key, {
       data: value,
       timestamp: Date.now(),
-      hits: 0
+      hits: 0,
+      tags,
+      version: versioning ? currentVersion.current : undefined
     });
 
+    if (tags.length > 0) {
+      addToTagIndex(key, tags);
+    }
+
     updateStats('sets');
-  }, [maxSize, evictLRU, updateStats]);
+  }, [maxSize, evictLRU, updateStats, versioning, removeFromTagIndex, addToTagIndex]);
 
   const has = useCallback((key: string): boolean => {
     const entry = cache.current.get(key);
-    return entry ? !isExpired(entry) : false;
-  }, [isExpired]);
+    if (!entry) return false;
+    
+    if (isExpired(entry)) {
+      if (entry.tags) {
+        removeFromTagIndex(key, entry.tags);
+      }
+      cache.current.delete(key);
+      return false;
+    }
+
+    if (versioning && entry.version !== currentVersion.current) {
+      if (entry.tags) {
+        removeFromTagIndex(key, entry.tags);
+      }
+      cache.current.delete(key);
+      return false;
+    }
+
+    return true;
+  }, [isExpired, versioning, removeFromTagIndex]);
 
   const clear = useCallback(() => {
     cache.current.clear();
-    setStats({ hits: 0, misses: 0, sets: 0, evictions: 0 });
+    tagIndex.current.clear();
+    setStats({ hits: 0, misses: 0, sets: 0, evictions: 0, invalidations: 0 });
   }, []);
 
-  const size = useMemo(() => cache.current.size, [cache.current]);
+  const invalidateByTag = useCallback((tag: string): number => {
+    const keys = tagIndex.current.get(tag);
+    if (!keys) return 0;
+
+    let invalidatedCount = 0;
+    keys.forEach(key => {
+      const entry = cache.current.get(key);
+      if (entry) {
+        cache.current.delete(key);
+        invalidatedCount++;
+        updateStats('invalidations');
+      }
+    });
+
+    tagIndex.current.delete(tag);
+    return invalidatedCount;
+  }, [updateStats]);
+
+  const invalidateByPattern = useCallback((pattern: RegExp): number => {
+    let invalidatedCount = 0;
+    const keysToDelete: string[] = [];
+
+    cache.current.forEach((entry, key) => {
+      if (pattern.test(key)) {
+        keysToDelete.push(key);
+        if (entry.tags) {
+          removeFromTagIndex(key, entry.tags);
+        }
+      }
+    });
+
+    keysToDelete.forEach(key => {
+      cache.current.delete(key);
+      invalidatedCount++;
+      updateStats('invalidations');
+    });
+
+    return invalidatedCount;
+  }, [updateStats, removeFromTagIndex]);
+
+  const invalidateVersion = useCallback(() => {
+    if (versioning) {
+      currentVersion.current = Date.now().toString();
+    }
+  }, [versioning]);
+
+  const createKey = useCallback((prefix: string, params: Record<string, unknown>): string => {
+    const sortedParams = Object.keys(params)
+      .sort()
+      .map(key => `${key}:${JSON.stringify(params[key])}`)
+      .join(':');
+    return `${prefix}:${sortedParams}`;
+  }, []);
+
+  const getDataFingerprint = useCallback((data: unknown): string => {
+    // Create a fingerprint for data to use in cache keys
+    const stringify = (obj: unknown): string => {
+      if (obj === null || obj === undefined) return 'null';
+      if (typeof obj !== 'object') return String(obj);
+      if (Array.isArray(obj)) return `[${obj.map(stringify).join(',')}]`;
+      
+      const keys = Object.keys(obj).sort();
+      return `{${keys.map(k => `${k}:${stringify(obj[k])}`).join(',')}}`;
+    };
+
+    const str = stringify(data);
+    // Simple hash function for fingerprint
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(36);
+  }, []);
+
+  const size = useMemo(() => cache.current.size, [cache.current.size]);
 
   const hitRate = useMemo(() => {
     const total = stats.hits + stats.misses;
     return total > 0 ? (stats.hits / total) * 100 : 0;
   }, [stats.hits, stats.misses]);
+
+  const memoryUsage = useMemo(() => {
+    if (!enableStats) return undefined;
+    
+    // Rough estimation of memory usage
+    let totalSize = 0;
+    cache.current.forEach((entry) => {
+      totalSize += JSON.stringify(entry).length * 2; // Rough estimate (2 bytes per char)
+    });
+    return totalSize;
+  }, [enableStats, cache.current.size]);
 
   // Clean up expired entries periodically
   const cleanup = useCallback(() => {
@@ -145,13 +321,25 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
     const keysToDelete: string[] = [];
 
     cache.current.forEach((entry, key) => {
-      if (now - entry.timestamp > ttl) {
+      if (now - entry.timestamp > ttl || (versioning && entry.version !== currentVersion.current)) {
         keysToDelete.push(key);
+        if (entry.tags) {
+          removeFromTagIndex(key, entry.tags);
+        }
       }
     });
 
     keysToDelete.forEach(key => cache.current.delete(key));
-  }, [ttl]);
+  }, [ttl, versioning, removeFromTagIndex]);
+
+  const getCacheStats = useCallback((): CacheStats => {
+    return {
+      ...stats,
+      hitRate,
+      size,
+      memoryUsage
+    };
+  }, [stats, hitRate, size, memoryUsage]);
 
   return {
     get,
@@ -160,6 +348,11 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
     clear,
     cleanup,
     size,
-    stats: enableStats ? { ...stats, hitRate } : null
+    invalidateByTag,
+    invalidateByPattern,
+    invalidateVersion,
+    createKey,
+    getDataFingerprint,
+    stats: enableStats ? getCacheStats() : null
   };
 }

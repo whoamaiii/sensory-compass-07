@@ -1,5 +1,7 @@
 import { EmotionEntry, SensoryEntry, TrackingEntry, Goal } from "@/types/student";
 import { isWithinInterval, subDays, format, differenceInDays } from "date-fns";
+import { analyticsConfig, AnalyticsConfiguration } from "@/lib/analyticsConfig";
+import { mlModels, EmotionPrediction, SensoryPrediction, BaselineCluster } from "@/lib/mlModels";
 
 export interface PredictiveInsight {
   type: 'prediction' | 'trend' | 'recommendation' | 'risk';
@@ -14,6 +16,8 @@ export interface PredictiveInsight {
   };
   recommendations: string[];
   severity?: 'low' | 'medium' | 'high';
+  source?: 'statistical' | 'ml' | 'hybrid';
+  mlPrediction?: EmotionPrediction[] | SensoryPrediction;
 }
 
 export interface TrendAnalysis {
@@ -51,25 +55,46 @@ export interface CorrelationMatrix {
 }
 
 class EnhancedPatternAnalysisEngine {
-  private readonly TREND_THRESHOLD = 0.05;
-  private readonly ANOMALY_THRESHOLD = 1.5; // Standard deviations
-  private readonly MIN_SAMPLE_SIZE = 5;
+  private config: AnalyticsConfiguration;
+  private mlModelsInitialized: boolean = false;
 
-  // Predictive Analytics
-  generatePredictiveInsights(
+  constructor() {
+    this.config = analyticsConfig.getConfig();
+    
+    // Subscribe to configuration changes
+    analyticsConfig.subscribe((newConfig) => {
+      this.config = newConfig;
+    });
+
+    // Initialize ML models
+    this.initializeMLModels();
+  }
+
+  private async initializeMLModels(): Promise<void> {
+    try {
+      await mlModels.init();
+      this.mlModelsInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize ML models:', error);
+      this.mlModelsInitialized = false;
+    }
+  }
+
+  // Predictive Analytics with ML Integration
+  async generatePredictiveInsights(
     emotions: EmotionEntry[],
     sensoryInputs: SensoryEntry[],
     trackingEntries: TrackingEntry[],
     goals: Goal[] = []
-  ): PredictiveInsight[] {
+  ): Promise<PredictiveInsight[]> {
     const insights: PredictiveInsight[] = [];
 
-    // Emotional well-being prediction
+    // Statistical emotional well-being prediction
     const emotionTrend = this.analyzeEmotionTrend(emotions);
-    if (emotionTrend) {
-      insights.push({
+    if (emotionTrend && emotionTrend.significance >= this.config.enhancedAnalysis.predictionConfidenceThreshold) {
+      const statisticalInsight: PredictiveInsight = {
         type: 'prediction',
-        title: 'Emotional Well-being Forecast',
+        title: 'Emotional Well-being Forecast (Statistical)',
         description: `Based on current trends, emotional intensity is ${emotionTrend.direction}`,
         confidence: emotionTrend.significance,
         timeframe: '7-day forecast',
@@ -79,16 +104,65 @@ class EnhancedPatternAnalysisEngine {
           accuracy: emotionTrend.confidence
         },
         recommendations: this.getEmotionTrendRecommendations(emotionTrend),
-        severity: this.getTrendSeverity(emotionTrend)
-      });
+        severity: this.getTrendSeverity(emotionTrend),
+        source: 'statistical'
+      };
+      insights.push(statisticalInsight);
     }
 
-    // Sensory regulation prediction
+    // ML emotional prediction if available
+    if (this.mlModelsInitialized && trackingEntries.length >= 7) {
+      try {
+        const modelStatus = await mlModels.getModelStatus();
+        if (modelStatus.get('emotion-prediction')) {
+          const mlEmotionPredictions = await mlModels.predictEmotions(
+            trackingEntries.slice(-14), // Use last 14 days for better context
+            7
+          );
+
+          if (mlEmotionPredictions.length > 0) {
+            // Calculate overall trend from ML predictions
+            const avgPredictedIntensity = mlEmotionPredictions.reduce((sum, pred) => {
+              const emotionSum = Object.values(pred.emotions).reduce((s, v) => s + v, 0);
+              return sum + emotionSum / Object.keys(pred.emotions).length;
+            }, 0) / mlEmotionPredictions.length;
+
+            const currentAvgIntensity = emotions.slice(-7).reduce((sum, e) => sum + e.intensity, 0) /
+              Math.max(emotions.slice(-7).length, 1);
+
+            const mlTrend = avgPredictedIntensity > currentAvgIntensity * 1.1 ? 'increasing' :
+                           avgPredictedIntensity < currentAvgIntensity * 0.9 ? 'decreasing' : 'stable';
+
+            insights.push({
+              type: 'prediction',
+              title: 'Emotional Well-being Forecast (ML)',
+              description: `Machine learning predicts emotional patterns will be ${mlTrend}`,
+              confidence: mlEmotionPredictions[0].confidence,
+              timeframe: '7-day forecast',
+              prediction: {
+                value: avgPredictedIntensity,
+                trend: mlTrend,
+                accuracy: mlEmotionPredictions[0].confidence
+              },
+              recommendations: this.getMLEmotionRecommendations(mlEmotionPredictions, mlTrend),
+              severity: mlTrend === 'increasing' && avgPredictedIntensity > 3.5 ? 'high' :
+                       mlTrend === 'decreasing' && avgPredictedIntensity < 2 ? 'medium' : 'low',
+              source: 'ml',
+              mlPrediction: mlEmotionPredictions
+            });
+          }
+        }
+      } catch (error) {
+        console.error('ML emotion prediction failed:', error);
+      }
+    }
+
+    // Statistical sensory regulation prediction
     const sensoryTrend = this.analyzeSensoryTrend(sensoryInputs);
-    if (sensoryTrend) {
+    if (sensoryTrend && sensoryTrend.significance >= this.config.enhancedAnalysis.predictionConfidenceThreshold) {
       insights.push({
         type: 'prediction',
-        title: 'Sensory Regulation Forecast',
+        title: 'Sensory Regulation Forecast (Statistical)',
         description: `Sensory seeking/avoiding patterns show ${sensoryTrend.direction} trend`,
         confidence: sensoryTrend.significance,
         timeframe: '14-day forecast',
@@ -98,8 +172,54 @@ class EnhancedPatternAnalysisEngine {
           accuracy: sensoryTrend.confidence
         },
         recommendations: this.getSensoryTrendRecommendations(sensoryTrend),
-        severity: this.getTrendSeverity(sensoryTrend)
+        severity: this.getTrendSeverity(sensoryTrend),
+        source: 'statistical'
       });
+    }
+
+    // ML sensory prediction if available
+    if (this.mlModelsInitialized && trackingEntries.length > 0) {
+      try {
+        const modelStatus = await mlModels.getModelStatus();
+        if (modelStatus.get('sensory-response') && trackingEntries[trackingEntries.length - 1].environmentalData) {
+          const latestEnvironment = {
+            lighting: trackingEntries[trackingEntries.length - 1].environmentalData?.roomConditions?.lighting as 'bright' | 'dim' | 'moderate' || 'moderate',
+            noise: (trackingEntries[trackingEntries.length - 1].environmentalData?.roomConditions?.noiseLevel &&
+                   trackingEntries[trackingEntries.length - 1].environmentalData.roomConditions.noiseLevel > 70 ? 'loud' :
+                   trackingEntries[trackingEntries.length - 1].environmentalData?.roomConditions?.noiseLevel &&
+                   trackingEntries[trackingEntries.length - 1].environmentalData.roomConditions.noiseLevel < 40 ? 'quiet' : 'moderate') as 'loud' | 'moderate' | 'quiet',
+            temperature: (trackingEntries[trackingEntries.length - 1].environmentalData?.roomConditions?.temperature &&
+                        trackingEntries[trackingEntries.length - 1].environmentalData.roomConditions.temperature > 26 ? 'hot' :
+                        trackingEntries[trackingEntries.length - 1].environmentalData?.roomConditions?.temperature &&
+                        trackingEntries[trackingEntries.length - 1].environmentalData.roomConditions.temperature < 18 ? 'cold' : 'comfortable') as 'hot' | 'cold' | 'comfortable',
+            crowded: 'moderate' as const,
+            smells: false,
+            textures: false
+          };
+
+          const mlSensoryPrediction = await mlModels.predictSensoryResponse(
+            latestEnvironment,
+            new Date()
+          );
+
+          if (mlSensoryPrediction) {
+            insights.push({
+              type: 'prediction',
+              title: 'Sensory Response Prediction (ML)',
+              description: `Machine learning predicts sensory responses based on current environment`,
+              confidence: mlSensoryPrediction.confidence,
+              timeframe: 'Current environment',
+              recommendations: this.getMLSensoryRecommendations(mlSensoryPrediction),
+              severity: mlSensoryPrediction.environmentalTriggers.length > 2 ? 'high' :
+                       mlSensoryPrediction.environmentalTriggers.length > 0 ? 'medium' : 'low',
+              source: 'ml',
+              mlPrediction: mlSensoryPrediction
+            });
+          }
+        }
+      } catch (error) {
+        console.error('ML sensory prediction failed:', error);
+      }
     }
 
     // Goal achievement prediction
@@ -119,7 +239,7 @@ class EnhancedPatternAnalysisEngine {
 
   // Enhanced Trend Analysis with Statistical Significance
   analyzeTrendsWithStatistics(data: { value: number; timestamp: Date }[]): TrendAnalysis | null {
-    if (data.length < this.MIN_SAMPLE_SIZE) return null;
+    if (data.length < this.config.enhancedAnalysis.minSampleSize) return null;
 
     // Sort by timestamp
     const sortedData = data.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -157,7 +277,7 @@ class EnhancedPatternAnalysisEngine {
     const patternStrength = Math.max(0, rSquared); // R-squared strength
     const enhancedConfidence = (dataQuality * 0.3 + timeSpanQuality * 0.3 + patternStrength * 0.4);
 
-    const direction = Math.abs(dailyRate) < this.TREND_THRESHOLD ? 'stable' :
+    const direction = Math.abs(dailyRate) < this.config.enhancedAnalysis.trendThreshold ? 'stable' :
                      dailyRate > 0 ? 'increasing' : 'decreasing';
 
     return {
@@ -186,7 +306,7 @@ class EnhancedPatternAnalysisEngine {
     let level: 'low' | 'medium' | 'high' = 'low';
 
     if (dataPoints < 10) {
-      factors.push(`insufficientData:${dataPoints}:${this.MIN_SAMPLE_SIZE}`);
+      factors.push(`insufficientData:${dataPoints}:${this.config.enhancedAnalysis.minSampleSize}`);
     }
     
     if (timeSpanDays < 14) {
@@ -231,14 +351,18 @@ class EnhancedPatternAnalysisEngine {
       emotionIntensities.map(x => Math.pow(x - emotionMean, 2)).reduce((a, b) => a + b, 0) / emotionIntensities.length
     );
 
+    // Apply anomaly sensitivity multiplier
+    const anomalyThreshold = this.config.enhancedAnalysis.anomalyThreshold *
+      (1 / this.config.alertSensitivity.anomalyMultiplier);
+
     emotions.forEach(emotion => {
       const zScore = Math.abs((emotion.intensity - emotionMean) / emotionStd);
-      if (zScore > this.ANOMALY_THRESHOLD) {
+      if (zScore > anomalyThreshold) {
         anomalies.push({
           timestamp: emotion.timestamp,
           type: 'emotion',
           severity: zScore > 3 ? 'high' : zScore > 2.5 ? 'medium' : 'low',
-          description: `Unusual ${emotion.emotion} intensity detected (${emotion.intensity}/10)`,
+          description: `Unusual ${emotion.emotion} intensity detected (${emotion.intensity}/5)`,
           deviationScore: zScore,
           recommendations: this.getAnomalyRecommendations('emotion', emotion.emotion, zScore)
         });
@@ -256,7 +380,7 @@ class EnhancedPatternAnalysisEngine {
 
       Object.entries(dailySensoryCounts).forEach(([date, count]) => {
         const zScore = Math.abs((count - countMean) / countStd);
-        if (zScore > this.ANOMALY_THRESHOLD) {
+        if (zScore > anomalyThreshold) {
           anomalies.push({
             timestamp: new Date(date),
             type: 'sensory',
@@ -310,7 +434,7 @@ class EnhancedPatternAnalysisEngine {
         const correlation = this.calculatePearsonCorrelation(values1, values2);
         matrix[i][j] = correlation;
 
-        if (i < j && Math.abs(correlation) > 0.3 && values1.length >= this.MIN_SAMPLE_SIZE) {
+        if (i < j && Math.abs(correlation) > 0.3 && values1.length >= this.config.enhancedAnalysis.minSampleSize) {
           const pValue = this.calculatePValue(correlation, values1.length);
           significantPairs.push({
             factor1,
@@ -393,17 +517,21 @@ class EnhancedPatternAnalysisEngine {
   ): PredictiveInsight[] {
     const risks: PredictiveInsight[] = [];
     const recentData = {
-      emotions: emotions.filter(e => e.timestamp >= subDays(new Date(), 14)),
-      sensoryInputs: sensoryInputs.filter(s => s.timestamp >= subDays(new Date(), 14)),
-      trackingEntries: trackingEntries.filter(t => t.timestamp >= subDays(new Date(), 14))
+      emotions: emotions.filter(e => e.timestamp >= subDays(new Date(), this.config.timeWindows.shortTermDays)),
+      sensoryInputs: sensoryInputs.filter(s => s.timestamp >= subDays(new Date(), this.config.timeWindows.shortTermDays)),
+      trackingEntries: trackingEntries.filter(t => t.timestamp >= subDays(new Date(), this.config.timeWindows.shortTermDays))
     };
 
+    // Apply sensitivity multiplier for risk assessment
+    const riskThreshold = this.config.enhancedAnalysis.riskAssessmentThreshold *
+      (1 / this.config.alertSensitivity.emotionIntensityMultiplier);
+
     // High stress accumulation risk - fixed for 1-5 scale
-    const highStressCount = recentData.emotions.filter(e => 
+    const highStressCount = recentData.emotions.filter(e =>
       e.intensity >= 4 && ['anxious', 'frustrated', 'overwhelmed', 'angry'].includes(e.emotion.toLowerCase())
     ).length;
 
-    if (highStressCount >= 3) {
+    if (highStressCount >= Math.floor(riskThreshold)) {
       risks.push({
         type: 'risk',
         title: 'Stress Accumulation Risk',
@@ -586,6 +714,70 @@ class EnhancedPatternAnalysisEngine {
     if (trend.direction === 'decreasing' && trend.significance > 0.7) return 'high';
     if (trend.direction === 'decreasing' && trend.significance > 0.4) return 'medium';
     return 'low';
+  }
+
+  private getMLEmotionRecommendations(predictions: EmotionPrediction[], trend: string): string[] {
+    const highAnxietyDays = predictions.filter(p => p.emotions.anxious > 7).length;
+    const lowPositiveDays = predictions.filter(p => p.emotions.happy < 3 && p.emotions.calm < 3).length;
+
+    const recommendations: string[] = [];
+
+    if (highAnxietyDays >= 3) {
+      recommendations.push('ML predicts elevated anxiety - implement proactive calming strategies');
+      recommendations.push('Schedule additional check-ins on high-anxiety days');
+    }
+
+    if (lowPositiveDays >= 4) {
+      recommendations.push('ML indicates low positive emotions upcoming - increase engagement activities');
+      recommendations.push('Prepare mood-boosting interventions');
+    }
+
+    if (trend === 'increasing') {
+      recommendations.push('ML shows increasing emotional intensity - monitor for triggers');
+    } else if (trend === 'decreasing') {
+      recommendations.push('ML shows decreasing emotional engagement - check for withdrawal signs');
+    }
+
+    recommendations.push('Compare ML predictions with actual outcomes to refine models');
+
+    return recommendations;
+  }
+
+  private getMLSensoryRecommendations(prediction: SensoryPrediction): string[] {
+    const recommendations: string[] = [];
+
+    // Check each sensory modality
+    Object.entries(prediction.sensoryResponse).forEach(([sense, response]) => {
+      if (response.avoiding > 0.7) {
+        recommendations.push(`High ${sense} avoidance predicted - minimize ${sense} stimuli`);
+      } else if (response.seeking > 0.7) {
+        recommendations.push(`High ${sense} seeking predicted - provide ${sense} input opportunities`);
+      }
+    });
+
+    // Environmental trigger recommendations
+    prediction.environmentalTriggers.forEach(trigger => {
+      if (trigger.probability > 0.7) {
+        recommendations.push(`High probability of reaction to ${trigger.trigger} - prepare alternatives`);
+      }
+    });
+
+    return recommendations;
+  }
+
+  // Baseline analysis using ML clustering
+  async analyzeBaseline(trackingEntries: TrackingEntry[]): Promise<BaselineCluster[]> {
+    if (!this.mlModelsInitialized || trackingEntries.length < 10) {
+      return [];
+    }
+
+    try {
+      const clusters = await mlModels.performBaselineClustering(trackingEntries, 3);
+      return clusters;
+    } catch (error) {
+      console.error('Baseline clustering failed:', error);
+      return [];
+    }
   }
 }
 
