@@ -96,7 +96,7 @@ export const EnhancedTrackStudent = () => {
       ...sensory
     };
     setSessionSensoryInputs(prev => [...prev, newSensory]);
-    toast.success(`Added ${sensory.type}: ${sensory.response}`);
+    toast.success(`Added ${sensory.sensoryType}: ${sensory.response}`);
   };
 
   const handleSaveSession = async () => {
@@ -302,7 +302,7 @@ export const EnhancedTrackStudent = () => {
                     {sessionSensoryInputs.map((sensory) => (
                       <div key={sensory.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className="font-medium">{sensory.type}</div>
+                          <div className="font-medium">{sensory.sensoryType}</div>
                           <div className="text-sm text-muted-foreground">
                             {sensory.input} - {sensory.response}
                           </div>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -158,10 +158,15 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
     setActiveFiltersCount(count);
   }, [filters]);
 
-  // Notify parent of results change
-  React.useEffect(() => {
+  // Memoize the callback to prevent unnecessary re-renders
+  const memoizedOnResultsChange = useCallback(() => {
     onResultsChange(filteredResults);
   }, [filteredResults, onResultsChange]);
+
+  // Notify parent of results change
+  React.useEffect(() => {
+    memoizedOnResultsChange();
+  }, [memoizedOnResultsChange]);
 
   const clearAllFilters = () => {
     setFilters({

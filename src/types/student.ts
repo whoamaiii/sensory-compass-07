@@ -29,8 +29,7 @@ export interface EmotionEntry {
 export interface SensoryEntry {
   id: string;
   studentId?: string;
-  sensoryType?: string;
-  type?: string;
+  sensoryType: string; // Make this required and consistent
   input?: string;
   response: string;
   intensity?: number;

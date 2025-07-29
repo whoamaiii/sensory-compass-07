@@ -21,7 +21,9 @@ export const AnimatedCounter = ({ value, duration = 0.8, className }: AnimatedCo
       }
     };
 
-    animate();
+    animate().catch(() => {
+      // Handle any animation errors silently
+    });
 
     const unsubscribe = display.on('change', (latest) => {
       if (mounted) {
