@@ -21,20 +21,35 @@ export class CachedPatternAnalysisEngine {
   private cache: CacheStorage;
   private ttl: number;
   private configUnsubscribe?: () => void;
+  private currentConfigHash: string;
 
   constructor(cache: CacheStorage, ttl?: number) {
     this.cache = cache;
-    this.ttl = ttl || analyticsConfig.getConfig().cache.ttl;
+    const cfg = analyticsConfig.getConfig();
+    this.ttl = ttl || cfg.cache.ttl;
+    this.currentConfigHash = this.buildConfigHash(cfg);
     
     // Subscribe to configuration changes
     this.configUnsubscribe = analyticsConfig.subscribe((newConfig) => {
       this.ttl = newConfig.cache.ttl;
+      this.currentConfigHash = this.buildConfigHash(newConfig);
       
       // Invalidate cache if configured to do so
       if (newConfig.cache.invalidateOnConfigChange) {
         this.invalidateAllCache();
       }
     });
+  }
+
+  private buildConfigHash(cfg: ReturnType<typeof analyticsConfig.getConfig>): string {
+    // Only include parts that impact analysis outputs
+    const subset = {
+      patternAnalysis: cfg.patternAnalysis,
+      enhancedAnalysis: cfg.enhancedAnalysis,
+      timeWindows: cfg.timeWindows,
+      alertSensitivity: cfg.alertSensitivity
+    };
+    return this.cache.getDataFingerprint(subset);
   }
 
   /**
@@ -53,7 +68,8 @@ export class CachedPatternAnalysisEngine {
     const cacheKey = this.cache.createKey('emotion-patterns', {
       fingerprint: this.cache.getDataFingerprint(emotions),
       timeframeDays,
-      count: emotions.length
+      count: emotions.length,
+      configHash: this.currentConfigHash
     });
 
     const cached = this.cache.get(cacheKey) as PatternResult[] | undefined;
@@ -62,8 +78,11 @@ export class CachedPatternAnalysisEngine {
     const result = patternAnalysis.analyzeEmotionPatterns(emotions, timeframeDays);
     
     // Tag with student IDs for targeted invalidation
-    const studentIds = [...new Set(emotions.map(e => e.studentId).filter(Boolean))];
-    const tags = ['emotion-patterns', ...studentIds.map(id => `student-${id}`)];
+    const studentIdsSet = new Set<string>();
+    for (const e of emotions) {
+      if (e.studentId) studentIdsSet.add(e.studentId);
+    }
+    const tags = ['emotion-patterns', ...Array.from(studentIdsSet, id => `student-${id}`)];
     
     this.cache.set(cacheKey, result, tags);
     return result;
@@ -76,7 +95,8 @@ export class CachedPatternAnalysisEngine {
     const cacheKey = this.cache.createKey('sensory-patterns', {
       fingerprint: this.cache.getDataFingerprint(sensoryInputs),
       timeframeDays,
-      count: sensoryInputs.length
+      count: sensoryInputs.length,
+      configHash: this.currentConfigHash
     });
 
     const cached = this.cache.get(cacheKey) as PatternResult[] | undefined;
@@ -85,8 +105,11 @@ export class CachedPatternAnalysisEngine {
     const result = patternAnalysis.analyzeSensoryPatterns(sensoryInputs, timeframeDays);
     
     // Tag with student IDs for targeted invalidation
-    const studentIds = [...new Set(sensoryInputs.map(s => s.studentId).filter(Boolean))];
-    const tags = ['sensory-patterns', ...studentIds.map(id => `student-${id}`)];
+    const studentIdsSet = new Set<string>();
+    for (const s of sensoryInputs) {
+      if (s.studentId) studentIdsSet.add(s.studentId);
+    }
+    const tags = ['sensory-patterns', ...Array.from(studentIdsSet, id => `student-${id}`)];
     
     this.cache.set(cacheKey, result, tags);
     return result;
@@ -98,7 +121,8 @@ export class CachedPatternAnalysisEngine {
   analyzeEnvironmentalCorrelations(trackingEntries: TrackingEntry[]): CorrelationResult[] {
     const cacheKey = this.cache.createKey('env-correlations', {
       fingerprint: this.cache.getDataFingerprint(trackingEntries),
-      count: trackingEntries.length
+      count: trackingEntries.length,
+      configHash: this.currentConfigHash
     });
 
     const cached = this.cache.get(cacheKey) as CorrelationResult[] | undefined;
@@ -107,8 +131,11 @@ export class CachedPatternAnalysisEngine {
     const result = patternAnalysis.analyzeEnvironmentalCorrelations(trackingEntries);
     
     // Tag with student IDs for targeted invalidation
-    const studentIds = [...new Set(trackingEntries.map(e => e.studentId).filter(Boolean))];
-    const tags = ['env-correlations', ...studentIds.map(id => `student-${id}`)];
+    const studentIdsSet = new Set<string>();
+    for (const e of trackingEntries) {
+      if (e.studentId) studentIdsSet.add(e.studentId);
+    }
+    const tags = ['env-correlations', ...Array.from(studentIdsSet, id => `student-${id}`)];
     
     this.cache.set(cacheKey, result, tags);
     return result;
@@ -127,7 +154,8 @@ export class CachedPatternAnalysisEngine {
       emotionFingerprint: this.cache.getDataFingerprint(emotions),
       sensoryFingerprint: this.cache.getDataFingerprint(sensoryInputs),
       trackingFingerprint: this.cache.getDataFingerprint(trackingEntries),
-      studentId
+      studentId,
+      configHash: this.currentConfigHash
     });
 
     const cached = this.cache.get(cacheKey) as TriggerAlert[] | undefined;
@@ -153,7 +181,8 @@ export class CachedPatternAnalysisEngine {
       emotionFingerprint: this.cache.getDataFingerprint(emotions),
       sensoryFingerprint: this.cache.getDataFingerprint(sensoryInputs),
       trackingFingerprint: this.cache.getDataFingerprint(trackingEntries),
-      goalsFingerprint: this.cache.getDataFingerprint(goals)
+      goalsFingerprint: this.cache.getDataFingerprint(goals),
+      configHash: this.currentConfigHash
     });
 
     const cached = this.cache.get(cacheKey) as PredictiveInsight[] | undefined;
@@ -166,13 +195,11 @@ export class CachedPatternAnalysisEngine {
       goals
     );
     
-    const studentIds = [...new Set([
-      ...emotions.map(e => e.studentId),
-      ...sensoryInputs.map(s => s.studentId),
-      ...trackingEntries.map(t => t.studentId)
-    ].filter(Boolean))];
-    
-    const tags = ['predictive-insights', ...studentIds.map(id => `student-${id}`)];
+    const studentIdsSet = new Set<string>();
+    for (const e of emotions) if (e.studentId) studentIdsSet.add(e.studentId);
+    for (const s of sensoryInputs) if (s.studentId) studentIdsSet.add(s.studentId);
+    for (const t of trackingEntries) if (t.studentId) studentIdsSet.add(t.studentId);
+    const tags = ['predictive-insights', ...Array.from(studentIdsSet, id => `student-${id}`)];
     this.cache.set(cacheKey, result, tags);
     return result;
   }
@@ -188,7 +215,8 @@ export class CachedPatternAnalysisEngine {
     const cacheKey = this.cache.createKey('anomaly-detection', {
       emotionFingerprint: this.cache.getDataFingerprint(emotions),
       sensoryFingerprint: this.cache.getDataFingerprint(sensoryInputs),
-      trackingFingerprint: this.cache.getDataFingerprint(trackingEntries)
+      trackingFingerprint: this.cache.getDataFingerprint(trackingEntries),
+      configHash: this.currentConfigHash
     });
 
     const cached = this.cache.get(cacheKey) as AnomalyDetection[] | undefined;
@@ -200,13 +228,11 @@ export class CachedPatternAnalysisEngine {
       trackingEntries
     );
     
-    const studentIds = [...new Set([
-      ...emotions.map(e => e.studentId),
-      ...sensoryInputs.map(s => s.studentId),
-      ...trackingEntries.map(t => t.studentId)
-    ].filter(Boolean))];
-    
-    const tags = ['anomaly-detection', ...studentIds.map(id => `student-${id}`)];
+    const studentIdsSet = new Set<string>();
+    for (const e of emotions) if (e.studentId) studentIdsSet.add(e.studentId);
+    for (const s of sensoryInputs) if (s.studentId) studentIdsSet.add(s.studentId);
+    for (const t of trackingEntries) if (t.studentId) studentIdsSet.add(t.studentId);
+    const tags = ['anomaly-detection', ...Array.from(studentIdsSet, id => `student-${id}`)];
     this.cache.set(cacheKey, result, tags);
     return result;
   }
@@ -217,7 +243,8 @@ export class CachedPatternAnalysisEngine {
   analyzeTrendsWithStatistics(data: { value: number; timestamp: Date }[]): TrendAnalysis | null {
     const cacheKey = this.cache.createKey('trend-analysis', {
       fingerprint: this.cache.getDataFingerprint(data),
-      count: data.length
+      count: data.length,
+      configHash: this.currentConfigHash
     });
 
     const cached = this.cache.get(cacheKey) as TrendAnalysis | null | undefined;
@@ -235,7 +262,8 @@ export class CachedPatternAnalysisEngine {
   generateCorrelationMatrix(trackingEntries: TrackingEntry[]): CorrelationMatrix {
     const cacheKey = this.cache.createKey('correlation-matrix', {
       fingerprint: this.cache.getDataFingerprint(trackingEntries),
-      count: trackingEntries.length
+      count: trackingEntries.length,
+      configHash: this.currentConfigHash
     });
 
     const cached = this.cache.get(cacheKey) as CorrelationMatrix | undefined;
@@ -243,8 +271,11 @@ export class CachedPatternAnalysisEngine {
 
     const result = enhancedPatternAnalysis.generateCorrelationMatrix(trackingEntries);
     
-    const studentIds = [...new Set(trackingEntries.map(e => e.studentId).filter(Boolean))];
-    const tags = ['correlation-matrix', ...studentIds.map(id => `student-${id}`)];
+    const studentIdsSet = new Set<string>();
+    for (const e of trackingEntries) {
+      if (e.studentId) studentIdsSet.add(e.studentId);
+    }
+    const tags = ['correlation-matrix', ...Array.from(studentIdsSet, id => `student-${id}`)];
     
     this.cache.set(cacheKey, result, tags);
     return result;
@@ -263,7 +294,8 @@ export class CachedPatternAnalysisEngine {
       dataPoints,
       timeSpanDays,
       rSquared: Math.round(rSquared * 1000) / 1000, // Round to 3 decimal places
-      confidence: Math.round(confidence * 1000) / 1000
+      confidence: Math.round(confidence * 1000) / 1000,
+      configHash: this.currentConfigHash
     });
 
     const cached = this.cache.get(cacheKey) as { level: 'low' | 'medium' | 'high'; explanation: string; factors: string[] } | undefined;

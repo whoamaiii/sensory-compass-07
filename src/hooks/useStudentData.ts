@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import {
   Student,
@@ -8,6 +7,7 @@ import {
   Goal,
 } from '@/types/student';
 import { dataStorage } from '@/lib/dataStorage';
+import { logger } from '@/lib/logger';
 
 /**
  * @hook useStudentData
@@ -76,7 +76,7 @@ export const useStudentData = (studentId: string | undefined) => {
       }
     } catch (e) {
       setError('Failed to load student data.');
-      console.error(e);
+      logger.error('Failed to load student data:', e);
     } finally {
       setIsLoading(false);
     }

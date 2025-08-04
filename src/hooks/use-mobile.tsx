@@ -12,7 +12,12 @@ export function useIsMobile() {
     }
     mql.addEventListener("change", onChange)
     setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    return () => mql.removeEventListener("change", onChange)
+    return () => {
+      // Modern browsers use removeEventListener without the 'change' parameter
+      if (mql.removeEventListener) {
+        mql.removeEventListener("change", onChange)
+      }
+    }
   }, [])
 
   return !!isMobile

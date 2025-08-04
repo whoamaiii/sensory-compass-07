@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmotionEntry, SensoryEntry, TrackingEntry, EnvironmentalEntry } from '@/types/student';
-import { format, isWithinInterval, startOfDay, endOfDay, subDays } from 'date-fns';
+import { format, startOfDay, addDays, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { 
   Filter, 
@@ -870,13 +870,13 @@ export const applyFilters = <T extends { timestamp: Date }>(
   getEnvironmentalData?: (item: T) => EnvironmentalEntry | null
 ): T[] => {
   return data.filter(item => {
-    // Date range filter
+    // Date range filter: normalize to half-open [start, end)
     if (criteria.dateRange.start || criteria.dateRange.end) {
-      const inRange = isWithinInterval(item.timestamp, {
-        start: criteria.dateRange.start || new Date(0),
-        end: criteria.dateRange.end || new Date()
-      });
-      if (!inRange) return false;
+      const start = criteria.dateRange.start ? startOfDay(criteria.dateRange.start) : new Date(0);
+      // Use endExclusive as startOfDay(end) + 1 day for whole-day selection
+      const endExclusive = criteria.dateRange.end ? addDays(startOfDay(criteria.dateRange.end), 1) : new Date(8640000000000000);
+      const ts = item.timestamp;
+      if (!(ts >= start && ts < endExclusive)) return false;
     }
 
     // Emotion filters

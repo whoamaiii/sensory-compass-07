@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
 import { ErrorWrapper } from './ErrorWrapper';
+import { logger } from '@/lib/logger';
 
 interface LazyLoadWrapperProps {
   fallback?: React.ReactNode;
@@ -76,7 +77,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('LazyLoadWrapper Error:', error, errorInfo);
+    logger.error('LazyLoadWrapper Error:', error, errorInfo);
   }
 
   render() {
@@ -91,13 +92,14 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 // Utility function to create lazy-loaded components with proper error handling
 export function createLazyComponent<T extends ComponentType<any>>(
   importFunc: () => Promise<{ default: T }>,
-  fallback?: React.ReactNode
+  fallback?: React.ReactNode,
+  errorFallback?: React.ReactNode
 ) {
   const LazyComponent = lazy(importFunc);
 
   return function WrappedLazyComponent(props: React.ComponentProps<T>) {
     return (
-      <LazyLoadWrapper fallback={fallback}>
+      <LazyLoadWrapper fallback={fallback} errorFallback={errorFallback}>
         <LazyComponent {...props} />
       </LazyLoadWrapper>
     );

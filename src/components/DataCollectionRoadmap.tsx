@@ -24,7 +24,7 @@ interface Milestone {
   achieved: boolean;
   progress: number;
   estimatedDate: Date | null;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{className?: string}>;
   color: string;
 }
 

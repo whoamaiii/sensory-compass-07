@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 export interface AnalyticsConfiguration {
   // Pattern Analysis Thresholds
   patternAnalysis: {
@@ -282,7 +284,7 @@ export class AnalyticsConfigManager {
       }
       return false;
     } catch (error) {
-      console.error('Failed to import configuration:', error);
+      logger.error('Failed to import configuration:', error);
       return false;
     }
   }
@@ -297,7 +299,7 @@ export class AnalyticsConfigManager {
         }
       }
     } catch (error) {
-      console.error('Failed to load analytics configuration:', error);
+      logger.error('Failed to load analytics configuration:', error);
     }
     return { ...DEFAULT_ANALYTICS_CONFIG };
   }
@@ -306,7 +308,7 @@ export class AnalyticsConfigManager {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.config));
     } catch (error) {
-      console.error('Failed to save analytics configuration:', error);
+      logger.error('Failed to save analytics configuration:', error);
     }
   }
 
@@ -373,5 +375,9 @@ export class AnalyticsConfigManager {
 export const analyticsConfig = AnalyticsConfigManager.getInstance();
 
 // Legacy export for backward compatibility
-export const ANALYTICS_CONFIG = DEFAULT_ANALYTICS_CONFIG;
+export const ANALYTICS_CONFIG = {
+  ...DEFAULT_ANALYTICS_CONFIG,
+  // Add missing POSITIVE_EMOTIONS set
+  POSITIVE_EMOTIONS: new Set(['happy', 'calm', 'excited', 'content', 'peaceful', 'cheerful', 'relaxed', 'optimistic'])
+};
 export type AnalyticsConfig = typeof ANALYTICS_CONFIG;

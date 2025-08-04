@@ -5,8 +5,76 @@ import { alertSystem } from "@/lib/alertSystem";
 import { dataStorage, IDataStorage } from "@/lib/dataStorage";
 import { generateUniversalMockDataForStudent as generateMockData } from './universalDataGenerator';
 import { ANALYTICS_CONFIG, AnalyticsConfig } from "./analyticsConfig.ts";
+import { analyticsConfig } from "./analyticsConfig";
+import { logger } from "./logger";
 
 // #region Type Definitions
+
+// Ensure analytics is initialized for all students, including newly added and mock data
+export const ensureUniversalAnalyticsInitialization = async (): Promise<void> => {
+  try {
+    // Attempt to retrieve all students; fallback to generating mock data if storage is empty
+    const students = await dataStorage.getAllStudents();
+    if (!students || students.length === 0) {
+      // Generate a minimal set of mock students to seed analytics
+      const seedCount = 3;
+      const mockIds: string[] = [];
+      for (let i = 0; i < seedCount; i++) {
+        const mock = generateMockData();
+        mockIds.push(mock.student.id);
+        await dataStorage.saveStudent(mock.student);
+        await dataStorage.saveTrackingEntries(mock.student.id, mock.trackingEntries);
+        await dataStorage.saveEmotions(mock.student.id, mock.emotions);
+        await dataStorage.saveSensoryInputs(mock.student.id, mock.sensoryInputs);
+      }
+    }
+
+    const cfg = (() => { try { return analyticsConfig.getConfig(); } catch { return null; } })();
+    const minEmotions = cfg?.confidence?.THRESHOLDS?.EMOTION_ENTRIES ?? ANALYTICS_CONFIG.CONFIDENCE.THRESHOLDS.EMOTION_ENTRIES;
+    const minSensory = cfg?.confidence?.THRESHOLDS?.SENSORY_ENTRIES ?? ANALYTICS_CONFIG.CONFIDENCE.THRESHOLDS.SENSORY_ENTRIES;
+    const minTracking = cfg?.confidence?.THRESHOLDS?.TRACKING_ENTRIES ?? ANALYTICS_CONFIG.CONFIDENCE.THRESHOLDS.TRACKING_ENTRIES;
+
+    const allStudents = await dataStorage.getAllStudents();
+    for (const student of allStudents) {
+      // Load data
+      const emotions = await dataStorage.getEmotions(student.id);
+      const sensoryInputs = await dataStorage.getSensoryInputs(student.id);
+      const tracking = await dataStorage.getTrackingEntries(student.id);
+
+      const hasMinimumData =
+        (emotions?.length ?? 0) >= minEmotions ||
+        (sensoryInputs?.length ?? 0) >= minSensory ||
+        (tracking?.length ?? 0) >= minTracking;
+
+      // If any data exists or minimum satisfied, ensure profile exists and mark initialized
+      await analyticsManager.initializeStudentAnalytics?.(student.id);
+
+      // Optionally trigger a background precomputation to warm caches
+      if (hasMinimumData) {
+        try {
+          // Use analysis period from live config or default
+          const analysisDays =
+            cfg?.analytics?.ANALYSIS_PERIOD_DAYS ?? ANALYTICS_CONFIG.ANALYTICS.ANALYSIS_PERIOD_DAYS;
+
+          // Run lightweight computations to warm caches; ignore results
+          if (emotions?.length) {
+            patternAnalysis.analyzeEmotionPatterns(emotions, analysisDays);
+          }
+          if (sensoryInputs?.length) {
+            patternAnalysis.analyzeSensoryPatterns(sensoryInputs, analysisDays);
+          }
+          if (tracking?.length && tracking.length >= (cfg?.analytics?.MIN_TRACKING_FOR_CORRELATION ?? ANALYTICS_CONFIG.ANALYTICS.MIN_TRACKING_FOR_CORRELATION)) {
+            patternAnalysis.analyzeEnvironmentalCorrelations(tracking);
+          }
+        } catch {
+          /* noop - warmup is best-effort */
+        }
+      }
+    }
+  } catch (e) {
+    logger.error('[analyticsManager] ensureUniversalAnalyticsInitialization failed', e);
+  }
+};
 
 /**
  * Defines the analytics profile for a student, tracking configuration and health.
@@ -76,7 +144,7 @@ function loadProfilesFromStorage(storedProfiles: string | null): AnalyticsProfil
       }
     });
   } catch (error) {
-    console.error("Error loading analytics profiles:", error);
+    logger.error("Error loading analytics profiles:", error);
   }
   return profiles;
 }
@@ -264,25 +332,32 @@ class AnalyticsManagerService {
 
     if (hasMinimumData) {
         try {
-            const { ANALYTICS } = ANALYTICS_CONFIG;
+            // Prefer live, user-adjustable configuration; fall back to legacy constants to avoid undefined access.
+            const liveConfig = (() => {
+              try { return analyticsConfig.getConfig(); } catch { return null; }
+            })();
+            const ANALYTICS = liveConfig?.analytics ?? ANALYTICS_CONFIG.ANALYTICS;
+
+            const analysisDays = ANALYTICS?.ANALYSIS_PERIOD_DAYS ?? ANALYTICS_CONFIG.ANALYTICS.ANALYSIS_PERIOD_DAYS;
+
             if (emotions.length > 0) {
-                patterns.push(...patternAnalysis.analyzeEmotionPatterns(emotions, ANALYTICS.ANALYSIS_PERIOD_DAYS));
+                patterns.push(...patternAnalysis.analyzeEmotionPatterns(emotions, analysisDays));
             }
             if (sensoryInputs.length > 0) {
-                patterns.push(...patternAnalysis.analyzeSensoryPatterns(sensoryInputs, ANALYTICS.ANALYSIS_PERIOD_DAYS));
+                patterns.push(...patternAnalysis.analyzeSensoryPatterns(sensoryInputs, analysisDays));
             }
-            if (trackingEntries.length >= ANALYTICS.MIN_TRACKING_FOR_CORRELATION) {
+            if (trackingEntries.length >= (ANALYTICS?.MIN_TRACKING_FOR_CORRELATION ?? ANALYTICS_CONFIG.ANALYTICS.MIN_TRACKING_FOR_CORRELATION)) {
                 correlations = patternAnalysis.analyzeEnvironmentalCorrelations(trackingEntries);
             }
-            if (trackingEntries.length >= ANALYTICS.MIN_TRACKING_FOR_ENHANCED) {
-                predictiveInsights = enhancedPatternAnalysis.generatePredictiveInsights(emotions, sensoryInputs, trackingEntries, goals);
+            if (trackingEntries.length >= (ANALYTICS?.MIN_TRACKING_FOR_ENHANCED ?? ANALYTICS_CONFIG.ANALYTICS.MIN_TRACKING_FOR_ENHANCED)) {
+                predictiveInsights = await enhancedPatternAnalysis.generatePredictiveInsights(emotions, sensoryInputs, trackingEntries, goals);
                 anomalies = enhancedPatternAnalysis.detectAnomalies(emotions, sensoryInputs, trackingEntries);
             }
             if (trackingEntries.length > 0) {
                 await alertSystem.generateAlertsForStudent(student, emotions, sensoryInputs, trackingEntries);
             }
         } catch (error) {
-            console.error(`Error generating analytics for student ${student.id}:`, error);
+            logger.error(`Error generating analytics for student ${student.id}:`, error);
             // Re-throw a specific error to let the caller handle it
             throw new Error(`Analytics generation failed for student ${student.id}`);
         }
@@ -290,10 +365,15 @@ class AnalyticsManagerService {
     
     const resultsWithoutInsights = { patterns, correlations, predictiveInsights, anomalies, hasMinimumData };
 
+    // Resolve INSIGHTS/CONFIDENCE from live config when available; fall back to legacy constants.
+    const liveCfg = (() => { try { return analyticsConfig.getConfig(); } catch { return null; } })();
+    const INSIGHTS_CFG = liveCfg?.insights ?? ANALYTICS_CONFIG.INSIGHTS;
+    const CONFIDENCE_CFG = liveCfg?.confidence ?? ANALYTICS_CONFIG.CONFIDENCE;
+
     return {
       ...resultsWithoutInsights,
-      insights: generateInsights(resultsWithoutInsights, emotions, trackingEntries, ANALYTICS_CONFIG.INSIGHTS),
-      confidence: calculateConfidence(emotions, sensoryInputs, trackingEntries, ANALYTICS_CONFIG.CONFIDENCE),
+      insights: generateInsights(resultsWithoutInsights, emotions, trackingEntries, INSIGHTS_CFG),
+      confidence: calculateConfidence(emotions, sensoryInputs, trackingEntries, CONFIDENCE_CFG),
     };
   }
 
@@ -304,7 +384,8 @@ class AnalyticsManagerService {
    * @returns {number} A score from 0 to 100.
    */
   private calculateHealthScore(results: AnalyticsResults): number {
-    const { WEIGHTS } = ANALYTICS_CONFIG.HEALTH_SCORE;
+    const liveCfg = (() => { try { return analyticsConfig.getConfig(); } catch { return null; } })();
+    const { WEIGHTS } = (liveCfg?.healthScore ?? ANALYTICS_CONFIG.HEALTH_SCORE);
     let score = 0;
 
     if (results.patterns.length > 0) score += WEIGHTS.PATTERNS;
@@ -342,7 +423,7 @@ class AnalyticsManagerService {
 
     settledResults.forEach((result, index) => {
       if (result.status === 'rejected') {
-        console.error(`Failed to process analytics for student ${students[index].id}:`, result.reason);
+        logger.error(`Failed to process analytics for student ${students[index].id}:`, result.reason);
       }
     });
   }
@@ -391,7 +472,7 @@ class AnalyticsManagerService {
       const data = Object.fromEntries(this.analyticsProfiles);
       localStorage.setItem('sensoryTracker_analyticsProfiles', JSON.stringify(data));
     } catch (error) {
-      console.error('Error saving analytics profiles:', error);
+      logger.error('Error saving analytics profiles:', error);
     }
   }
 }

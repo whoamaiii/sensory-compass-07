@@ -21,10 +21,23 @@ const emotions = [
   { type: 'angry' as const, icon: Angry, color: 'emotion-angry' },
 ];
 
+// Sub-emotions for each primary emotion
+const subEmotions: Record<string, string[]> = {
+  happy: ['joyful', 'content', 'cheerful', 'pleased', 'delighted'],
+  calm: ['peaceful', 'relaxed', 'serene', 'tranquil', 'centered'],
+  excited: ['energetic', 'enthusiastic', 'thrilled', 'eager', 'animated'],
+  sad: ['disappointed', 'lonely', 'grieving', 'melancholy', 'dejected'],
+  anxious: ['worried', 'nervous', 'fearful', 'stressed', 'panicked'],
+  angry: ['frustrated', 'irritated', 'furious', 'annoyed', 'resentful']
+};
+
 export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps) => {
   const { tTracking, tCommon } = useTranslation();
   const [selectedEmotion, setSelectedEmotion] = useState<string>('');
+  const [selectedSubEmotion, setSelectedSubEmotion] = useState<string>('');
   const [intensity, setIntensity] = useState<number>(3);
+  const [duration, setDuration] = useState<number>(0);
+  const [escalationPattern, setEscalationPattern] = useState<'sudden' | 'gradual' | 'unknown'>('unknown');
   const [notes, setNotes] = useState('');
   const [triggers, setTriggers] = useState<string[]>([]);
   const [newTrigger, setNewTrigger] = useState('');
@@ -46,14 +59,20 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
     onEmotionAdd({
       studentId,
       emotion: selectedEmotion as EmotionEntry['emotion'],
+      subEmotion: selectedSubEmotion || undefined,
       intensity: intensity as EmotionEntry['intensity'],
+      duration: duration > 0 ? duration : undefined,
+      escalationPattern: escalationPattern !== 'unknown' ? escalationPattern : undefined,
       notes: notes.trim() || undefined,
       triggers: triggers.length > 0 ? triggers : undefined,
     });
 
     // Reset form
     setSelectedEmotion('');
+    setSelectedSubEmotion('');
     setIntensity(3);
+    setDuration(0);
+    setEscalationPattern('unknown');
     setNotes('');
     setTriggers([]);
   };
@@ -89,6 +108,25 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
           </div>
         </div>
 
+        {/* Sub-emotion Selection */}
+        {selectedEmotion && subEmotions[selectedEmotion] && (
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-3">Specific Feeling (Optional)</h3>
+            <div className="flex flex-wrap gap-2">
+              {subEmotions[selectedEmotion].map((subEmotion) => (
+                <Badge
+                  key={subEmotion}
+                  variant={selectedSubEmotion === subEmotion ? "default" : "outline"}
+                  className="cursor-pointer font-dyslexia hover-lift transition-all duration-200"
+                  onClick={() => setSelectedSubEmotion(selectedSubEmotion === subEmotion ? '' : subEmotion)}
+                >
+                  {subEmotion}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Intensity Scale */}
         {selectedEmotion && (
           <div>
@@ -110,6 +148,69 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
                   {level}
                 </Button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Duration */}
+        {selectedEmotion && (
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-3">Duration (minutes)</h3>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={duration}
+                onChange={(e) => setDuration(Math.max(0, parseInt(e.target.value) || 0))}
+                placeholder="How long did it last?"
+                className="w-32 px-3 py-2 border border-border rounded-lg font-dyslexia bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
+                min="0"
+              />
+              <div className="flex gap-1">
+                {[5, 15, 30, 60].map((minutes) => (
+                  <Button
+                    key={minutes}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDuration(minutes)}
+                    className="font-dyslexia"
+                  >
+                    {minutes < 60 ? `${minutes}m` : '1h'}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Escalation Pattern */}
+        {selectedEmotion && (
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-3">How did it develop?</h3>
+            <div className="flex gap-2">
+              <Button
+                variant={escalationPattern === 'sudden' ? "default" : "outline"}
+                size="sm"
+                onClick={() => setEscalationPattern('sudden')}
+                className="font-dyslexia"
+              >
+                Sudden
+              </Button>
+              <Button
+                variant={escalationPattern === 'gradual' ? "default" : "outline"}
+                size="sm"
+                onClick={() => setEscalationPattern('gradual')}
+                className="font-dyslexia"
+              >
+                Gradual
+              </Button>
+              <Button
+                variant={escalationPattern === 'unknown' ? "default" : "outline"}
+                size="sm"
+                onClick={() => setEscalationPattern('unknown')}
+                className="font-dyslexia"
+              >
+                Unknown
+              </Button>
             </div>
           </div>
         )}

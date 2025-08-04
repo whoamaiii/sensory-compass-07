@@ -29,17 +29,17 @@ export const useDataFiltering = (
     
     // Use more efficient filtering with early returns
     const filteredEntries = trackingEntries.filter(entry => {
-      const timestamp = entry.timestamp;
+      const timestamp = entry.timestamp instanceof Date ? entry.timestamp : new Date(entry.timestamp);
       return timestamp >= start && timestamp <= end;
     });
 
     const filteredEmotions = allEmotions.filter(emotion => {
-      const timestamp = emotion.timestamp;
+      const timestamp = emotion.timestamp instanceof Date ? emotion.timestamp : new Date(emotion.timestamp);
       return timestamp >= start && timestamp <= end;
     });
 
     const filteredSensoryInputs = allSensoryInputs.filter(sensory => {
-      const timestamp = sensory.timestamp;
+      const timestamp = sensory.timestamp instanceof Date ? sensory.timestamp : new Date(sensory.timestamp);
       return timestamp >= start && timestamp <= end;
     });
 

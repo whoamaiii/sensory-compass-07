@@ -10,8 +10,9 @@ import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
 import { analyticsManager } from "@/lib/analyticsManager";
+import { logger } from "@/lib/logger";
 
-export const TrackStudent = () => {
+const TrackStudent = () => {
   const { studentId } = useParams();
   const navigate = useNavigate();
   const [student, setStudent] = useState<Student | null>(null);
@@ -19,6 +20,7 @@ export const TrackStudent = () => {
   const [sensoryInputs, setSensoryInputs] = useState<Omit<SensoryEntry, 'id' | 'timestamp'>[]>([]);
   const [environmentalData, setEnvironmentalData] = useState<Omit<EnvironmentalEntry, 'id' | 'timestamp'> | null>(null);
   const [generalNotes, setGeneralNotes] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { tTracking, tCommon } = useTranslation();
 
   useEffect(() => {
@@ -64,6 +66,7 @@ export const TrackStudent = () => {
       return;
     }
 
+    setIsLoading(true);
     try {
       const timestamp = new Date();
       
@@ -97,13 +100,15 @@ export const TrackStudent = () => {
       localStorage.setItem('sensoryTracker_entries', JSON.stringify(entries));
 
       // Trigger analytics update for this student
-      await analyticsManager.triggerAnalyticsForStudent(student.id);
+      await analyticsManager.triggerAnalyticsForStudent(student);
 
       toast.success(String(tTracking('session.sessionSaved')));
       navigate(`/student/${student.id}`);
     } catch (error) {
-      console.error('Failed to save tracking session:', error);
+      logger.error('Failed to save tracking session', { error });
       toast.error(String(tTracking('session.saveError')));
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -214,14 +219,25 @@ export const TrackStudent = () => {
           </Button>
           <Button
             onClick={handleSaveSession}
-            disabled={emotions.length === 0 && sensoryInputs.length === 0}
+            disabled={isLoading || (emotions.length === 0 && sensoryInputs.length === 0)}
             className="flex-1 font-dyslexia bg-gradient-primary hover:opacity-90 transition-all duration-200"
           >
-            <Save className="h-4 w-4 mr-2" />
-            {String(tTracking('session.saveSession'))}
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                {String(tCommon('status.saving'))}
+              </div>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                {String(tTracking('session.saveSession'))}
+              </>
+            )}
           </Button>
         </div>
       </div>
     </div>
   );
 };
+
+export default TrackStudent;

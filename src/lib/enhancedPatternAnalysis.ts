@@ -2,6 +2,7 @@ import { EmotionEntry, SensoryEntry, TrackingEntry, Goal } from "@/types/student
 import { isWithinInterval, subDays, format, differenceInDays } from "date-fns";
 import { analyticsConfig, AnalyticsConfiguration } from "@/lib/analyticsConfig";
 import { mlModels, EmotionPrediction, SensoryPrediction, BaselineCluster } from "@/lib/mlModels";
+import { logger } from '@/lib/logger';
 
 export interface PredictiveInsight {
   type: 'prediction' | 'trend' | 'recommendation' | 'risk';
@@ -75,7 +76,7 @@ class EnhancedPatternAnalysisEngine {
       await mlModels.init();
       this.mlModelsInitialized = true;
     } catch (error) {
-      console.error('Failed to initialize ML models:', error);
+      logger.error('Failed to initialize ML models:', error);
       this.mlModelsInitialized = false;
     }
   }
@@ -153,7 +154,7 @@ class EnhancedPatternAnalysisEngine {
           }
         }
       } catch (error) {
-        console.error('ML emotion prediction failed:', error);
+        logger.error('ML emotion prediction failed:', error);
       }
     }
 
@@ -218,7 +219,7 @@ class EnhancedPatternAnalysisEngine {
           }
         }
       } catch (error) {
-        console.error('ML sensory prediction failed:', error);
+        logger.error('ML sensory prediction failed:', error);
       }
     }
 
@@ -259,17 +260,20 @@ class EnhancedPatternAnalysisEngine {
     
     // Calculate R-squared for significance
     const yMean = sumY / n;
-    const yPred = x.map(xi => slope * xi + intercept);
+    const yPred = x.map(xi => (Number.isFinite(slope) ? slope * xi + intercept : intercept));
     const ssRes = y.map((yi, i) => Math.pow(yi - yPred[i], 2)).reduce((a, b) => a + b, 0);
     const ssTot = y.map(yi => Math.pow(yi - yMean, 2)).reduce((a, b) => a + b, 0);
-    const rSquared = Math.max(0, Math.min(1, 1 - (ssRes / ssTot)));
+    const rSquared = ssTot === 0 ? 0 : Math.max(0, Math.min(1, 1 - (ssRes / ssTot)));
 
     // Enhanced confidence calculation
     const timeSpanDays = differenceInDays(
       sortedData[sortedData.length - 1].timestamp,
       sortedData[0].timestamp
     );
-    const dailyRate = slope * (n / timeSpanDays);
+
+    // Guard against zero/negative timespan to avoid NaN/Infinity
+    const safeTimeSpanDays = Math.max(1, timeSpanDays || 0);
+    const dailyRate = Number.isFinite(slope) ? slope * (n / safeTimeSpanDays) : 0;
     
     // Multi-factor confidence calculation
     const dataQuality = Math.min(1, n / 30); // Better with more data points
@@ -283,13 +287,13 @@ class EnhancedPatternAnalysisEngine {
     return {
       metric: 'Overall Trend',
       direction,
-      rate: dailyRate,
-      significance: rSquared,
-      confidence: enhancedConfidence,
+      rate: Number.isFinite(dailyRate) ? dailyRate : 0,
+      significance: Number.isFinite(rSquared) ? rSquared : 0,
+      confidence: Number.isFinite(enhancedConfidence) ? enhancedConfidence : 0,
       forecast: {
-        next7Days: yPred[yPred.length - 1] + (slope * 7),
-        next30Days: yPred[yPred.length - 1] + (slope * 30),
-        confidence: enhancedConfidence
+        next7Days: (yPred[yPred.length - 1] ?? 0) + ((Number.isFinite(slope) ? slope : 0) * 7),
+        next30Days: (yPred[yPred.length - 1] ?? 0) + ((Number.isFinite(slope) ? slope : 0) * 30),
+        confidence: Number.isFinite(enhancedConfidence) ? enhancedConfidence : 0
       }
     };
   }
@@ -588,32 +592,53 @@ class EnhancedPatternAnalysisEngine {
 
   private calculatePValue(correlation: number, sampleSize: number): number {
     // Simplified p-value calculation for correlation
-    const t = correlation * Math.sqrt((sampleSize - 2) / (1 - correlation * correlation));
-    return 2 * (1 - this.studentTCDF(Math.abs(t), sampleSize - 2));
+    if (!Number.isFinite(correlation) || sampleSize <= 2 || !Number.isFinite(sampleSize)) {
+      return 1; // non-significant
+    }
+    const denom = (1 - correlation * correlation);
+    if (denom <= 0) return 0; // maximal correlation
+    const t = correlation * Math.sqrt((sampleSize - 2) / denom);
+    if (!Number.isFinite(t)) return 1;
+    const val = 2 * (1 - this.studentTCDF(Math.abs(t), sampleSize - 2));
+    return Number.isFinite(val) ? Math.max(0, Math.min(1, val)) : 1;
   }
 
   private studentTCDF(t: number, df: number): number {
     // Simplified student's t-distribution CDF approximation
+    if (!Number.isFinite(t) || df <= 0) return 0.5;
     const x = df / (df + t * t);
-    return 0.5 + 0.5 * Math.sign(t) * this.incompleteBeta(df / 2, 0.5, x);
+    const ib = this.incompleteBeta(Math.max(1e-8, df / 2), 0.5, Math.max(1e-8, Math.min(1 - 1e-8, x)));
+    const res = 0.5 + 0.5 * Math.sign(t) * ib;
+    return Number.isFinite(res) ? Math.max(0, Math.min(1, res)) : 0.5;
   }
 
   private incompleteBeta(a: number, b: number, x: number): number {
-    // Simplified incomplete beta function approximation
+    // Simplified incomplete beta function approximation with guards
+    if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(x)) return 0;
     if (x <= 0) return 0;
     if (x >= 1) return 1;
-    return Math.pow(x, a) * Math.pow(1 - x, b) / (a * this.beta(a, b));
+    const num = Math.pow(x, a) * Math.pow(1 - x, b);
+    const den = a * this.beta(a, b);
+    if (!Number.isFinite(num) || !Number.isFinite(den) || den === 0) return 0;
+    return num / den;
   }
 
   private beta(a: number, b: number): number {
     // Simplified beta function approximation
-    return (this.gamma(a) * this.gamma(b)) / this.gamma(a + b);
+    const ga = this.gamma(a);
+    const gb = this.gamma(b);
+    const gab = this.gamma(a + b);
+    if (!Number.isFinite(ga) || !Number.isFinite(gb) || !Number.isFinite(gab) || gab === 0) return 1;
+    return (ga * gb) / gab;
   }
 
   private gamma(z: number): number {
-    // Simplified gamma function approximation using Stirling's approximation
+    // Simplified gamma function approximation using Stirling's approximation with guards
+    if (!Number.isFinite(z)) return 1;
+    if (z <= 0) return 1;
     if (z < 1) return this.gamma(z + 1) / z;
-    return Math.sqrt(2 * Math.PI / z) * Math.pow(z / Math.E, z);
+    const v = Math.sqrt(2 * Math.PI / z) * Math.pow(z / Math.E, z);
+    return Number.isFinite(v) ? v : 1;
   }
 
   private getEmotionTrendRecommendations(trend: TrendAnalysis): string[] {
@@ -775,7 +800,7 @@ class EnhancedPatternAnalysisEngine {
       const clusters = await mlModels.performBaselineClustering(trackingEntries, 3);
       return clusters;
     } catch (error) {
-      console.error('Baseline clustering failed:', error);
+      logger.error('Baseline clustering failed:', error);
       return [];
     }
   }

@@ -11,8 +11,9 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
 import { analyticsManager } from "@/lib/analyticsManager";
 import { dataStorage } from "@/lib/dataStorage";
+import { logger } from "@/lib/logger";
 
-export const AddStudent = () => {
+const AddStudent = () => {
   const [name, setName] = useState('');
   const [grade, setGrade] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
@@ -51,7 +52,9 @@ export const AddStudent = () => {
       toast.success(String(tStudent('addStudent.success')));
       navigate('/');
     } catch (error) {
-      toast.error("Failed to add student. Please try again.");
+      logger.error('Error adding student:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to add student. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -192,3 +195,5 @@ export const AddStudent = () => {
     </div>
   );
 };
+
+export default AddStudent;

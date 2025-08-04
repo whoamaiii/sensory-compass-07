@@ -201,3 +201,59 @@ Read more: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/cus
 ---
 
 **Built with ❤️ for special education professionals and the students they serve.**
+# Testing, CI Thresholds, and Metrics
+
+This project includes performance and bias gating in CI, along with cross-validation metrics and confidence heuristics.
+
+## How to Run Tests
+
+- Unit and integration tests:
+  npm test
+
+- Performance tests:
+  npm run test:performance
+
+- Bias/fairness tests:
+  npm run test:bias
+
+## Overriding CI Thresholds Locally
+
+You can adjust thresholds via environment variables when running tests locally.
+
+- Performance threshold (milliseconds, default 1500):
+  CI_PERF_THRESHOLD_MS=1200 npm run test:performance
+
+- Bias disparity tolerance (absolute delta, default 0.08):
+  CI_BIAS_TOL=0.05 npm run test:bias
+
+In GitHub Actions CI, these are set in .github/workflows/ci.yml to fail builds on regressions.
+
+## Validation Metrics Interpretation
+
+Cross-validation returns per-fold metrics as well as overall aggregates:
+- overallConfusionMatrix (binary classification): The sum of fold-level confusion matrices:
+  - tp: true positives
+  - tn: true negatives
+  - fp: false positives
+  - fn: false negatives
+
+- overallPRF1: Derived from the summed overallConfusionMatrix:
+  - precision = tp / (tp + fp) when denominator &gt; 0, else 0
+  - recall = tp / (tp + fn) when denominator &gt; 0, else 0
+  - f1Score = 2 * precision * recall / (precision + recall) when denominator &gt; 0, else 0
+  - accuracy = (tp + tn) / (tp + tn + fp + fn) when denominator &gt; 0, else 0
+
+Note: Individual fold confusion matrices are not averaged; only numeric metrics are averaged across folds. The overallConfusionMatrix is computed by summing tp/tn/fp/fn across folds, then overallPRF1 is recomputed from those totals.
+
+## Confidence Heuristics
+
+Confidence is provided as lightweight heuristics, not calibrated probabilities.
+
+- Classification (e.g., sensory predictions with softmax):
+  - Maximum softmax probability as a primary confidence signal.
+  - Normalized entropy as a secondary signal (lower entropy indicates higher confidence).
+
+- Regression-like/emotion outputs:
+  - Inverse variance over outputs, using a small ±0.1 interval heuristic to estimate dispersion. Lower variance implies higher confidence.
+
+These heuristics are implemented in src/lib/mlModels.ts and intended to provide relative, quick-to-compute confidence indicators suitable for UI hints or downstream thresholds.

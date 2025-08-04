@@ -24,6 +24,7 @@ import { useAnalyticsWorker } from '@/hooks/useAnalyticsWorker';
 import { usePerformanceCache } from '@/hooks/usePerformanceCache';
 import { AnalyticsConfigTest } from '@/components/AnalyticsConfigTest';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 interface TestingDebugPanelProps {
   className?: string;
@@ -198,7 +199,7 @@ export const TestingDebugPanel = ({ className = "" }: TestingDebugPanelProps) =>
       toast.success("System tests completed successfully");
       
     } catch (error) {
-      console.error('System test error:', error);
+      logger.error('System test error', { error });
       results.push({
         name: "Test Error",
         status: "fail",

@@ -297,7 +297,8 @@ class PatternAnalysisEngine {
 
     if (highStressEmotions.length >= 2) {
       alerts.push({
-        id: crypto.randomUUID(),
+        id: ((globalThis as unknown as { crypto?: { randomUUID?: () => string } })?.crypto?.randomUUID?.()) ||
+            `alert-${Math.random().toString(36).slice(2)}-${Date.now()}`,
         type: 'concern',
         severity: 'high',
         title: 'High Stress Pattern Detected',
@@ -322,7 +323,8 @@ class PatternAnalysisEngine {
 
     if (positiveEmotions.length >= 3 && recentEmotions.length >= 5) {
       alerts.push({
-        id: crypto.randomUUID(),
+        id: ((globalThis as unknown as { crypto?: { randomUUID?: () => string } })?.crypto?.randomUUID?.()) ||
+            `alert-${Math.random().toString(36).slice(2)}-${Date.now()}`,
         type: 'improvement',
         severity: 'low',
         title: 'Positive Progress Noted',
@@ -343,7 +345,8 @@ class PatternAnalysisEngine {
     environmentalPatterns.forEach(pattern => {
       if (pattern.significance === 'high' && Math.abs(pattern.correlation) > 0.6) {
         alerts.push({
-          id: crypto.randomUUID(),
+          id: ((globalThis as unknown as { crypto?: { randomUUID?: () => string } })?.crypto?.randomUUID?.()) ||
+              `alert-${Math.random().toString(36).slice(2)}-${Date.now()}`,
           type: 'pattern',
           severity: 'medium',
           title: 'Environmental Pattern Identified',

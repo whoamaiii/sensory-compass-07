@@ -13,6 +13,7 @@ import { Student, Goal, TrackingEntry, EmotionEntry, SensoryEntry } from "@/type
 import { FileText, Download, Printer, Mail, Calendar, TrendingUp, Crosshair } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { toast } from "sonner";
+import { downloadBlob } from "@/lib/utils";
 
 interface ReportBuilderProps {
   student: Student;
@@ -434,14 +435,7 @@ export const ReportBuilder = ({ student, goals, trackingEntries, emotions, senso
 
     // Download CSV
     const blob = new Blob([csvString], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${student.name.replace(/\s+/g, '_')}_${reportData.title.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    downloadBlob(blob, `${student.name.replace(/\s+/g, '_')}_${reportData.title.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.csv`);
 
     toast.success("CSV exported successfully!");
   };

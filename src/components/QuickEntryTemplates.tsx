@@ -187,7 +187,7 @@ export const QuickEntryTemplates: React.FC<QuickEntryTemplatesProps> = ({
       id: `custom_${Date.now()}`,
       name: newTemplate.name!,
       description: newTemplate.description || '',
-      category: newTemplate.category as any || 'custom',
+      category: (newTemplate.category as "morning" | "transition" | "learning" | "break" | "afternoon" | "custom") || 'custom',
       emotions: newTemplate.emotions || [],
       sensoryInputs: newTemplate.sensoryInputs || [],
       isDefault: false,
@@ -268,7 +268,7 @@ export const QuickEntryTemplates: React.FC<QuickEntryTemplatesProps> = ({
                   <label className="text-sm font-medium">Category</label>
                   <Select
                     value={newTemplate.category}
-                    onValueChange={(value) => setNewTemplate(prev => ({ ...prev, category: value as any }))}
+                    onValueChange={(value) => setNewTemplate(prev => ({ ...prev, category: value as "morning" | "transition" | "learning" | "break" | "afternoon" | "custom" }))}
                   >
                     <SelectTrigger>
                       <SelectValue />

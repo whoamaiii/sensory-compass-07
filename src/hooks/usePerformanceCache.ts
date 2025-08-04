@@ -67,7 +67,9 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
   const cache = useRef<Map<string, CacheEntry<T>>>(new Map());
   const tagIndex = useRef<Map<string, Set<string>>>(new Map());
   const currentVersion = useRef<string>(Date.now().toString());
-  
+  // Mutation counter to force React re-computation of derived metrics and expose live size
+  const mutationCounter = useRef(0);
+
   const [stats, setStats] = useState({
     hits: 0,
     misses: 0,
@@ -76,14 +78,20 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
     invalidations: 0
   });
 
+  const bumpMutation = useCallback(() => {
+    mutationCounter.current += 1;
+  }, []);
+
   const updateStats = useCallback((operation: keyof typeof stats) => {
     if (enableStats) {
       setStats(prev => ({
         ...prev,
         [operation]: prev[operation] + 1
       }));
+      // Also bump mutation so hitRate and memoryUsage recompute alongside stats updates
+      bumpMutation();
     }
-  }, [enableStats]);
+  }, [enableStats, bumpMutation]);
 
   const isExpired = useCallback((entry: CacheEntry<T>): boolean => {
     return Date.now() - entry.timestamp > ttl;
@@ -107,8 +115,9 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
       }
       cache.current.delete(lruKey);
       updateStats('evictions');
+      bumpMutation();
     }
-  }, [updateStats]);
+  }, [updateStats, bumpMutation]);
 
   const removeFromTagIndex = useCallback((key: string, tags: string[]) => {
     tags.forEach(tag => {
@@ -145,6 +154,7 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
       }
       cache.current.delete(key);
       updateStats('misses');
+      bumpMutation();
       return undefined;
     }
 
@@ -154,6 +164,7 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
       }
       cache.current.delete(key);
       updateStats('misses');
+      bumpMutation();
       return undefined;
     }
 
@@ -163,7 +174,7 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
     updateStats('hits');
     
     return entry.data;
-  }, [isExpired, updateStats, versioning, removeFromTagIndex]);
+  }, [isExpired, updateStats, versioning, removeFromTagIndex, bumpMutation]);
 
   const set = useCallback((key: string, value: T, tags: string[] = []): void => {
     // Check if we need to evict
@@ -190,7 +201,8 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
     }
 
     updateStats('sets');
-  }, [maxSize, evictLRU, updateStats, versioning, removeFromTagIndex, addToTagIndex]);
+    bumpMutation();
+  }, [maxSize, evictLRU, updateStats, versioning, removeFromTagIndex, addToTagIndex, bumpMutation]);
 
   const has = useCallback((key: string): boolean => {
     const entry = cache.current.get(key);
@@ -201,6 +213,7 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
         removeFromTagIndex(key, entry.tags);
       }
       cache.current.delete(key);
+      bumpMutation();
       return false;
     }
 
@@ -209,17 +222,19 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
         removeFromTagIndex(key, entry.tags);
       }
       cache.current.delete(key);
+      bumpMutation();
       return false;
     }
 
     return true;
-  }, [isExpired, versioning, removeFromTagIndex]);
+  }, [isExpired, versioning, removeFromTagIndex, bumpMutation]);
 
   const clear = useCallback(() => {
     cache.current.clear();
     tagIndex.current.clear();
     setStats({ hits: 0, misses: 0, sets: 0, evictions: 0, invalidations: 0 });
-  }, []);
+    bumpMutation();
+  }, [bumpMutation]);
 
   const invalidateByTag = useCallback((tag: string): number => {
     const keys = tagIndex.current.get(tag);
@@ -236,8 +251,9 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
     });
 
     tagIndex.current.delete(tag);
+    if (invalidatedCount > 0) bumpMutation();
     return invalidatedCount;
-  }, [updateStats]);
+  }, [updateStats, bumpMutation]);
 
   const invalidateByPattern = useCallback((pattern: RegExp): number => {
     let invalidatedCount = 0;
@@ -258,8 +274,9 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
       updateStats('invalidations');
     });
 
+    if (invalidatedCount > 0) bumpMutation();
     return invalidatedCount;
-  }, [updateStats, removeFromTagIndex]);
+  }, [updateStats, removeFromTagIndex, bumpMutation]);
 
   const invalidateVersion = useCallback(() => {
     if (versioning) {
@@ -297,12 +314,14 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
     return Math.abs(hash).toString(36);
   }, []);
 
-  const size = useMemo(() => cache.current.size, [cache.current.size]);
+  // Expose live size directly from the Map to avoid stale memoization on ref properties.
+  const size = cache.current.size;
 
+  // Derive hitRate from current stats; dependency is ensured by updateStats bumping mutation.
   const hitRate = useMemo(() => {
     const total = stats.hits + stats.misses;
     return total > 0 ? (stats.hits / total) * 100 : 0;
-  }, [stats.hits, stats.misses]);
+  }, [stats.hits, stats.misses, mutationCounter.current]);
 
   const memoryUsage = useMemo(() => {
     if (!enableStats) return undefined;
@@ -313,7 +332,7 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
       totalSize += JSON.stringify(entry).length * 2; // Rough estimate (2 bytes per char)
     });
     return totalSize;
-  }, [enableStats, cache.current.size]);
+  }, [enableStats, mutationCounter.current]);
 
   // Clean up expired entries periodically
   const cleanup = useCallback(() => {
@@ -329,8 +348,11 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
       }
     });
 
-    keysToDelete.forEach(key => cache.current.delete(key));
-  }, [ttl, versioning, removeFromTagIndex]);
+    if (keysToDelete.length > 0) {
+      keysToDelete.forEach(key => cache.current.delete(key));
+      bumpMutation();
+    }
+  }, [ttl, versioning, removeFromTagIndex, bumpMutation]);
 
   const getCacheStats = useCallback((): CacheStats => {
     return {

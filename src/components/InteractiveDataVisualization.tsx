@@ -15,23 +15,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  BarChart, 
-  Bar, 
-  ScatterChart,
-  Scatter,
-  Cell,
-  Area,
-  AreaChart,
-  ComposedChart
-} from 'recharts';
+import type { EChartsOption } from "echarts";
+import { EChartContainer } from "@/components/charts/EChartContainer";
 import { EmotionEntry, SensoryEntry, TrackingEntry, Student } from "@/types/student";
 import { enhancedPatternAnalysis, CorrelationMatrix, PredictiveInsight, AnomalyDetection } from "@/lib/enhancedPatternAnalysis";
 import { patternAnalysis, PatternResult } from "@/lib/patternAnalysis";
@@ -73,6 +58,7 @@ import { format, subDays, isWithinInterval } from "date-fns";
 import { analyticsExport, ExportFormat, AnalyticsExportData } from "@/lib/analyticsExport";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 // Import new components
 import { Visualization3D } from './Visualization3D';
@@ -340,7 +326,7 @@ export const InteractiveDataVisualization = ({
           setCorrelationMatrix(matrix);
         }
       } catch (error) {
-        console.error('Pattern analysis failed:', error);
+        logger.error('Pattern analysis failed', { error });
       } finally {
         setIsAnalyzing(false);
       }
@@ -427,15 +413,16 @@ export const InteractiveDataVisualization = ({
   }, [layoutMode]);
 
   // Render chart based on type
-  const renderChart = () => {
+  const renderChart = () => {
     if (chartData.length === 0) {
       return (
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          <div className="text-center">
-            <Activity className="h-16 w-16 mx-auto mb-4 opacity-50" />
-            <p>No data available for selected time range</p>
-          </div>
-        </div>
+        <div className="flex items-center justify-center h-64 text-muted-foreground">
+          <div className="text-center">
+            <Activity className="h-16 w-16 mx-auto mb-4 opacity-50" />
+            <p>No data available for selected time range</p>
+            <p className="text-xs mt-1">Try expanding the time range or adjusting filters</p>
+          /div>
+        /div>
       );
     }
 
@@ -444,149 +431,251 @@ export const InteractiveDataVisualization = ({
       margin: { top: 5, right: 30, left: 20, bottom: 5 }
     };
 
+    const enhancedTooltip = (params: any) => {
+      const p = Array.isArray(params) ? params : [params];
+      if (p.length === 0) return "";
+      const x = String(p[0].axisValue);
+      const dateStr = format(new Date(x), "MMM dd, yyyy");
+      const lines = p
+        .map((item: any) => {
+          const seriesName = String(item.seriesName || "");
+          const marker = String(item.marker || "");
+          const val = item.value ? item.value : "N/A";
+          return `${marker} ${seriesName}: ${val}`;
+        })
+        .join("\n");
+      return `${dateStr}\n${lines}`;
+    };
+
     switch (selectedChartType) {
       case 'area':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <AreaChart {...commonProps}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 12 }}
-                tickFormatter={(value) => format(new Date(value), 'MMM dd')}
-              />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip 
-                labelFormatter={(value) => format(new Date(value), 'MMM dd, yyyy')}
-                formatter={(value: number, name: string) => [value.toFixed(1), name]}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="avgEmotionIntensity" 
-                stroke="hsl(var(--primary))" 
-                fill="hsl(var(--primary) / 0.2)"
-                name="Avg Emotion Intensity"
-              />
-              <Area 
-                type="monotone" 
-                dataKey="positiveEmotions" 
-                stroke="hsl(142 76% 36%)" 
-                fill="hsl(142 76% 36% / 0.2)"
-                name="Positive Emotions"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        );
+        {
+          const areaOption: EChartsOption = {
+            dataset: { source: chartData },
+            legend: {},
+            tooltip: {
+              trigger: "axis",
+              axisPointer: { type: "line" },
+              formatter: (params) => {
+                const p = Array.isArray(params) ? params : [params];
+                if (p.length === 0) return "";
+                const x = String(p[0].axisValue);
+                const dateStr = format(new Date(x), "MMM dd, yyyy");
+                const lines = p
+                  .map((item) => {
+                    const seriesName = String((item as { seriesName?: unknown }).seriesName ?? "");
+                    const marker = String((item as { marker?: unknown }).marker ?? "");
+                    const encodeY = (item as { encode?: { y?: string[] } }).encode?.y?.[0];
+                    const dataObj = (item as { data?: Record<string, unknown> }).data;
+                    const raw =
+                      (encodeY && dataObj && typeof dataObj[encodeY] === "number"
+                        ? (dataObj[encodeY] as number)
+                        : typeof (item as { value?: unknown }).value === "number"
+                        ? ((item as { value?: number }).value as number)
+                        : null);
+                    const val = raw !== null ? raw.toFixed(1) : String((item as { value?: unknown }).value ?? "");
+                    return `${marker} ${seriesName}: ${val}`;
+                  })
+                  .join("<br/>");
+                return `${dateStr}<br/>${lines}`;
+              }
+            },
+            xAxis: {
+              type: "category",
+              axisLabel: {
+                formatter: (v: string) => format(new Date(v), "MMM dd"),
+              }
+            },
+            yAxis: [{ type: "value" }],
+            series: [
+              {
+                type: "line",
+                name: "Avg Emotion Intensity",
+                smooth: true,
+                encode: { x: "date", y: "avgEmotionIntensity" },
+                areaStyle: {},
+                lineStyle: { width: 3 },
+                symbol: "none"
+              },
+              {
+                type: "line",
+                name: "Positive Emotions",
+                smooth: true,
+                encode: { x: "date", y: "positiveEmotions" },
+                areaStyle: {},
+                lineStyle: { width: 2 },
+                symbol: "none",
+                itemStyle: { color: "hsl(142 76% 36%)" }
+              }
+            ]
+          };
+          return <EChartContainer option={areaOption} height={400} />;
+        }
 
       case 'scatter':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <ScatterChart {...commonProps}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis 
-                type="number"
-                dataKey="avgEmotionIntensity" 
-                name="Avg Emotion Intensity"
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis 
-                type="number"
-                dataKey="totalSensoryInputs" 
-                name="Sensory Inputs"
-                tick={{ fontSize: 12 }}
-              />
-              <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-              <Scatter 
-                name="Daily Data Points" 
-                dataKey="totalSensoryInputs" 
-                fill="hsl(var(--primary))"
-              />
-            </ScatterChart>
-          </ResponsiveContainer>
-        );
+        {
+          // Build scatter source with numeric axes: x=avgEmotionIntensity, y=totalSensoryInputs
+          const scatterOption: EChartsOption = {
+            dataset: { source: chartData },
+            legend: {},
+            tooltip: {
+              trigger: "item"
+            },
+            xAxis: { type: "value", name: "Avg Emotion Intensity" },
+            yAxis: { type: "value", name: "Sensory Inputs" },
+            series: [
+              {
+                name: "Daily Data Points",
+                type: "scatter",
+                encode: { x: "avgEmotionIntensity", y: "totalSensoryInputs" },
+                symbolSize: 8,
+              }
+            ]
+          };
+          return <EChartContainer option={scatterOption} height={400} />;
+        }
 
       case 'composed':
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <ComposedChart {...commonProps}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 12 }}
-                tickFormatter={(value) => format(new Date(value), 'MMM dd')}
-              />
-              <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
-              <Tooltip 
-                labelFormatter={(value) => format(new Date(value), 'MMM dd, yyyy')}
-                formatter={(value: number, name: string) => [value.toFixed(1), name]}
-              />
-              <Bar 
-                yAxisId="left"
-                dataKey="positiveEmotions" 
-                fill="hsl(142 76% 36%)" 
-                name="Positive Emotions"
-              />
-              <Bar 
-                yAxisId="left"
-                dataKey="negativeEmotions" 
-                fill="hsl(0 72% 51%)" 
-                name="Negative Emotions"
-              />
-              <Line 
-                yAxisId="right"
-                type="monotone" 
-                dataKey="avgEmotionIntensity" 
-                stroke="hsl(var(--primary))" 
-                strokeWidth={3}
-                name="Avg Intensity"
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        );
+        {
+          const composedOption: EChartsOption = {
+            dataset: { source: chartData },
+            legend: {},
+            tooltip: {
+              trigger: "axis",
+              axisPointer: { type: "shadow" },
+              formatter: (params) => {
+                const p = Array.isArray(params) ? params : [params];
+                if (p.length === 0) return "";
+                const x = String(p[0].axisValue);
+                const dateStr = format(new Date(x), "MMM dd, yyyy");
+                const lines = p
+                  .map((item) => {
+                    const seriesName = String((item as { seriesName?: unknown }).seriesName ?? "");
+                    const marker = String((item as { marker?: unknown }).marker ?? "");
+                    const encodeY = (item as { encode?: { y?: string[] } }).encode?.y?.[0];
+                    const dataObj = (item as { data?: Record<string, unknown> }).data;
+                    const raw =
+                      (encodeY && dataObj && typeof dataObj[encodeY] === "number"
+                        ? (dataObj[encodeY] as number)
+                        : typeof (item as { value?: unknown }).value === "number"
+                        ? ((item as { value?: number }).value as number)
+                        : null);
+                    const val = raw !== null ? raw.toFixed(1) : String((item as { value?: unknown }).value ?? "");
+                    return `${marker} ${seriesName}: ${val}`;
+                  })
+                  .join("<br/>");
+                return `${dateStr}<br/>${lines}`;
+              }
+            },
+            xAxis: {
+              type: "category",
+              axisLabel: { formatter: (v: string) => format(new Date(v), "MMM dd") }
+            },
+            yAxis: [{ type: "value" }, { type: "value" }],
+            series: [
+              {
+                type: "bar",
+                name: "Positive Emotions",
+                encode: { x: "date", y: "positiveEmotions" },
+                yAxisIndex: 0,
+                itemStyle: { color: "hsl(142 76% 36%)" }
+              },
+              {
+                type: "bar",
+                name: "Negative Emotions",
+                encode: { x: "date", y: "negativeEmotions" },
+                yAxisIndex: 0,
+                itemStyle: { color: "hsl(0 72% 51%)" }
+              },
+              {
+                type: "line",
+                name: "Avg Intensity",
+                encode: { x: "date", y: "avgEmotionIntensity" },
+                yAxisIndex: 1,
+                smooth: true,
+                lineStyle: { width: 3 }
+              }
+            ]
+          };
+          return <EChartContainer option={composedOption} height={400} />;
+        }
 
       default: // line
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart {...commonProps}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 12 }}
-                tickFormatter={(value) => format(new Date(value), 'MMM dd')}
-              />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip 
-                labelFormatter={(value) => format(new Date(value), 'MMM dd, yyyy')}
-                formatter={(value: number, name: string) => [value.toFixed(1), name]}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="avgEmotionIntensity" 
-                stroke="hsl(var(--primary))" 
-                strokeWidth={3}
-                dot={{ r: 4 }}
-                name="Avg Emotion Intensity"
-              />
-              <Line 
-                type="monotone" 
-                dataKey="positiveEmotions" 
-                stroke="hsl(142 76% 36%)" 
-                strokeWidth={2}
-                dot={{ r: 3 }}
-                name="Positive Emotions"
-              />
-              <Line 
-                type="monotone" 
-                dataKey="negativeEmotions" 
-                stroke="hsl(0 72% 51%)" 
-                strokeWidth={2}
-                dot={{ r: 3 }}
-                name="Negative Emotions"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        );
+        {
+          const trendsOption: EChartsOption = {
+            dataset: { source: chartData },
+            legend: {},
+            tooltip: {
+              trigger: "axis",
+              axisPointer: { type: "line" },
+              formatter: (params) => {
+                const p = Array.isArray(params) ? params : [params];
+                if (p.length === 0) return "";
+                const x = String(p[0].axisValue);
+                const dateStr = format(new Date(x), "MMM dd, yyyy");
+                const lines = p
+                  .map((item) => {
+                    const seriesName = String((item as { seriesName?: unknown }).seriesName ?? "");
+                    const marker = String((item as { marker?: unknown }).marker ?? "");
+                    // Try to read value from dataset-encoded field if available, else fallback to item.value
+                    const encodeY = (item as { encode?: { y?: string[] } }).encode?.y?.[0];
+                    const dataObj = (item as { data?: Record<string, unknown> }).data;
+                    const raw =
+                      (encodeY && dataObj && typeof dataObj[encodeY] === "number"
+                        ? (dataObj[encodeY] as number)
+                        : typeof (item as { value?: unknown }).value === "number"
+                        ? ((item as { value?: number }).value as number)
+                        : null);
+                    const val = raw !== null ? raw.toFixed(1) : String((item as { value?: unknown }).value ?? "");
+                    return `${marker} ${seriesName}: ${val}`;
+                  })
+                  .join("<br/>");
+                return `${dateStr}<br/>${lines}`;
+              }
+            },
+            xAxis: {
+              type: "category",
+              axisLabel: {
+                formatter: (v: string) => format(new Date(v), "MMM dd"),
+              }
+            },
+            yAxis: [{ type: "value" }],
+            series: [
+              {
+                type: "line",
+                name: "Avg Emotion Intensity",
+                smooth: true,
+                encode: { x: "date", y: "avgEmotionIntensity" },
+                symbol: "circle",
+                symbolSize: 8, // approx dot r=4
+                lineStyle: { width: 3 }
+              },
+              {
+                type: "line",
+                name: "Positive Emotions",
+                smooth: true,
+                encode: { x: "date", y: "positiveEmotions" },
+                symbol: "circle",
+                symbolSize: 6, // approx dot r=3
+                lineStyle: { width: 2 },
+                itemStyle: { color: "hsl(142 76% 36%)" }
+              },
+              {
+                type: "line",
+                name: "Negative Emotions",
+                smooth: true,
+                encode: { x: "date", y: "negativeEmotions" },
+                symbol: "circle",
+                symbolSize: 6, // approx dot r=3
+                lineStyle: { width: 2 },
+                itemStyle: { color: "hsl(0 72% 51%)" }
+              }
+            ]
+          };
+          return (
+            <EChartContainer option={trendsOption} height={400} />
+          );
+        }
     }
   };
 
@@ -598,6 +687,61 @@ export const InteractiveDataVisualization = ({
             <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-50" />
             <p>Insufficient data for correlation analysis</p>
             <p className="text-sm">At least 10 tracking entries needed</p>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                aria-label="Retry correlation analysis"
+                title="Retry correlation analysis"
+                onClick={async () => {
+                  // Re-run the analysis pipeline to attempt to populate correlations
+                  setIsAnalyzing(true);
+                  try {
+                    const emotionPatterns = patternAnalysis.analyzeEmotionPatterns(filteredData.emotions);
+                    const sensoryPatterns = patternAnalysis.analyzeSensoryPatterns(filteredData.sensoryInputs);
+                    setPatterns([...emotionPatterns, ...sensoryPatterns]);
+                    if (filteredData.trackingEntries.length >= 5) {
+                      const insights = await enhancedPatternAnalysis.generatePredictiveInsights(
+                        filteredData.emotions,
+                        filteredData.sensoryInputs,
+                        filteredData.trackingEntries,
+                        []
+                      );
+                      setPredictiveInsights(insights);
+                      const detectedAnomalies = enhancedPatternAnalysis.detectAnomalies(
+                        filteredData.emotions,
+                        filteredData.sensoryInputs,
+                        filteredData.trackingEntries
+                      );
+                      setAnomalies(detectedAnomalies);
+                    }
+                    if (filteredData.trackingEntries.length >= 10) {
+                      const matrix = enhancedPatternAnalysis.generateCorrelationMatrix(filteredData.trackingEntries);
+                      setCorrelationMatrix(matrix);
+                      toast.success('Correlation analysis completed');
+                    } else {
+                      toast.info('Need at least 10 tracking entries for correlation analysis');
+                    }
+                  } catch (e) {
+                    logger.error('Retry correlation analysis failed', { error: e });
+                    toast.error('Failed to re-run correlation analysis');
+                  } finally {
+                    setIsAnalyzing(false);
+                  }
+                }}
+              >
+                Retry
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label="Show all time range"
+                title="Show all time range"
+                onClick={() => setSelectedTimeRange('all')}
+              >
+                Show all time
+              </Button>
+            </div>
           </div>
         </div>
       );
@@ -810,7 +954,7 @@ export const InteractiveDataVisualization = ({
           break;
       }
     } catch (error) {
-      console.error('Export failed:', error);
+      logger.error('Export failed', { error });
       toast.error('Failed to export interactive analytics data');
     } finally {
       setIsExporting(false);
@@ -820,12 +964,8 @@ export const InteractiveDataVisualization = ({
   const renderPatternAnalysis = () => {
     if (isAnalyzing) {
       return (
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center space-y-4">
-            <Activity className="h-16 w-16 mx-auto animate-pulse text-primary" />
-            <p>Analyzing patterns...</p>
-            <Progress value={66} className="w-48" />
-          </div>
+        <div aria-label="Loading chart data" className="h-[400px] w-full">
+          <div className="h-full w-full animate-pulse rounded-md border border-border/50 bg-muted/20" />
         </div>
       );
     }
@@ -1118,11 +1258,11 @@ export const InteractiveDataVisualization = ({
               </Badge>
             )}
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" aria-label="Visualization controls">
             {/* Filter Toggle */}
             <Sheet open={showFilterPanel} onOpenChange={setShowFilterPanel}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" aria-label="Open filters panel" title="Open filters panel">
                   <Filter className="h-4 w-4 mr-2" />
                   Filters
                   {Object.keys(filterCriteria).filter(k => 
@@ -1169,7 +1309,7 @@ export const InteractiveDataVisualization = ({
             {/* Layout Mode Selector */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" aria-label="Select layout mode" title="Select layout mode">
                   {layoutMode === 'grid' && <Grid3x3 className="h-4 w-4 mr-2" />}
                   {layoutMode === 'focus' && <Focus className="h-4 w-4 mr-2" />}
                   {layoutMode === 'comparison' && <Columns className="h-4 w-4 mr-2" />}
@@ -1200,7 +1340,7 @@ export const InteractiveDataVisualization = ({
             {/* View Options */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" aria-label="View options" title="View options">
                   <Settings className="h-4 w-4 mr-2" />
                   View
                 </Button>
@@ -1227,7 +1367,7 @@ export const InteractiveDataVisualization = ({
             {/* Export Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" disabled={isExporting}>
+                <Button variant="outline" size="sm" disabled={isExporting} aria-label="Export analytics" title="Export analytics">
                   <Download className="h-4 w-4 mr-2" />
                   {isExporting ? 'Exporting...' : 'Export'}
                 </Button>
@@ -1422,24 +1562,49 @@ export const InteractiveDataVisualization = ({
       {layoutMode === 'dashboard' ? (
         // Dashboard Layout with Tabs
         <Tabs defaultValue="trends" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="trends" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-5" aria-label="Visualization tabs">
+            <TabsTrigger
+              value="trends"
+              className="flex items-center gap-2"
+              aria-label="Open trends charts"
+              title="Open trends charts"
+            >
               <TrendingUp className="h-4 w-4" />
               Trends
             </TabsTrigger>
-            <TabsTrigger value="correlations" className="flex items-center gap-2">
+            <TabsTrigger
+              value="correlations"
+              className="flex items-center gap-2"
+              aria-label="Open correlation heatmap"
+              title="Open correlation heatmap"
+            >
               <Target className="h-4 w-4" />
               Correlations
             </TabsTrigger>
-            <TabsTrigger value="patterns" className="flex items-center gap-2">
+            <TabsTrigger
+              value="patterns"
+              className="flex items-center gap-2"
+              aria-label="Open AI pattern recognition"
+              title="Open AI pattern recognition"
+            >
               <Zap className="h-4 w-4" />
               Patterns
             </TabsTrigger>
-            <TabsTrigger value="3d" className="flex items-center gap-2">
+            <TabsTrigger
+              value="3d"
+              className="flex items-center gap-2"
+              aria-label="Open 3D visualization"
+              title="Open 3D visualization"
+            >
               <Eye className="h-4 w-4" />
               3D View
             </TabsTrigger>
-            <TabsTrigger value="timeline" className="flex items-center gap-2">
+            <TabsTrigger
+              value="timeline"
+              className="flex items-center gap-2"
+              aria-label="Open timeline visualization"
+              title="Open timeline visualization"
+            >
               <Clock className="h-4 w-4" />
               Timeline
             </TabsTrigger>

@@ -6,7 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { Database, Users, Trash2, CheckCircle } from 'lucide-react';
-import { loadMockDataToStorage, clearMockDataFromStorage, generateMockStudents } from '@/lib/mockDataGenerator';
+import { loadMockDataToStorage, clearMockDataFromStorage, generateMockStudents, generateAllMockData } from '@/lib/mockDataGenerator';
 import { dataStorage } from '@/lib/dataStorage';
 
 /**
@@ -26,11 +26,50 @@ export const MockDataLoader = () => {
       // Simulate loading progress for better UX
       setLoadingProgress(25);
       
-      // Generate and load the data
-      await new Promise(resolve => setTimeout(resolve, 500)); // Brief pause for UX
-      setLoadingProgress(50);
+      // Generate and load the data based on selected scenario
+      const progressInterval = setInterval(() => {
+        setLoadingProgress((oldProgress) => {
+          if (oldProgress === 100) {
+            clearInterval(progressInterval);
+            return 100;
+          }
+          const diff = Math.random() * 10;
+          return Math.min(oldProgress + diff, 100);
+        });
+      }, 500);
+
+      // Load data based on selected scenario
+      if (selectedScenario === 'all') {
+        await loadMockDataToStorage();
+      } else {
+        // Load specific scenario data
+        const scenarios: Record<string, 'emma' | 'lars' | 'astrid'> = {
+          'emma': 'emma',
+          'lars': 'lars',
+          'astrid': 'astrid'
+        };
+        const scenario = scenarios[selectedScenario];
+        if (scenario) {
+          // Clear existing mock data first
+          await clearMockDataFromStorage();
+
+          // Load specific student
+          const students = generateMockStudents();
+          const selectedStudent = students.find(s => s.name.toLowerCase().includes(scenario));
+
+          if (selectedStudent) {
+            dataStorage.saveStudent(selectedStudent);
+
+            // Generate tracking data for the selected student
+            const { trackingEntries } = generateAllMockData();
+            const studentEntries = trackingEntries.filter(entry => entry.studentId === selectedStudent.id);
+            studentEntries.forEach(entry => {
+              dataStorage.saveTrackingEntry(entry);
+            });
+          }
+        }
+      }
       
-      loadMockDataToStorage();
       setLoadingProgress(75);
       
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -38,25 +77,15 @@ export const MockDataLoader = () => {
       
       // Get stats for success message
       const stats = dataStorage.getStorageStats();
-      const mockStudents = generateMockStudents();
+      const displayCount = selectedScenario === 'all' ? '3 students' : '1 student';
       
       toast.success('Mock data loaded successfully!', {
-        description: `Loaded ${mockStudents.length} students with ${stats.entriesCount} tracking entries`,
+        description: `Loaded ${displayCount} with ${stats.entriesCount} tracking entries`,
       });
       
-      // Trigger storage event to refresh Dashboard without page reload
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'sensoryTracker_students',
-        newValue: JSON.stringify(dataStorage.getStudents())
-      }));
-      // Dispatch a custom event to notify other components (like the dashboard) that mock data has been loaded.
+      // Dispatch a custom event to notify other components that mock data has been loaded.
       // This allows for dynamic updates without requiring a full page reload.
       window.dispatchEvent(new CustomEvent('mockDataLoaded'));
-      
-      // Fallback: refresh the page if storage event doesn't work
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
       
     } catch (error) {
       toast.error('Failed to load mock data', {
@@ -74,16 +103,8 @@ export const MockDataLoader = () => {
       
       toast.success('Mock data cleared successfully!');
       
-      // Trigger storage event to refresh Dashboard without page reload
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'sensoryTracker_students',
-        newValue: JSON.stringify([])
-      }));
-      
-      // Fallback: refresh the page if storage event doesn't work
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      // Dispatch a custom event to force a refresh on components that listen for it.
+      window.dispatchEvent(new CustomEvent('mockDataLoaded'));
       
     } catch (error) {
       toast.error('Failed to clear mock data', {
@@ -161,36 +182,14 @@ export const MockDataLoader = () => {
 
         {/* Action Buttons */}
         <div className="flex gap-2 pt-2">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button 
-                className="flex-1 bg-gradient-primary hover:opacity-90"
-                disabled={isLoading}
-              >
-                <Database className="h-4 w-4 mr-2" />
-                Load Mock Data
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Load Mock Data?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will {hasMockData ? 'replace existing' : 'add'} mock student data to test pattern analysis features.
-                  {currentStats.studentsCount > 0 && !hasMockData && 
-                    ' Your existing data will be preserved.'
-                  }
-                  {hasMockData && ' Existing mock data will be replaced.'}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleLoadMockData}>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Load Data
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button
+            className="flex-1 bg-gradient-primary hover:opacity-90"
+            disabled={isLoading}
+            onClick={handleLoadMockData}
+          >
+            <Database className="h-4 w-4 mr-2" />
+            Load Mock Data
+          </Button>
 
           {hasMockData && (
             <AlertDialog>

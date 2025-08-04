@@ -52,7 +52,7 @@ export const validateEmotionEntry = (emotion: Partial<EmotionEntry>): Validation
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const validEmotions = ['happy', 'sad', 'angry', 'calm', 'anxious', 'excited'];
+  const validEmotions = ['happy', 'sad', 'angry', 'calm', 'anxious', 'excited', 'frustrated', 'content', 'overwhelmed'];
   const validIntensities = [1, 2, 3, 4, 5];
 
   if (!emotion.id || typeof emotion.id !== 'string') {
@@ -92,7 +92,7 @@ export const validateSensoryEntry = (sensory: Partial<SensoryEntry>): Validation
   const warnings: string[] = [];
 
   const validSensoryTypes = ['visual', 'auditory', 'tactile', 'vestibular', 'proprioceptive'];
-  const validResponses = ['seeking', 'avoiding', 'neutral'];
+  const validResponses = ['seeking', 'avoiding', 'neutral', 'engaging', 'exploring', 'withdrawing', 'defensive'];
   const validIntensities = [1, 2, 3, 4, 5];
 
   if (!sensory.id || typeof sensory.id !== 'string') {

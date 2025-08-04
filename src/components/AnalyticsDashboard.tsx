@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,8 @@ import { analyticsManager } from "@/lib/analyticsManager";
 import { useTranslation } from "@/hooks/useTranslation";
 import { analyticsExport, ExportFormat } from "@/lib/analyticsExport";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
+import { diagnostics } from "@/lib/diagnostics";
 
 /**
  * @interface AnalyticsDashboardProps
@@ -59,44 +61,121 @@ interface AnalyticsDashboardProps {
  * It no longer handles its own data filtering; instead, it receives `filteredData`
  * as a prop from a parent component, ensuring a single source of truth.
  */
-export const AnalyticsDashboard = ({
+export const AnalyticsDashboard = memo(({
   student,
-  filteredData
+  filteredData = { entries: [], emotions: [], sensoryInputs: [] },
 }: AnalyticsDashboardProps) => {
+  // All hooks must be called at the top level, not inside try-catch
   const { tStudent } = useTranslation();
-  const { results, isAnalyzing, error, runAnalysis, invalidateCacheForStudent } = useAnalyticsWorker();
   const [isExporting, setIsExporting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const visualizationRef = useRef<HTMLDivElement>(null);
+  const [vizReady, setVizReady] = useState(false);
+  
+  // Always call hook at top level - hooks cannot be inside try-catch
+  const { results, isAnalyzing, error, runAnalysis, invalidateCacheForStudent } = useAnalyticsWorker();
 
   // Effect to trigger the analysis in the worker whenever the filtered data changes.
   useEffect(() => {
-    runAnalysis(filteredData);
-    // This call remains to ensure student-specific analytics settings are initialized.
+    // Log the props to check if they're being passed correctly
+    logger.debug('[AnalyticsDashboard] Props received:', {
+      studentId: student?.id,
+      studentName: student?.name,
+      hasFilteredData: !!filteredData,
+      entriesCount: filteredData?.entries?.length,
+      emotionsCount: filteredData?.emotions?.length,
+      sensoryInputsCount: filteredData?.sensoryInputs?.length
+    });
+    logger.debug('[AnalyticsDashboard] Component mounting');
+    logger.debug('[AnalyticsDashboard] useAnalyticsWorker result:', {
+      hasResults: !!results,
+      isAnalyzing,
+      error,
+      runAnalysisType: typeof runAnalysis
+    });
+    diagnostics.logComponentMount('AnalyticsDashboard');
+    // Normalize incoming filteredData timestamps to Date instances for charts/UI safety
+    const normalize = (d: typeof filteredData) => {
+      const coerce = (v: unknown): Date => {
+        try {
+          if (v instanceof Date && !isNaN(v.getTime())) return v;
+          if (typeof v === 'string' || typeof v === 'number') {
+            const dt = new Date(v);
+            return isNaN(dt.getTime()) ? new Date() : dt;
+          }
+          return new Date();
+        } catch (error) {
+          logger.error('Error coercing timestamp:', v, error);
+          return new Date();
+        }
+      };
+      
+      try {
+        return {
+          entries: (d.entries || []).map(e => ({ ...e, timestamp: coerce(e.timestamp) })),
+          emotions: (d.emotions || []).map(e => ({ ...e, timestamp: coerce(e.timestamp) })),
+          sensoryInputs: (d.sensoryInputs || []).map(s => ({ ...s, timestamp: coerce(s.timestamp) })),
+        };
+      } catch (error) {
+        logger.error('Error normalizing filteredData:', error);
+        return {
+          entries: [],
+          emotions: [],
+          sensoryInputs: []
+        };
+      }
+    };
+    
+    if (filteredData && filteredData.entries) {
+      runAnalysis(normalize(filteredData));
+    }
+    // Ensure student analytics exists for all students, including new and mock
     analyticsManager.initializeStudentAnalytics(student.id);
   }, [student.id, filteredData, runAnalysis]);
+
+  // Track component unmount and check for leaks
+  useEffect(() => {
+    return () => {
+      diagnostics.logComponentUnmount('AnalyticsDashboard');
+      diagnostics.checkForLeaks();
+    };
+  }, []);
 
   // useMemo hooks to prevent re-calculating derived data on every render.
   const patterns = useMemo(() => results?.patterns || [], [results]);
   const correlations = useMemo(() => results?.correlations || [], [results]);
   const insights = useMemo(() => results?.insights || [], [results]);
 
-  // Export handler
-  const handleExport = async (format: ExportFormat) => {
+  // Mark visualization as ready on any terminal condition: results | error | not analyzing with data known
+  useEffect(() => {
+    if (error) {
+      setVizReady(true);
+      return;
+    }
+    if (!isAnalyzing) {
+      // If we have results or empty states, visualization should render (even if "no data" message)
+      setVizReady(true);
+    }
+  }, [isAnalyzing, error, results]);
+
+  // Export handler with useCallback for performance
+  const handleExport = useCallback(async (format: ExportFormat) => {
     setIsExporting(true);
     try {
       const dateRange = {
         start: filteredData.entries.length > 0
-          ? filteredData.entries.reduce((min, entry) =>
-              entry.timestamp < min ? entry.timestamp : min,
-              filteredData.entries[0].timestamp
-            )
+          ? filteredData.entries.reduce((min, entry) => {
+              const entryTime = entry.timestamp instanceof Date ? entry.timestamp : new Date(entry.timestamp);
+              const minTime = min instanceof Date ? min : new Date(min);
+              return entryTime < minTime ? entryTime : minTime;
+            }, filteredData.entries[0].timestamp)
           : new Date(),
         end: filteredData.entries.length > 0
-          ? filteredData.entries.reduce((max, entry) =>
-              entry.timestamp > max ? entry.timestamp : max,
-              filteredData.entries[0].timestamp
-            )
+          ? filteredData.entries.reduce((max, entry) => {
+              const entryTime = entry.timestamp instanceof Date ? entry.timestamp : new Date(entry.timestamp);
+              const maxTime = max instanceof Date ? max : new Date(max);
+              return entryTime > maxTime ? entryTime : maxTime;
+            }, filteredData.entries[0].timestamp)
           : new Date()
       };
 
@@ -134,12 +213,12 @@ export const AnalyticsDashboard = ({
           break;
       }
     } catch (error) {
-      console.error('Export failed:', error);
+      logger.error('Export failed:', error);
       toast.error('Failed to export analytics data');
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [filteredData, student, patterns, correlations, insights, results]);
 
   const getPatternIcon = (type: string) => {
     switch (type) {
@@ -160,7 +239,8 @@ export const AnalyticsDashboard = ({
     return 'text-orange-600';
   };
 
-  return (
+  try {
+    return (
     <div className="space-y-6">
       {/* Header card, displays the student's name and export options. */}
       <Card>
@@ -272,11 +352,17 @@ export const AnalyticsDashboard = ({
 
         <TabsContent value="visualizations" className="space-y-6">
           <div ref={visualizationRef}>
-            <DataVisualization
-              emotions={filteredData.emotions}
-              sensoryInputs={filteredData.sensoryInputs}
-              studentName={student.name}
-            />
+            {!vizReady ? (
+              <div className="p-6 text-muted-foreground">
+                Loading Interactive Visualization...
+              </div>
+            ) : (
+              <DataVisualization
+                emotions={filteredData.emotions}
+                sensoryInputs={filteredData.sensoryInputs}
+                studentName={student.name}
+              />
+            )}
           </div>
         </TabsContent>
 
@@ -471,5 +557,59 @@ export const AnalyticsDashboard = ({
         />
       )}
     </div>
+    );
+  } catch (error) {
+    logger.error('Error in AnalyticsDashboard:', error);
+    logger.error('Error details:', {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack
+    });
+    return (
+      <Card className="border-red-500">
+        <CardHeader>
+          <CardTitle className="text-red-600">Error in Analytics Dashboard</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-2">An error occurred while rendering the analytics dashboard.</p>
+          <details className="text-xs">
+            <summary className="cursor-pointer text-red-600 mb-1">Error details (click to expand)</summary>
+            <pre className="bg-gray-100 dark:bg-gray-900 p-2 rounded overflow-auto max-h-40">
+              {error?.message || 'Unknown error'}
+              {error?.stack && `\n\nStack trace:\n${error.stack}`}
+            </pre>
+          </details>
+        </CardContent>
+      </Card>
+    );
+  }
+}, (prevProps, nextProps) => {
+  // Custom comparison for React.memo to prevent unnecessary re-renders
+  return (
+    prevProps.student.id === nextProps.student.id &&
+    prevProps.student.name === nextProps.student.name &&
+    prevProps.filteredData.entries.length === nextProps.filteredData.entries.length &&
+    prevProps.filteredData.emotions.length === nextProps.filteredData.emotions.length &&
+    prevProps.filteredData.sensoryInputs.length === nextProps.filteredData.sensoryInputs.length &&
+    // Check timestamp of first entry to detect data changes
+    (prevProps.filteredData.entries.length === 0 || 
+     nextProps.filteredData.entries.length === 0 ||
+     (() => {
+       try {
+         const prevTimestamp = prevProps.filteredData.entries[0]?.timestamp;
+         const nextTimestamp = nextProps.filteredData.entries[0]?.timestamp;
+         
+         // Handle various timestamp formats
+         const prevTime = prevTimestamp instanceof Date ? prevTimestamp.getTime() : 
+                          typeof prevTimestamp === 'string' || typeof prevTimestamp === 'number' ? new Date(prevTimestamp).getTime() : 0;
+         const nextTime = nextTimestamp instanceof Date ? nextTimestamp.getTime() : 
+                          typeof nextTimestamp === 'string' || typeof nextTimestamp === 'number' ? new Date(nextTimestamp).getTime() : 0;
+         
+         return prevTime === nextTime;
+       } catch (error) {
+         logger.error('Error comparing timestamps in AnalyticsDashboard memo:', error);
+         return false;
+       }
+     })())
   );
-};
+});

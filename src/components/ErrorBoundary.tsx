@@ -3,60 +3,89 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
+import { handleErrorBoundaryError } from '@/lib/errorHandler';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  showToast?: boolean;
 }
 
 interface State {
   hasError: boolean;
   error?: Error;
   errorInfo?: ErrorInfo;
+  errorCount: number;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  private resetTimeoutId: NodeJS.Timeout | null = null;
+  
   public state: State = {
-    hasError: false
+    hasError: false,
+    errorCount: 0
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, errorCount: 0 };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    // Use centralized error handler
+    handleErrorBoundaryError(error, errorInfo);
     
-    this.setState({
+    this.setState(prevState => ({
       error,
-      errorInfo
-    });
+      errorInfo,
+      errorCount: prevState.errorCount + 1
+    }));
 
     // Call custom error handler if provided
     this.props.onError?.(error, errorInfo);
 
-    // Log to a monitoring service in production
-    if (process.env.NODE_ENV === 'production') {
-      // This would integrate with a service like Sentry, LogRocket, etc.
-      console.error('Production error logged:', {
-        error: error.message,
-        stack: error.stack,
-        componentStack: errorInfo.componentStack
-      });
+    // Auto-reset after 3 errors to prevent infinite loops
+    if (this.state.errorCount >= 2) {
+      this.scheduleAutoReset();
     }
 
-    toast.error('An unexpected error occurred', {
-      description: 'The page has been automatically reloaded.',
-      action: {
-        label: 'Dismiss',
-        onClick: () => {}
-      }
-    });
+    // Only show toast if explicitly enabled (default is true for backward compatibility)
+    if (this.props.showToast !== false) {
+      toast.error('An unexpected error occurred', {
+        description: 'Please try again or refresh the page.',
+        action: {
+          label: 'Dismiss',
+          onClick: () => {}
+        }
+      });
+    }
+  }
+
+  private scheduleAutoReset = () => {
+    if (this.resetTimeoutId) {
+      clearTimeout(this.resetTimeoutId);
+    }
+    
+    this.resetTimeoutId = setTimeout(() => {
+      this.handleRetry();
+      toast.info('Page automatically refreshed after multiple errors');
+    }, 5000);
+  };
+
+  public componentWillUnmount() {
+    if (this.resetTimeoutId) {
+      clearTimeout(this.resetTimeoutId);
+    }
   }
 
   private handleRetry = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined });
+    this.setState({
+      hasError: false,
+      error: undefined,
+      errorInfo: undefined,
+      errorCount: 0
+    });
   };
 
   private handleReload = () => {
@@ -90,7 +119,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 This error has been logged and will be investigated.
               </p>
 
-              {process.env.NODE_ENV === 'development' && this.state.error && (
+              {import.meta.env.DEV && this.state.error && (
                 <details className="bg-muted p-4 rounded-md text-sm">
                   <summary className="cursor-pointer font-medium mb-2">
                     Error Details (Development Only)
@@ -148,6 +177,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
               <div className="text-xs text-muted-foreground text-center pt-4 border-t">
                 If this problem persists, please contact your system administrator.
+                {this.state.errorCount > 2 && (
+                  <p className="mt-2 text-orange-600">
+                    Multiple errors detected. Auto-refreshing in 5 seconds...
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>

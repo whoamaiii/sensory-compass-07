@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { SensoryEntry } from "@/types/student";
 import { Eye, Ear, Hand, RotateCcw, Activity } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -26,6 +27,19 @@ const responses = [
   { type: 'overwhelmed' as const },
 ];
 
+// Common body locations for sensory experiences
+const bodyLocations = [
+  'Head', 'Eyes', 'Ears', 'Mouth', 'Neck', 'Shoulders',
+  'Arms', 'Hands', 'Chest', 'Back', 'Stomach', 'Legs', 'Feet'
+];
+
+// Common coping strategy suggestions
+const copingStrategySuggestions = [
+  'Deep breathing', 'Take a break', 'Use fidget tool', 'Movement break',
+  'Quiet space', 'Headphones', 'Weighted blanket', 'Sensory walk',
+  'Compression', 'Joint compressions', 'Chewing gum', 'Water break'
+];
+
 export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps) => {
   const { tTracking, tCommon } = useTranslation();
   const [selectedType, setSelectedType] = useState<string>('');
@@ -33,6 +47,20 @@ export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps)
   const [intensity, setIntensity] = useState<number>(3);
   const [notes, setNotes] = useState('');
   const [environment, setEnvironment] = useState('');
+  const [location, setLocation] = useState('');
+  const [copingStrategies, setCopingStrategies] = useState<string[]>([]);
+  const [newCopingStrategy, setNewCopingStrategy] = useState('');
+
+  const handleAddCopingStrategy = () => {
+    if (newCopingStrategy.trim() && !copingStrategies.includes(newCopingStrategy.trim())) {
+      setCopingStrategies([...copingStrategies, newCopingStrategy.trim()]);
+      setNewCopingStrategy('');
+    }
+  };
+
+  const handleRemoveCopingStrategy = (strategy: string) => {
+    setCopingStrategies(copingStrategies.filter(s => s !== strategy));
+  };
 
   const handleSubmit = () => {
     if (!selectedType || !selectedResponse) return;
@@ -42,16 +70,20 @@ export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps)
       sensoryType: selectedType as SensoryEntry['sensoryType'],
       response: selectedResponse as SensoryEntry['response'],
       intensity: intensity as SensoryEntry['intensity'],
+      location: location || undefined,
       notes: notes.trim() || undefined,
       environment: environment.trim() || undefined,
+      copingStrategies: copingStrategies.length > 0 ? copingStrategies : undefined,
     });
 
     // Reset form
     setSelectedType('');
     setSelectedResponse('');
     setIntensity(3);
+    setLocation('');
     setNotes('');
     setEnvironment('');
+    setCopingStrategies([]);
   };
 
   return (
@@ -130,6 +162,73 @@ export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps)
                 >
                   {level}
                 </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Body Location */}
+        {selectedType && (
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-3">Body Location (Optional)</h3>
+            <div className="flex flex-wrap gap-2">
+              {bodyLocations.map((loc) => (
+                <Badge
+                  key={loc}
+                  variant={location === loc ? "default" : "outline"}
+                  className="cursor-pointer font-dyslexia hover-lift transition-all duration-200"
+                  onClick={() => setLocation(location === loc ? '' : loc)}
+                >
+                  {loc}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Coping Strategies */}
+        {selectedResponse && (
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-3">Coping Strategies Used</h3>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={newCopingStrategy}
+                onChange={(e) => setNewCopingStrategy(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddCopingStrategy()}
+                placeholder="Add a coping strategy..."
+                className="flex-1 px-3 py-2 border border-border rounded-lg font-dyslexia bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
+              />
+              <Button onClick={handleAddCopingStrategy} size="sm" variant="outline">
+                {String(tCommon('buttons.add'))}
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {copingStrategySuggestions.map((strategy) => (
+                <Badge
+                  key={strategy}
+                  variant="outline"
+                  className="cursor-pointer font-dyslexia text-xs"
+                  onClick={() => {
+                    if (!copingStrategies.includes(strategy)) {
+                      setCopingStrategies([...copingStrategies, strategy]);
+                    }
+                  }}
+                >
+                  + {strategy}
+                </Badge>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {copingStrategies.map((strategy) => (
+                <Badge
+                  key={strategy}
+                  variant="secondary"
+                  className="font-dyslexia cursor-pointer"
+                  onClick={() => handleRemoveCopingStrategy(strategy)}
+                >
+                  {strategy} ×
+                </Badge>
               ))}
             </div>
           </div>

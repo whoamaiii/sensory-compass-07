@@ -24,6 +24,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
 import { MockDataLoader } from "@/components/MockDataLoader";
 import { analyticsManager } from "@/lib/analyticsManager";
+import { logger } from "@/lib/logger";
 
 /**
  * Memoized versions of section components to prevent unnecessary re-renders.
@@ -52,7 +53,7 @@ const MemoizedTestingToolsSection = memo(TestingToolsSection);
  * - Provides functionality for data export and backup.
  * - Renders the appropriate section component based on the user's navigation.
  */
-export const StudentProfile = () => {
+const StudentProfile = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
   const { tCommon } = useTranslation();
@@ -123,7 +124,7 @@ export const StudentProfile = () => {
         }
       } catch (error) {
         if (!signal.aborted) {
-          console.error('Error generating insights:', error);
+          logger.error('Error generating insights', { error });
           setInsights(null);
           toast.error("Failed to generate insights");
         }
@@ -202,7 +203,7 @@ export const StudentProfile = () => {
       downloadBlob(blob, filename);
       toast.success(`Data exported successfully as ${format.toUpperCase()}`);
     } catch (error: unknown) {
-      console.error('Export error:', error);
+      logger.error('Export error', { error });
       const errorMessage = error instanceof Error ? error.message : 'Please try again.';
       toast.error(`Export failed: ${errorMessage}`);
     }
@@ -226,7 +227,7 @@ export const StudentProfile = () => {
       downloadBlob(backupBlob, filename);
       toast.success('Backup created successfully');
     } catch (error) {
-      console.error('Backup error:', error);
+      logger.error('Backup error', { error });
       toast.error('Backup failed. Please try again.');
     }
   }, [student, trackingEntries, allEmotions, allSensoryInputs, goals]);
@@ -425,3 +426,5 @@ export const StudentProfile = () => {
     </SidebarProvider>
   );
 };
+
+export default StudentProfile;

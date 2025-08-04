@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, CheckCircle, AlertCircle, Users } from 'lucide-react';
 import { universalAnalyticsInitializer } from '@/lib/universalAnalyticsInitializer';
 import { analyticsManager } from '@/lib/analyticsManager';
+import { logger } from '@/lib/logger';
 
 interface AnalyticsStatusData {
   isInitialized: boolean;
@@ -22,6 +23,13 @@ interface AnalyticsStatusData {
 export const UniversalAnalyticsStatus = () => {
   const [status, setStatus] = useState<AnalyticsStatusData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // Ensure universal initialization on mount to cover all students, including new and mock
+  useEffect(() => {
+    // Lazy-load to avoid import cycles
+    import('@/lib/analyticsManager')
+      .then(mod => mod.ensureUniversalAnalyticsInitialization?.())
+      .catch(() => {/* noop */});
+  }, []);
 
   const loadStatus = async () => {
     try {
@@ -35,7 +43,7 @@ export const UniversalAnalyticsStatus = () => {
         studentStatuses: analyticsStatuses
       });
     } catch (error) {
-      console.error('Error loading analytics status:', error);
+      logger.error('Error loading analytics status', { error });
     }
   };
 
@@ -45,7 +53,7 @@ export const UniversalAnalyticsStatus = () => {
       await universalAnalyticsInitializer.forceReinitialization();
       await loadStatus();
     } catch (error) {
-      console.error('Error refreshing analytics:', error);
+      logger.error('Error refreshing analytics', { error });
     } finally {
       setIsRefreshing(false);
     }

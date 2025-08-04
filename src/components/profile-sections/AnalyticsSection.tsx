@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
 import { LazyInteractiveDataVisualization } from '@/components/lazy/LazyInteractiveDataVisualization';
@@ -9,6 +9,7 @@ import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Insights, Pattern, 
 import { useTranslation } from '@/hooks/useTranslation';
 import { BarChart3, TrendingUp, AlertCircle, Loader } from 'lucide-react';
 import { PatternDetectionEmptyState } from '@/components/PatternDetectionEmptyState';
+import { logger } from '@/lib/logger';
 
 /**
  * @interface AnalyticsSectionProps
@@ -41,11 +42,66 @@ export function AnalyticsSection({
 }: AnalyticsSectionProps) {
   const { tAnalytics, tCommon } = useTranslation();
 
+  // Debug logging
+  useEffect(() => {
+    logger.debug('[AnalyticsSection] Component mounted');
+    logger.debug('[AnalyticsSection] Props:', {
+      student: student?.id,
+      trackingEntriesCount: trackingEntries?.length,
+      filteredDataEntriesCount: filteredData?.entries?.length,
+      hasInsights: !!insights,
+      isLoadingInsights
+    });
+    
+    // Validate required props
+    if (!student) {
+    logger.error('[AnalyticsSection] Missing required prop: student');
+    }
+    if (!filteredData) {
+    logger.error('[AnalyticsSection] Missing required prop: filteredData');
+    }
+    if (!filteredData?.entries || !filteredData?.emotions || !filteredData?.sensoryInputs) {
+    logger.error('[AnalyticsSection] Missing required filteredData properties:', {
+      hasEntries: !!filteredData?.entries,
+      hasEmotions: !!filteredData?.emotions,
+      hasSensoryInputs: !!filteredData?.sensoryInputs
+    });
+    }
+    
+    return () => {
+      logger.debug('[AnalyticsSection] Component unmounting');
+    };
+  }, [student, filteredData]);
+
+  // Early return if required props are missing
+  if (!student || !filteredData) {
+    return (
+      <div className="space-y-6">
+        <Card className="bg-gradient-card border-0 shadow-soft">
+          <CardContent className="p-6">
+            <div className="text-center text-muted-foreground">
+              <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+              <p>Unable to load analytics data</p>
+              <p className="text-sm mt-2">Required data is missing or still loading.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Ensure filteredData has the required properties
+  const safeFilteredData = {
+    entries: filteredData?.entries || [],
+    emotions: filteredData?.emotions || [],
+    sensoryInputs: filteredData?.sensoryInputs || []
+  };
+
   // Calculate confidence level based on data availability
   const getConfidenceLevel = () => {
-    const totalEntries = filteredData.entries.length;
-    const totalEmotions = filteredData.emotions.length;
-    const totalSensory = filteredData.sensoryInputs.length;
+    const totalEntries = filteredData?.entries?.length || 0;
+    const totalEmotions = filteredData?.emotions?.length || 0;
+    const totalSensory = filteredData?.sensoryInputs?.length || 0;
     
     if (totalEntries < 5) return 0.3;
     if (totalEntries < 15 || totalEmotions < 10) return 0.7;
@@ -64,6 +120,14 @@ export function AnalyticsSection({
         </p>
       </div>
 
+      {/* Main Analytics Dashboard */}
+      <ErrorBoundary showToast={false}>
+        <AnalyticsDashboard
+          student={student}
+          filteredData={filteredData}
+        />
+      </ErrorBoundary>
+
       {/* Confidence Explanation */}
       <Card className="bg-gradient-card border-0 shadow-soft">
         <CardHeader>
@@ -76,11 +140,11 @@ export function AnalyticsSection({
           <div className="space-y-4">
             <ConfidenceIndicator 
               confidence={confidenceLevel}
-              dataPoints={filteredData.entries.length}
+              dataPoints={filteredData?.entries?.length || 0}
             />
               <DetailedConfidenceExplanation
                 confidence={confidenceLevel}
-                dataPoints={filteredData.entries.length + filteredData.emotions.length + filteredData.sensoryInputs.length}
+                dataPoints={(filteredData?.entries?.length || 0) + (filteredData?.emotions?.length || 0) + (filteredData?.sensoryInputs?.length || 0)}
                 timeSpanDays={30}
                 rSquared={Math.min(0.9, 0.4 + (confidenceLevel * 0.5))}
               />
@@ -88,15 +152,6 @@ export function AnalyticsSection({
         </CardContent>
       </Card>
 
-      {/* Main Analytics Dashboard */}
-      <ErrorBoundary>
-        <AnalyticsDashboard
-          student={student}
-          trackingEntries={trackingEntries}
-          emotions={filteredData.emotions}
-          sensoryInputs={filteredData.sensoryInputs}
-        />
-      </ErrorBoundary>
 
       {/* Interactive Data Visualization */}
       <Card className="bg-gradient-card border-0 shadow-soft">
@@ -107,7 +162,7 @@ export function AnalyticsSection({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ErrorBoundary>
+          <ErrorBoundary showToast={false}>
             <LazyInteractiveDataVisualization 
               trackingEntries={filteredData.entries}
               emotions={filteredData.emotions}
@@ -193,9 +248,12 @@ export function AnalyticsSection({
         </Card>
       ) : (
         <PatternDetectionEmptyState
-          dataPoints={filteredData.emotions.length + filteredData.sensoryInputs.length}
+          dataPoints={(filteredData?.emotions?.length || 0) + (filteredData?.sensoryInputs?.length || 0)}
           daysWithData={Math.max(1, new Set(
-            filteredData.entries.map(e => e.timestamp.toDateString())
+            (filteredData?.entries || []).map(e => {
+              const timestamp = e.timestamp instanceof Date ? e.timestamp : new Date(e.timestamp);
+              return timestamp.toDateString();
+            })
           ).size)}
           onCollectData={() => window.location.href = `/track/${student.id}`}
         />

@@ -18,12 +18,15 @@ export interface EmotionEntry {
   id: string;
   studentId?: string;
   emotion: string;
+  subEmotion?: string; // New field for sub-emotions
   intensity: number;
+  duration?: number; // New field for duration in minutes
   timestamp: Date;
   notes?: string;
   triggers?: string[];
   context?: string;
   trigger?: string;
+  escalationPattern?: 'sudden' | 'gradual' | 'unknown'; // New field for escalation pattern
 }
 
 export interface SensoryEntry {
@@ -34,10 +37,12 @@ export interface SensoryEntry {
   input?: string;
   response: string;
   intensity?: number;
+  location?: string; // New field for body location
   timestamp: Date;
   notes?: string;
   environment?: string;
   context?: string;
+  copingStrategies?: string[]; // New field for coping strategies
 }
 
 export interface TrackingEntry {

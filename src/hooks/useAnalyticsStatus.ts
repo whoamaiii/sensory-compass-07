@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { analyticsManager } from "@/lib/analyticsManager";
+import { logger } from "@/lib/logger";
 
 interface AnalyticsStatus {
   studentId: string;
@@ -59,7 +60,7 @@ export const useAnalyticsStatus = (studentId?: string): UseAnalyticsStatusReturn
         setAnalyticsStatus(status);
       }
     } catch (error) {
-      console.error('Error loading analytics status:', error);
+      logger.error('Error loading analytics status:', error);
       setAnalyticsStatus([]);
     } finally {
       setIsLoading(false);
@@ -89,7 +90,7 @@ export const useAnalyticsStatus = (studentId?: string): UseAnalyticsStatusReturn
       }
       await loadStatus();
     } catch (error) {
-      console.error('Error triggering analytics:', error);
+      logger.error('Error triggering analytics:', error);
     }
   }, [loadStatus]);
 

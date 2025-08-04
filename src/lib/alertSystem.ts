@@ -1,6 +1,8 @@
-import { TriggerAlert } from "./patternAnalysis";
-import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from "@/types/student";
-import { patternAnalysis } from "./patternAnalysis";
+import { TriggerAlert } from './patternAnalysis';
+import { EmotionEntry, SensoryEntry, TrackingEntry, Student } from '@/types/student';
+import { patternAnalysis } from './patternAnalysis';
+import { logger } from './logger';
+import { storageUtils } from './storageUtils';
 
 export interface AlertSettings {
   enableHighIntensityAlerts: boolean;
@@ -125,16 +127,52 @@ class AlertSystemManager {
    * @param alerts - An array of trigger alerts to be saved.
    */
   saveAlerts(alerts: TriggerAlert[]): void {
-    const existingHistory = this.getAllAlerts();
-    
-    const newHistoryEntries: AlertHistoryEntry[] = alerts.map(alert => ({
-      alert,
-      viewed: false,
-      resolved: false
-    }));
+    try {
+      const existingHistory = this.getAllAlerts();
+      
+      const newHistoryEntries: AlertHistoryEntry[] = alerts.map(alert => ({
+        alert,
+        viewed: false,
+        resolved: false
+      }));
 
-    const updatedHistory = [...existingHistory, ...newHistoryEntries];
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedHistory));
+      const updatedHistory = [...existingHistory, ...newHistoryEntries];
+      
+      // Automatically cleanup old alerts if we have too many
+      const MAX_ALERTS = 500; // Reasonable limit to prevent storage issues
+      let historyToSave = updatedHistory;
+      
+      if (updatedHistory.length > MAX_ALERTS) {
+        // First try to remove old resolved alerts
+        const unresolvedAlerts = updatedHistory.filter(entry => !entry.resolved);
+        const resolvedAlerts = updatedHistory.filter(entry => entry.resolved)
+          .sort((a, b) => new Date(b.alert.timestamp).getTime() - new Date(a.alert.timestamp).getTime())
+          .slice(0, MAX_ALERTS - unresolvedAlerts.length);
+        
+        historyToSave = [...unresolvedAlerts, ...resolvedAlerts].slice(-MAX_ALERTS);
+        logger.info(`Alert storage limit reached. Cleaned up ${updatedHistory.length - historyToSave.length} old alerts.`);
+      }
+      
+      // Use safe storage to handle quota issues
+      storageUtils.safeSetItem(this.STORAGE_KEY, JSON.stringify(historyToSave));
+    } catch (error) {
+      logger.error('Error saving alerts:', error);
+      // If we still can't save, try aggressive cleanup
+      this.cleanupOldAlerts(7); // Keep only last 7 days
+      
+      // Try one more time with just the new alerts
+      try {
+        const minimalHistory = this.getAllAlerts().slice(-100); // Keep only last 100
+        const newHistoryEntries: AlertHistoryEntry[] = alerts.map(alert => ({
+          alert,
+          viewed: false,
+          resolved: false
+        }));
+        storageUtils.safeSetItem(this.STORAGE_KEY, JSON.stringify([...minimalHistory, ...newHistoryEntries]));
+      } catch (retryError) {
+        logger.error('Failed to save alerts even after cleanup:', retryError);
+      }
+    }
   }
 
   /**
@@ -158,7 +196,7 @@ class AlertSystemManager {
         resolvedAt: entry.resolvedAt ? new Date(entry.resolvedAt) : undefined
       }));
     } catch (error) {
-      console.error('Error loading alerts:', error);
+      logger.error('Error loading alerts:', error);
       return [];
     }
   }
@@ -197,13 +235,17 @@ class AlertSystemManager {
    * @param alertId - The ID of the alert to mark as viewed.
    */
   markAlertAsViewed(alertId: string): void {
-    const alerts = this.getAllAlerts();
-    const updatedAlerts = alerts.map(entry => 
-      entry.alert.id === alertId 
-        ? { ...entry, viewed: true }
-        : entry
-    );
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedAlerts));
+    try {
+      const alerts = this.getAllAlerts();
+      const updatedAlerts = alerts.map(entry => 
+        entry.alert.id === alertId 
+          ? { ...entry, viewed: true }
+          : entry
+      );
+      storageUtils.safeSetItem(this.STORAGE_KEY, JSON.stringify(updatedAlerts));
+    } catch (error) {
+      logger.error('Error marking alert as viewed:', error);
+    }
   }
 
   /**
@@ -214,19 +256,23 @@ class AlertSystemManager {
    * @param notes - Optional notes explaining the resolution.
    */
   resolveAlert(alertId: string, resolvedBy: string, notes?: string): void {
-    const alerts = this.getAllAlerts();
-    const updatedAlerts = alerts.map(entry => 
-      entry.alert.id === alertId 
-        ? { 
-            ...entry, 
-            resolved: true, 
-            resolvedAt: new Date(),
-            resolvedBy,
-            resolvedNotes: notes
-          }
-        : entry
-    );
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedAlerts));
+    try {
+      const alerts = this.getAllAlerts();
+      const updatedAlerts = alerts.map(entry => 
+        entry.alert.id === alertId 
+          ? { 
+              ...entry, 
+              resolved: true, 
+              resolvedAt: new Date(),
+              resolvedBy,
+              resolvedNotes: notes
+            }
+          : entry
+      );
+      storageUtils.safeSetItem(this.STORAGE_KEY, JSON.stringify(updatedAlerts));
+    } catch (error) {
+      logger.error('Error resolving alert:', error);
+    }
   }
 
   /**
@@ -235,9 +281,13 @@ class AlertSystemManager {
    * @param alertId - The ID of the alert to delete.
    */
   deleteAlert(alertId: string): void {
-    const alerts = this.getAllAlerts();
-    const filteredAlerts = alerts.filter(entry => entry.alert.id !== alertId);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filteredAlerts));
+    try {
+      const alerts = this.getAllAlerts();
+      const filteredAlerts = alerts.filter(entry => entry.alert.id !== alertId);
+      storageUtils.safeSetItem(this.STORAGE_KEY, JSON.stringify(filteredAlerts));
+    } catch (error) {
+      logger.error('Error deleting alert:', error);
+    }
   }
 
   /**
@@ -252,7 +302,7 @@ class AlertSystemManager {
       
       return { ...this.defaultSettings, ...JSON.parse(stored) };
     } catch (error) {
-      console.error('Error loading alert settings:', error);
+      logger.error('Error loading alert settings:', error);
       return this.defaultSettings;
     }
   }
@@ -263,9 +313,13 @@ class AlertSystemManager {
    * @param newSettings - A partial object of the settings to update.
    */
   updateSettings(newSettings: Partial<AlertSettings>): void {
-    const currentSettings = this.getSettings();
-    const updatedSettings = { ...currentSettings, ...newSettings };
-    localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(updatedSettings));
+    try {
+      const currentSettings = this.getSettings();
+      const updatedSettings = { ...currentSettings, ...newSettings };
+      storageUtils.safeSetItem(this.SETTINGS_KEY, JSON.stringify(updatedSettings));
+    } catch (error) {
+      logger.error('Error updating alert settings:', error);
+    }
   }
 
   /**
@@ -312,15 +366,20 @@ class AlertSystemManager {
    * @param daysToKeep - The number of days to keep resolved alerts. Defaults to 90.
    */
   cleanupOldAlerts(daysToKeep: number = 90): void {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
-    const alerts = this.getAllAlerts();
-    const filteredAlerts = alerts.filter(entry => 
-      entry.alert.timestamp >= cutoffDate || !entry.resolved
-    );
+      const alerts = this.getAllAlerts();
+      const filteredAlerts = alerts.filter(entry => 
+        entry.alert.timestamp >= cutoffDate || !entry.resolved
+      );
 
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filteredAlerts));
+      storageUtils.safeSetItem(this.STORAGE_KEY, JSON.stringify(filteredAlerts));
+      logger.info(`Cleaned up ${alerts.length - filteredAlerts.length} old alerts`);
+    } catch (error) {
+      logger.error('Error cleaning up old alerts:', error);
+    }
   }
 
   /**

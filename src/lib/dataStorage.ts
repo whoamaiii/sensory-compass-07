@@ -1,4 +1,6 @@
 import { Student, TrackingEntry, Goal, Intervention, Alert, CorrelationData, DataVersion, StorageIndex } from "@/types/student";
+import { logger } from './logger';
+import { storageUtils } from './storageUtils';
 
 /**
  * @interface IDataStorage
@@ -171,7 +173,7 @@ export class DataStorageManager implements IDataStorage {
   // Save storage index
   private saveStorageIndex(): void {
     this.storageIndex.lastUpdated = new Date();
-    localStorage.setItem(STORAGE_KEYS.STORAGE_INDEX, JSON.stringify(this.storageIndex));
+    storageUtils.safeSetItem(STORAGE_KEYS.STORAGE_INDEX, JSON.stringify(this.storageIndex));
   }
 
   // Generic get all method with validation
@@ -193,7 +195,7 @@ export class DataStorageManager implements IDataStorage {
       
       return convertedItems;
     } catch (error) {
-      console.error(`Error loading ${key}:`, error);
+      logger.error(`Error loading ${key}:`, error);
       return [];
     }
   }
@@ -201,10 +203,11 @@ export class DataStorageManager implements IDataStorage {
   // Generic save all method
   private saveAll<T>(key: string, items: T[]): void {
     try {
-      localStorage.setItem(key, JSON.stringify(items));
+      storageUtils.safeSetItem(key, JSON.stringify(items));
     } catch (error) {
-      console.error(`Error saving ${key}:`, error);
-      throw new Error(`Failed to save data: ${error.message}`);
+      logger.error(`Error saving ${key}:`, error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to save data: ${errorMessage}`);
     }
   }
 
@@ -259,7 +262,7 @@ export class DataStorageManager implements IDataStorage {
       }
       return null;
     } catch (error) {
-      console.error('Failed to parse student data from localStorage', error);
+      logger.error('Failed to parse student data from localStorage', error);
       return null;
     }
   }
@@ -327,7 +330,7 @@ export class DataStorageManager implements IDataStorage {
         }))
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
     } catch (error) {
-      console.error(
+      logger.error(
         'Failed to parse tracking entries from localStorage',
         error
       );
@@ -646,7 +649,7 @@ export class DataStorageManager implements IDataStorage {
       
       
     } catch (error) {
-      console.error('Error deleting student:', error);
+      logger.error('Error deleting student:', error);
       throw error;
     }
   }

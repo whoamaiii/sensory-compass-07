@@ -23,6 +23,14 @@
         "-y",
         "@modelcontextprotocol/server-puppeteer"
       ]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/quentinthiessen/Documents"
+      ]
     }
   }
 }

@@ -7,6 +7,8 @@
 import * as tf from '@tensorflow/tfjs';
 import { TrackingEntry, EmotionEntry, SensoryEntry } from '@/types/student';
 import { DataPreprocessor, ModelType, ModelMetadata } from '@/lib/mlModels';
+import { CrossValidator, CrossValidationConfig, ValidationResults } from '../lib/validation/crossValidation';
+import { TrainingData } from '../types/ml';
 
 // Set TensorFlow.js backend for web workers
 tf.setBackend('cpu');
@@ -141,26 +143,36 @@ const trainEmotionModel = async (
   const model = createEmotionModel();
   const { inputs, outputs, normalizers } = DataPreprocessor.prepareEmotionData(sessions);
   
-  const callbacks = createTrainingCallbacks('emotion-prediction', epochs);
+  const trainingData: TrainingData = { features: inputs, labels: outputs };
   
-  const history = await model.fit(inputs, outputs, {
-    epochs,
-    batchSize,
-    validationSplit: 0.2,
-    callbacks,
-    shuffle: true
+  const validator = new CrossValidator();
+  const config: CrossValidationConfig = {
+      folds: 5,
+      stratified: true,
+      randomState: 42,
+      validationMetrics: ['accuracy']
+  };
+
+  const validationResults = await validator.validateModel(createEmotionModel, trainingData, config);
+
+  // After validation, train the final model on all data
+  const finalModel = createEmotionModel();
+  const history = await finalModel.fit(inputs, outputs, {
+      epochs,
+      batchSize,
+      callbacks: createTrainingCallbacks('emotion-prediction', epochs),
+      shuffle: true
   });
-  
+
   // Create metadata
   const metadata: ModelMetadata = {
     name: 'emotion-prediction',
     version: '1.0.0',
     createdAt: new Date(),
     lastTrainedAt: new Date(),
-    accuracy: history.history.val_mse ? 
-      history.history.val_mse[history.history.val_mse.length - 1] as number : 
-      undefined,
+    accuracy: validationResults.averageMetrics.accuracy,
     loss: history.history.loss[history.history.loss.length - 1] as number,
+    validationResults,
     inputShape: [7, 13],
     outputShape: [7],
     architecture: 'LSTM',
@@ -172,7 +184,7 @@ const trainEmotionModel = async (
   inputs.dispose();
   outputs.dispose();
   
-  return { model, history, metadata };
+  return { model: finalModel, history, metadata };
 };
 
 // Train sensory model
@@ -184,27 +196,37 @@ const trainSensoryModel = async (
   const sessions = DataPreprocessor.convertTrackingEntriesToSessions(trackingEntries);
   const model = createSensoryModel();
   const { inputs, outputs } = DataPreprocessor.prepareSensoryData(sessions);
-  
-  const callbacks = createTrainingCallbacks('sensory-response', epochs);
-  
-  const history = await model.fit(inputs, outputs, {
-    epochs,
-    batchSize,
-    validationSplit: 0.2,
-    callbacks,
-    shuffle: true
+
+  const trainingData: TrainingData = { features: inputs, labels: outputs };
+
+  const validator = new CrossValidator();
+  const config: CrossValidationConfig = {
+      folds: 5,
+      stratified: true,
+      randomState: 42,
+      validationMetrics: ['accuracy']
+  };
+
+  const validationResults = await validator.validateModel(createSensoryModel, trainingData, config);
+
+  // After validation, train the final model on all data
+  const finalModel = createSensoryModel();
+  const history = await finalModel.fit(inputs, outputs, {
+      epochs,
+      batchSize,
+      callbacks: createTrainingCallbacks('sensory-response', epochs),
+      shuffle: true
   });
-  
+
   // Create metadata
   const metadata: ModelMetadata = {
     name: 'sensory-response',
     version: '1.0.0',
     createdAt: new Date(),
     lastTrainedAt: new Date(),
-    accuracy: history.history.acc ? 
-      history.history.acc[history.history.acc.length - 1] as number : 
-      undefined,
+    accuracy: validationResults.averageMetrics.accuracy,
     loss: history.history.loss[history.history.loss.length - 1] as number,
+    validationResults,
     inputShape: [12],
     outputShape: [15],
     architecture: 'Dense',
@@ -216,7 +238,7 @@ const trainSensoryModel = async (
   inputs.dispose();
   outputs.dispose();
   
-  return { model, history, metadata };
+  return { model: finalModel, history, metadata };
 };
 
 // Serialize model to ArrayBuffer for transfer

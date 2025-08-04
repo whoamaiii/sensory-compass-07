@@ -2,18 +2,19 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Activity, 
-  Brain, 
-  BarChart3, 
-  TrendingUp, 
-  AlertTriangle, 
+import {
+  Activity,
+  Brain,
+  BarChart3,
+  TrendingUp,
+  AlertTriangle,
   RefreshCw,
   CheckCircle,
   Clock
 } from "lucide-react";
 import { analyticsManager } from "@/lib/analyticsManager";
 import { formatDistanceToNow } from "date-fns";
+import { logger } from "@/lib/logger";
 
 interface AnalyticsStatusIndicatorProps {
   studentId?: string;
@@ -56,7 +57,7 @@ export const AnalyticsStatusIndicator = ({
       }
       loadAnalyticsStatus();
     } catch (error) {
-      console.error('Error refreshing analytics:', error);
+      logger.error('Error refreshing analytics', { error });
     } finally {
       setIsRefreshing(false);
     }

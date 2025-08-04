@@ -1,0 +1,116 @@
+export enum LogLevel {
+  DEBUG = 0,
+  INFO = 1,
+  WARN = 2,
+  ERROR = 3,
+  NONE = 4
+}
+
+interface LoggerConfig {
+  level: LogLevel;
+  enableConsole: boolean;
+  enableRemote: boolean;
+  remoteEndpoint?: string;
+}
+
+type LogData = Record<string, unknown> | unknown[] | string | number | boolean | null | undefined;
+
+interface ErrorData {
+  message: string;
+  stack?: string;
+  name: string;
+  [key: string]: unknown;
+}
+
+class Logger {
+  private config: LoggerConfig;
+  private static instance: Logger;
+
+  constructor() {
+    this.config = {
+      level: import.meta.env.PROD ? LogLevel.ERROR : LogLevel.DEBUG,
+      enableConsole: !import.meta.env.PROD,
+      enableRemote: false
+    };
+  }
+
+  public init(level: LogLevel) {
+    this.config.level = level;
+  }
+
+  public setLogLevel(level: LogLevel) {
+    this.config.level = level;
+  }
+
+  private shouldLog(level: LogLevel): boolean {
+    return level >= this.config.level;
+  }
+
+  private formatMessage(level: string): string {
+    const timestamp = new Date().toISOString();
+    return `[${timestamp}] [${level}]`;
+  }
+
+  debug(message: string, ...data: LogData[]): void {
+    if (this.shouldLog(LogLevel.DEBUG) && this.config.enableConsole) {
+      console.log(this.formatMessage('DEBUG'), message, ...data);
+    }
+  }
+
+  info(message: string, ...data: LogData[]): void {
+    if (this.shouldLog(LogLevel.INFO) && this.config.enableConsole) {
+      console.info(this.formatMessage('INFO'), message, ...data);
+    }
+  }
+
+  warn(message: string, ...data: LogData[]): void {
+    if (this.shouldLog(LogLevel.WARN) && this.config.enableConsole) {
+      console.warn(this.formatMessage('WARN'), message, ...data);
+    }
+  }
+
+  error(message: string, ...data: (Error | LogData)[]): void {
+    if (this.shouldLog(LogLevel.ERROR)) {
+      if (this.config.enableConsole) {
+        console.error(this.formatMessage('ERROR'), message, ...data);
+      }
+
+      const errorData = data.map(d => {
+        if (d instanceof Error) {
+          return { message: d.message, stack: d.stack, name: d.name };
+        }
+        return d;
+      });
+      
+      // Send to remote logging service if enabled
+      if (this.config.enableRemote && this.config.remoteEndpoint) {
+        this.sendToRemote(message, errorData);
+      }
+    }
+  }
+
+  private async sendToRemote(message: string, data: (LogData | ErrorData)[]): Promise<void> {
+    try {
+      await fetch(this.config.remoteEndpoint!, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          timestamp: new Date().toISOString(),
+          level: 'ERROR',
+          message,
+          data,
+          userAgent: navigator.userAgent,
+          url: window.location.href
+        })
+      });
+    } catch (error) {
+      // Silently fail to avoid infinite loop
+    }
+  }
+
+  configure(config: Partial<LoggerConfig>): void {
+    this.config = { ...this.config, ...config };
+  }
+}
+
+export const logger = new Logger();

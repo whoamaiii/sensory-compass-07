@@ -54,16 +54,16 @@ export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: Environm
     const entry: Omit<EnvironmentalEntry, 'id' | 'timestamp'> = {
       roomConditions: {
         temperature: roomTemperature,
-        lighting: lighting as any,
-        noiseLevel: noiseLevel as any
+        lighting: lighting as 'bright' | 'normal' | 'dim',
+        noiseLevel: noiseLevel
       },
       weather: { 
-        condition: weather as any, 
+        condition: weather as 'sunny' | 'cloudy' | 'rainy' | 'snowy',
         temperature: roomTemperature 
       },
       classroom: {
-        activity: classroomActivity as any,
-        timeOfDay: timeOfDay as any
+        activity: classroomActivity as 'low' | 'moderate' | 'high',
+        timeOfDay: timeOfDay
       },
       notes: notes.trim() || undefined
     };

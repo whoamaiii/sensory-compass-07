@@ -4,16 +4,16 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 const NotFound = () => {
   const location = useLocation();
   const { tCommon } = useTranslation();
 
   useEffect(() => {
-    console.error(
-      "404 Error: User attempted to access non-existent route:",
-      location.pathname
-    );
+    logger.error("404 Error: User attempted to access non-existent route", {
+      path: location.pathname
+    });
   }, [location.pathname]);
 
   return (

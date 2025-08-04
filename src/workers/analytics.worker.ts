@@ -11,12 +11,17 @@ import { PredictiveInsight, AnomalyDetection } from '@/lib/enhancedPatternAnalys
 import { TrackingEntry, EmotionEntry, SensoryEntry } from '@/types/student';
 import { createCachedPatternAnalysis } from '@/lib/cachedPatternAnalysis';
 import { AnalyticsConfiguration } from '@/lib/analyticsConfig';
+import { logger } from '@/lib/logger';
 
 interface CacheEntry {
   data: unknown;
   expires: number;
   tags?: string[];
 }
+
+let workerCacheTTL = 5 * 60 * 1000; // default 5 minutes, overridden by config
+let workerCacheMaxSize = 200; // soft cap, overridden by config if provided
+const insertionOrder: string[] = []; // FIFO order for eviction
 
 // Create a simple cache implementation for the worker
 const workerCache = {
@@ -27,16 +32,28 @@ const workerCache = {
     if (entry && entry.expires > Date.now()) {
       return entry.data;
     }
+    // Expired or missing: ensure removal
     this.storage.delete(key);
     return undefined;
   },
   
   set(key: string, value: unknown, tags: string[] = []): void {
+    // Insert/update
+    if (!this.storage.has(key)) {
+      insertionOrder.push(key);
+    }
     this.storage.set(key, {
       data: value,
-      expires: Date.now() + 5 * 60 * 1000, // 5 minutes TTL
+      expires: Date.now() + workerCacheTTL,
       tags
     });
+    // Evict oldest until under max size
+    while (insertionOrder.length > workerCacheMaxSize) {
+      const oldestKey = insertionOrder.shift();
+      if (oldestKey) {
+        this.storage.delete(oldestKey);
+      }
+    }
   },
   
   has(key: string): boolean {
@@ -50,6 +67,12 @@ const workerCache = {
         this.storage.delete(key);
         count++;
       }
+    }
+    if (count > 0) {
+      // Rebuild insertion order without deleted keys
+      const remaining = insertionOrder.filter(k => this.storage.has(k));
+      insertionOrder.length = 0;
+      insertionOrder.push(...remaining);
     }
     return count;
   },
@@ -85,6 +108,35 @@ const workerCache = {
 
 // Create cached pattern analysis instance
 const cachedAnalysis = createCachedPatternAnalysis(workerCache);
+
+/**
+ * Compute a stable hash for the subset of config that affects analysis output.
+ */
+const getConfigHash = (cfg: AnalyticsConfiguration | null): string => {
+  if (!cfg) return 'no-config';
+  const subset = {
+    patternAnalysis: cfg.patternAnalysis,
+    enhancedAnalysis: cfg.enhancedAnalysis,
+    timeWindows: cfg.timeWindows,
+    alertSensitivity: cfg.alertSensitivity
+  };
+  // Reuse workerCache fingerprint utility by temporary object
+  const stringify = (obj: unknown): string => {
+    if (obj === null || obj === undefined) return 'null';
+    if (typeof obj !== 'object') return String(obj);
+    if (Array.isArray(obj)) return `[${obj.map(stringify).join(',')}]`;
+    const keys = Object.keys(obj as Record<string, unknown>).sort();
+    return `{${keys.map(k => `${k}:${stringify((obj as Record<string, unknown>)[k])}`).join(',')}}`;
+  };
+  const str = stringify(subset);
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+};
 
 // Configuration passed from main thread
 let currentConfig: AnalyticsConfiguration | null = null;
@@ -174,10 +226,36 @@ const generateInsights = (
  */
 self.onmessage = async (e: MessageEvent<AnalyticsData>) => {
   const filteredData = e.data;
-  
+
+  // Diagnostic log: message received
+  try {
+    logger.debug('[analytics.worker] onmessage', {
+      hasConfig: !!filteredData?.config,
+      cacheKey: filteredData?.cacheKey ?? null,
+      entries: filteredData?.entries?.length ?? 0,
+      emotions: filteredData?.emotions?.length ?? 0,
+      sensory: filteredData?.sensoryInputs?.length ?? 0,
+    });
+  } catch (e) {
+    /* noop */
+  }
+
   // Update configuration if provided
   if (filteredData.config) {
     currentConfig = filteredData.config;
+    if (typeof currentConfig.cache?.ttl === 'number' && currentConfig.cache.ttl > 0) {
+      workerCacheTTL = currentConfig.cache.ttl;
+    }
+    if (typeof currentConfig.cache?.maxSize === 'number' && currentConfig.cache.maxSize > 0) {
+      workerCacheMaxSize = currentConfig.cache.maxSize;
+      // Trim immediately if oversize
+      while (insertionOrder.length > workerCacheMaxSize) {
+        const oldestKey = insertionOrder.shift();
+        if (oldestKey) {
+          workerCache.storage.delete(oldestKey);
+        }
+      }
+    }
   }
 
   // Early exit if there is no data to analyze.
@@ -188,6 +266,7 @@ self.onmessage = async (e: MessageEvent<AnalyticsData>) => {
         predictiveInsights: [],
         anomalies: [],
         insights: [],
+        cacheKey: filteredData.cacheKey ?? undefined,
       });
     return;
   }
@@ -195,6 +274,12 @@ self.onmessage = async (e: MessageEvent<AnalyticsData>) => {
   try {
     // Use configured time window or default to 30 days
     const timeWindow = currentConfig?.timeWindows?.defaultAnalysisDays || 30;
+
+    try {
+    logger.debug('[analytics.worker] resolved timeWindow', { timeWindow });
+    } catch (e) {
+      /* noop */
+    }
     
     const emotionPatterns = filteredData.emotions.length > 0
       ? cachedAnalysis.analyzeEmotionPatterns(filteredData.emotions, timeWindow)
@@ -242,8 +327,22 @@ self.onmessage = async (e: MessageEvent<AnalyticsData>) => {
     postMessage(results);
 
   } catch (error) {
-    console.error('Error in analytics worker:', error);
+    try {
+    logger.error('[analytics.worker] error', error);
+    } catch (e) {
+      /* noop */
+    }
+    logger.error('Error in analytics worker:', error);
     // Post an error message back to the main thread for graceful error handling.
-    postMessage({ error: 'Failed to analyze data.' });
+    // Include empty results to prevent UI errors
+    postMessage({ 
+      error: 'Failed to analyze data.',
+      patterns: [],
+      correlations: [],
+      predictiveInsights: [],
+      anomalies: [],
+      insights: ['An error occurred during analysis. Please try again.'],
+      cacheKey: filteredData.cacheKey
+    });
   }
 }; 

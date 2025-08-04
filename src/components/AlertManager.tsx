@@ -140,7 +140,7 @@ export const AlertManager = ({ studentId, showOnlyUnresolved = false }: AlertMan
                     <CardTitle className="text-base font-semibold">
                       {alertEntry.alert.title}
                     </CardTitle>
-                    <Badge variant={getSeverityColor(alertEntry.alert.severity) as any}>
+                    <Badge variant={getSeverityColor(alertEntry.alert.severity) as "default" | "secondary" | "destructive" | "outline" | null | undefined}>
                       {alertEntry.alert.severity}
                     </Badge>
                     <Badge variant="outline" className="text-xs">

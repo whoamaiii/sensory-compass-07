@@ -1,5 +1,6 @@
 import * as tf from '@tensorflow/tfjs';
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from '../types/student';
+import { ValidationResults } from '../types/ml';
 
 // Model versioning and metadata
 export interface ModelMetadata {
@@ -14,6 +15,7 @@ export interface ModelMetadata {
   architecture: string;
   epochs: number;
   dataPoints: number;
+  validationResults?: ValidationResults;
 }
 
 // ML Model types
@@ -636,6 +638,14 @@ export class MLModels {
       // Denormalize predictions
       const emotionValues = values[0].map(v => v * 10); // Convert back to 0-10 scale
       
+      // Simple dispersion-based confidence: inverse of variance across outputs
+      const variance = (() => {
+        const mean = emotionValues.reduce((s, v) => s + v, 0) / emotionValues.length;
+        const varSum = emotionValues.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / emotionValues.length;
+        return varSum;
+      })();
+      const confidence = Math.max(0.0, Math.min(1.0, 1 / (1 + variance)));
+
       predictions.push({
         date: predictedDate,
         emotions: {
@@ -647,10 +657,10 @@ export class MLModels {
           energetic: emotionValues[5],
           frustrated: emotionValues[6]
         },
-        confidence: 0.8, // TODO: Calculate actual confidence
+        confidence,
         confidenceInterval: {
-          lower: 0.7,
-          upper: 0.9
+          lower: Math.max(0, confidence - 0.1),
+          upper: Math.min(1, confidence + 0.1)
         }
       });
       
@@ -743,10 +753,17 @@ export class MLModels {
     input.dispose();
     prediction.dispose();
     
+    // Confidence heuristic: sharper softmax => higher confidence
+    const flat = values[0];
+    const maxP = Math.max(...flat);
+    const entropy = -flat.reduce((s, p) => s + (p > 0 ? p * Math.log(p) : 0), 0);
+    const normEntropy = entropy / Math.log(flat.length || 1);
+    const confidence = Math.max(0, Math.min(1, (maxP * 0.6) + (1 - normEntropy) * 0.4));
+
     return {
       sensoryResponse,
       environmentalTriggers: triggers.sort((a, b) => b.probability - a.probability),
-      confidence: 0.85 // TODO: Calculate actual confidence
+      confidence
     };
   }
 

@@ -35,7 +35,7 @@ export const ErrorBoundaryFallback: React.FC<ErrorBoundaryFallbackProps> = ({
             {String(tCommon('error.description'))}
           </p>
           
-          {process.env.NODE_ENV === 'development' && (
+          {import.meta.env.DEV && (
             <details className="text-xs">
               <summary className="cursor-pointer text-muted-foreground mb-2">
                 Technical Details

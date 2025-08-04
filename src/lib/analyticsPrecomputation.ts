@@ -256,13 +256,13 @@ export class AnalyticsPrecomputationManager {
       });
     });
 
-    // Today's data
+    // Today's data as half-open interval [startOfDay, startOfNextDay)
     const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
+    const todayEndExclusive = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
     queries.push({
-      entries: entries.filter(e => e.timestamp >= todayStart && e.timestamp <= todayEnd),
-      emotions: emotions.filter(e => e.timestamp >= todayStart && e.timestamp <= todayEnd),
-      sensoryInputs: sensoryInputs.filter(s => s.timestamp >= todayStart && s.timestamp <= todayEnd)
+      entries: entries.filter(e => e.timestamp >= todayStart && e.timestamp < todayEndExclusive),
+      emotions: emotions.filter(e => e.timestamp >= todayStart && e.timestamp < todayEndExclusive),
+      sensoryInputs: sensoryInputs.filter(s => s.timestamp >= todayStart && s.timestamp < todayEndExclusive)
     });
 
     // High-activity periods (days with more than average activity)
@@ -279,11 +279,11 @@ export class AnalyticsPrecomputationManager {
 
     highActivityDays.slice(0, 3).forEach(date => {
       const dayStart = startOfDay(date);
-      const dayEnd = endOfDay(date);
+      const dayEndExclusive = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
       queries.push({
-        entries: entries.filter(e => e.timestamp >= dayStart && e.timestamp <= dayEnd),
-        emotions: emotions.filter(e => e.timestamp >= dayStart && e.timestamp <= dayEnd),
-        sensoryInputs: sensoryInputs.filter(s => s.timestamp >= dayStart && s.timestamp <= dayEnd)
+        entries: entries.filter(e => e.timestamp >= dayStart && e.timestamp < dayEndExclusive),
+        emotions: emotions.filter(e => e.timestamp >= dayStart && e.timestamp < dayEndExclusive),
+        sensoryInputs: sensoryInputs.filter(s => s.timestamp >= dayStart && s.timestamp < dayEndExclusive)
       });
     });
 

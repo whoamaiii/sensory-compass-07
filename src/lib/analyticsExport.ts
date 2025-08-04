@@ -4,6 +4,8 @@ import { format } from 'date-fns';
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from '@/types/student';
 import { PatternResult, CorrelationResult } from '@/lib/patternAnalysis';
 import { PredictiveInsight, AnomalyDetection } from '@/lib/enhancedPatternAnalysis';
+import { logger } from '@/lib/logger';
+import { downloadBlob } from '@/lib/utils';
 
 export type ExportFormat = 'pdf' | 'csv' | 'json';
 
@@ -256,7 +258,7 @@ class AnalyticsExport {
           const imgData = canvas.toDataURL('image/png');
           pdf.addImage(imgData, 'PNG', margin, currentY, imgWidth, imgHeight);
         } catch (error) {
-          console.error('Error adding chart to PDF:', error);
+          logger.error('Error adding chart to PDF:', error);
         }
       }
     }
@@ -304,8 +306,10 @@ class AnalyticsExport {
       csvSections.push('Sensory Input Data');
       csvSections.push('Date,Time,Type,Response,Intensity,Context,Notes');
       exportData.data.sensoryInputs.forEach(sensory => {
+        const contextVal = (sensory as unknown as { context?: string }).context ?? '';
+        const intensityVal = typeof sensory.intensity === 'number' ? sensory.intensity : '';
         csvSections.push(
-          `${format(sensory.timestamp, 'yyyy-MM-dd')},${format(sensory.timestamp, 'HH:mm')},"${sensory.sensoryType}","${sensory.response}",${sensory.intensity},"${sensory.context || ''}","${sensory.notes || ''}"`
+          `${format(sensory.timestamp, 'yyyy-MM-dd')},${format(sensory.timestamp, 'HH:mm')},"${sensory.sensoryType}","${sensory.response}",${intensityVal},"${contextVal}","${sensory.notes || ''}"`
         );
       });
       csvSections.push('');
@@ -349,16 +353,9 @@ class AnalyticsExport {
     // Create and download CSV
     const csvContent = csvSections.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-
-    link.setAttribute('href', url);
-    link.setAttribute('download', `analytics-report-${exportData.student.name.replace(/\s+/g, '-').toLowerCase()}-${format(new Date(), 'yyyy-MM-dd')}.csv`);
-    link.style.display = 'none';
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const filename = `analytics-report-${exportData.student.name.replace(/\s+/g, '-').toLowerCase()}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    
+    downloadBlob(blob, filename);
   }
 
   /**
@@ -392,15 +389,18 @@ class AnalyticsExport {
           triggers: emotion.triggers || [],
           notes: emotion.notes || null
         })),
-        sensoryInputs: exportData.data.sensoryInputs.map(sensory => ({
-          id: sensory.id,
-          timestamp: sensory.timestamp.toISOString(),
-          sensoryType: sensory.sensoryType,
-          response: sensory.response,
-          intensity: sensory.intensity,
-          context: sensory.context || null,
-          notes: sensory.notes || null
-        })),
+        sensoryInputs: exportData.data.sensoryInputs.map(sensory => {
+          const withOptional = sensory as unknown as { context?: string; intensity?: number | null };
+          return {
+            id: sensory.id,
+            timestamp: sensory.timestamp.toISOString(),
+            sensoryType: sensory.sensoryType,
+            response: sensory.response,
+            intensity: typeof sensory.intensity === 'number' ? sensory.intensity : null,
+            context: withOptional.context ?? null,
+            notes: sensory.notes || null
+          };
+        }),
         trackingEntries: exportData.data.entries.map(entry => ({
           id: entry.id,
           timestamp: entry.timestamp.toISOString(),
@@ -451,16 +451,9 @@ class AnalyticsExport {
     // Create and download JSON
     const jsonString = JSON.stringify(jsonData, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-
-    link.setAttribute('href', url);
-    link.setAttribute('download', `analytics-report-${exportData.student.name.replace(/\s+/g, '-').toLowerCase()}-${format(new Date(), 'yyyy-MM-dd')}.json`);
-    link.style.display = 'none';
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const filename = `analytics-report-${exportData.student.name.replace(/\s+/g, '-').toLowerCase()}-${format(new Date(), 'yyyy-MM-dd')}.json`;
+    
+    downloadBlob(blob, filename);
   }
 }
 

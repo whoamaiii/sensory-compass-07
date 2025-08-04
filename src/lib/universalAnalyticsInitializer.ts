@@ -1,5 +1,6 @@
 import { analyticsManager } from './analyticsManager';
 import { dataStorage } from './dataStorage';
+import { logger } from './logger';
 
 /**
  * Universal Analytics Initializer
@@ -37,7 +38,7 @@ export class UniversalAnalyticsInitializer {
       this.initialized = true;
       
     } catch (error) {
-      console.error('Error initializing universal analytics:', error);
+      logger.error('Error initializing universal analytics:', error);
     }
   }
 
@@ -51,7 +52,7 @@ export class UniversalAnalyticsInitializer {
       
       
     } catch (error) {
-      console.error(`Error ensuring analytics for student ${studentId}:`, error);
+      logger.error(`Error ensuring analytics for student ${studentId}:`, error);
     }
   }
 
@@ -93,4 +94,4 @@ export class UniversalAnalyticsInitializer {
 export const universalAnalyticsInitializer = UniversalAnalyticsInitializer.getInstance();
 
 // Auto-initialize on import (runs once when the module is loaded)
-universalAnalyticsInitializer.initializeUniversalAnalytics().catch(console.error);
+universalAnalyticsInitializer.initializeUniversalAnalytics().catch((error) => logger.error('Auto-initialization failed:', error));

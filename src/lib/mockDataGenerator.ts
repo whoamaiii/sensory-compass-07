@@ -1,5 +1,8 @@
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry, EnvironmentalEntry, Goal } from '@/types/student';
 import { dataStorage } from './dataStorage';
+import { logger } from './logger';
+import { generateId } from './uuid';
+import { validateEmotionEntry, validateSensoryEntry, validateTrackingEntry } from './dataValidation';
 
 // Helper function to get a random date within the last N days
 const getRandomDate = (daysAgo: number, variance: number = 0): Date => {
@@ -15,16 +18,9 @@ const getRandomDate = (daysAgo: number, variance: number = 0): Date => {
   return baseDate;
 };
 
-// Helper function to generate trending values
-const generateTrendValue = (baseValue: number, dayIndex: number, trendStrength: number = 0.1): number => {
-  const trend = trendStrength * dayIndex;
-  const noise = (Math.random() - 0.5) * 0.3;
-  const result = Math.max(1, Math.min(5, baseValue + trend + noise));
-  return Math.round(result);
-};
 
 // Generate realistic emotion entry
-const generateEmotionEntry = (studentId: string, timestamp: Date, emotionBias?: string): EmotionEntry => {
+export const generateEmotionEntry = (studentId: string, timestamp: Date, emotionBias?: string): EmotionEntry => {
   const emotions = ['happy', 'sad', 'anxious', 'calm', 'excited', 'frustrated', 'content'];
   const biasedEmotion = emotionBias || emotions[Math.floor(Math.random() * emotions.length)];
   
@@ -36,14 +32,15 @@ const generateEmotionEntry = (studentId: string, timestamp: Date, emotionBias?: 
     'calm': [2, 4],
     'excited': [4, 5],
     'frustrated': [3, 5],
-    'content': [2, 4]
+    'content': [2, 4],
+    'overwhelmed': [4, 5]
   };
   
   const [minIntensity, maxIntensity] = intensityMap[biasedEmotion] || [2, 4];
   const intensity = Math.floor(Math.random() * (maxIntensity - minIntensity + 1)) + minIntensity;
   
-  return {
-    id: `emotion_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  const entry: EmotionEntry = {
+    id: generateId('emotion'),
     studentId,
     timestamp,
     emotion: biasedEmotion,
@@ -51,10 +48,19 @@ const generateEmotionEntry = (studentId: string, timestamp: Date, emotionBias?: 
     triggers: Math.random() > 0.7 ? ['environmental change', 'social interaction'] : [],
     notes: Math.random() > 0.8 ? `Student seemed ${biasedEmotion} during this period` : ''
   };
+  
+  // Validate the generated entry
+  const validationResult = validateEmotionEntry(entry);
+  if (!validationResult.isValid) {
+    logger.error('Generated invalid emotion entry:', entry, validationResult.errors);
+    throw new Error('Failed to generate valid emotion entry');
+  }
+  
+  return entry;
 };
 
 // Generate realistic sensory entry
-const generateSensoryEntry = (studentId: string, timestamp: Date, seeking?: boolean): SensoryEntry => {
+export const generateSensoryEntry = (studentId: string, timestamp: Date, seeking?: boolean): SensoryEntry => {
   const sensoryTypes = ['visual', 'auditory', 'tactile', 'vestibular', 'proprioceptive'];
   const type = sensoryTypes[Math.floor(Math.random() * sensoryTypes.length)];
   
@@ -64,8 +70,8 @@ const generateSensoryEntry = (studentId: string, timestamp: Date, seeking?: bool
   
   const intensity = Math.floor(Math.random() * 5) + 1;
   
-  return {
-    id: `sensory_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  const entry: SensoryEntry = {
+    id: generateId('sensory'),
     studentId,
     timestamp,
     type,
@@ -74,6 +80,15 @@ const generateSensoryEntry = (studentId: string, timestamp: Date, seeking?: bool
     intensity,
     notes: Math.random() > 0.8 ? `${type} input was ${response}` : ''
   };
+  
+  // Validate the generated entry
+  const validationResult = validateSensoryEntry(entry);
+  if (!validationResult.isValid) {
+    logger.error('Generated invalid sensory entry:', entry, validationResult.errors);
+    throw new Error('Failed to generate valid sensory entry');
+  }
+  
+  return entry;
 };
 
 // Generate environmental entry
@@ -81,7 +96,7 @@ const generateEnvironmentalEntry = (timestamp: Date, correlationFactors?: { nois
   const factors = correlationFactors || {};
   
   return {
-    id: `env_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: generateId('env'),
     timestamp,
     location: ['classroom', 'library', 'cafeteria', 'playground', 'hallway'][Math.floor(Math.random() * 5)],
     socialContext: ['individual work', 'group activity', 'instruction', 'transition'][Math.floor(Math.random() * 4)],
@@ -92,25 +107,25 @@ const generateEnvironmentalEntry = (timestamp: Date, correlationFactors?: { nois
       humidity: Math.floor(Math.random() * 20) + 40 // 40-60%
     },
     weather: {
-      condition: ['sunny', 'cloudy', 'rainy', 'stormy', 'snowy'][Math.floor(Math.random() * 5)] as any,
+      condition: ['sunny', 'cloudy', 'rainy', 'stormy', 'snowy'][Math.floor(Math.random() * 5)] as 'sunny' | 'cloudy' | 'rainy' | 'stormy' | 'snowy',
       temperature: Math.floor(Math.random() * 15) + 10, // 10-25°C
       pressure: Math.floor(Math.random() * 50) + 1000 // 1000-1050 hPa
     },
     classroom: {
-      activity: ['instruction', 'transition', 'free-time', 'testing', 'group-work'][Math.floor(Math.random() * 5)] as any,
+      activity: ['instruction', 'transition', 'free-time', 'testing', 'group-work'][Math.floor(Math.random() * 5)] as 'instruction' | 'transition' | 'free-time' | 'testing' | 'group-work',
       studentCount: Math.floor(Math.random() * 20) + 10, // 10-30 students
-      timeOfDay: ['morning', 'afternoon', 'evening'][Math.floor(Math.random() * 3)] as any
+      timeOfDay: ['morning', 'afternoon', 'evening'][Math.floor(Math.random() * 3)] as 'morning' | 'afternoon' | 'evening'
     },
     notes: Math.random() > 0.9 ? 'Notable environmental conditions' : ''
   };
 };
 
 // Generate tracking entry for a student based on scenario
-const generateTrackingEntry = (student: Student, daysAgo: number, scenario: 'emma' | 'lars' | 'astrid'): TrackingEntry => {
+export const generateTrackingEntry = (student: Student, daysAgo: number, scenario: 'emma' | 'lars' | 'astrid'): TrackingEntry => {
   const timestamp = getRandomDate(daysAgo, 0.5);
   
   const entry: TrackingEntry = {
-    id: `tracking_${student.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: generateId(`tracking_${student.id}`),
     studentId: student.id,
     timestamp,
     emotions: [],
@@ -201,21 +216,26 @@ const generateTrackingEntry = (student: Student, daysAgo: number, scenario: 'emm
 
 // Generate mock students
 export const generateMockStudents = (): Student[] => {
-  const createMockGoal = (studentId: string, title: string, description: string): Goal => ({
-    id: `goal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    studentId,
-    title,
-    description,
-    category: 'sensory' as const,
-    targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
-    createdDate: new Date(),
-    status: 'active' as const,
-    measurableObjective: description,
-    currentProgress: Math.floor(Math.random() * 50) + 25, // 25-75% progress
-    milestones: [],
-    interventions: [],
-    dataPoints: []
-  });
+  const createMockGoal = (studentId: string, title: string, description: string): Goal => {
+    const progress = Math.floor(Math.random() * 50) + 25;
+    return {
+      id: generateId('goal'),
+      studentId,
+      title,
+      description,
+      category: 'sensory' as const,
+      targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
+      createdDate: new Date(),
+      updatedAt: new Date(),
+      status: 'active' as const,
+      measurableObjective: description,
+      currentProgress: progress,
+      progress,
+      milestones: [],
+      interventions: [],
+      dataPoints: []
+    };
+  };
 
   const students: Student[] = [
     {
@@ -316,7 +336,7 @@ export function loadMockDataToStorage(): void {
       dataStorage.saveTrackingEntry(entry);
     });
   } catch (error) {
-    console.error('Failed to load mock data:', error);
+    logger.error('Failed to load mock data:', error);
     throw new Error('Failed to initialize mock data');
   }
 }
@@ -337,7 +357,7 @@ export function clearMockDataFromStorage(): void {
     nonMockStudents.forEach(student => dataStorage.saveStudent(student));
     nonMockEntries.forEach(entry => dataStorage.saveTrackingEntry(entry));
   } catch (error) {
-    console.error('Failed to clear mock data:', error);
+    logger.error('Failed to clear mock data:', error);
     throw new Error('Failed to clear mock data');
   }
 }

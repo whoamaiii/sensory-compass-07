@@ -10,19 +10,21 @@ import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { LanguageSettings } from "@/components/LanguageSettings";
 import { PremiumStudentCard } from "@/components/PremiumStudentCard";
 import { MockDataLoader } from "@/components/MockDataLoader";
+import { StorageManager } from "@/components/StorageManager";
 import { dataStorage } from "@/lib/dataStorage";
 import { exportSystem } from "@/lib/exportSystem";
 import { toast } from "sonner";
-import { FlaskConical, HelpCircle, Download, Plus, Users, CalendarDays, BarChart3, TrendingUp, TrendingDown } from "lucide-react";
+import { FlaskConical, HelpCircle, Download, Plus, Users, CalendarDays, BarChart3, TrendingUp, TrendingDown, Database } from "lucide-react";
 import { HelpAndSupport } from "@/components/HelpAndSupport";
 import { subWeeks, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { logger } from "@/lib/logger";
 
 /**
  * Dashboard component - Main landing page with modern glassmorphism design
  * @returns React component displaying students list and tracking statistics
  */
-export const Dashboard = () => {
+const Dashboard = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
@@ -34,7 +36,7 @@ export const Dashboard = () => {
         const students = dataStorage.getStudents();
         setStudents(students);
       } catch (error) {
-        console.error('Dashboard: Error loading students:', error);
+        logger.error('Dashboard: Error loading students', { error });
         setStudents([]);
       } finally {
         setIsLoading(false);
@@ -59,13 +61,19 @@ export const Dashboard = () => {
       loadData();
     }
     
-    window.addEventListener('storage', handleStorageChange);
+window.addEventListener('storage', handleStorageChange);
+    logger.debug('[EVENT_LISTENER] Added storage listener');
+    
     // The 'mockDataLoaded' event is a custom event dispatched from the MockDataLoader component.
     window.addEventListener('mockDataLoaded', handleMockDataLoaded);
+    logger.debug('[EVENT_LISTENER] Added mockDataLoaded listener');
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      logger.debug('[EVENT_LISTENER] Removed storage listener');
+      
       window.removeEventListener('mockDataLoaded', handleMockDataLoaded);
+      logger.debug('[EVENT_LISTENER] Removed mockDataLoaded listener');
     };
   }, []);
 
@@ -97,7 +105,7 @@ export const Dashboard = () => {
       const studentsTrend = lastWeekStudents > 0 ? ((thisWeekStudents - lastWeekStudents) / lastWeekStudents) * 100 : thisWeekStudents > 0 ? 100 : 0;
       
       return { 
-        todayEntries: todayCount, 
+        todayEntries: todayCount,
         totalEntries: allEntries.length,
         weeklyTrend: {
           students: studentsTrend,
@@ -105,7 +113,7 @@ export const Dashboard = () => {
         }
       };
     } catch (error) {
-      console.error('Dashboard: Error calculating statistics:', error);
+      logger.error('Dashboard: Error calculating statistics', { error });
       return { todayEntries: 0, totalEntries: 0, weeklyTrend: { students: 0, entries: 0 } };
     }
   }, [students]);
@@ -140,12 +148,20 @@ export const Dashboard = () => {
         includeFields: ['all']
       });
       
-      const csvBlob = new Blob([csvContent], { type: 'text/csv' });
-      const csvUrl = URL.createObjectURL(csvBlob);
-      const csvLink = document.createElement('a');
-      csvLink.href = csvUrl;
-      csvLink.download = 'sensory_tracker_report_' + new Date().toISOString().split('T')[0] + '.csv';
-      csvLink.click();
+const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+      const blobUrl = URL.createObjectURL(csvBlob);
+      logger.debug('[BLOB_URL] Created URL for CSV export', { url: blobUrl, blobSize: csvBlob.size });
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = 'sensory_tracker_report_' + new Date().toISOString().split('T')[0] + '.csv';
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      URL.revokeObjectURL(blobUrl);
+      logger.debug('[BLOB_URL] Revoked URL after CSV export', { url: blobUrl });
       
       toast.success('Report exported successfully');
     } catch (error) {
@@ -182,20 +198,28 @@ export const Dashboard = () => {
             <div className="flex items-center space-x-4">
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    className="bg-gradient-primary hover:opacity-90 text-primary-foreground shadow-glow flex items-center justify-center group"
-                  >
-                    <FlaskConical className="mr-2 h-4 w-4 transition-transform group-hover:rotate-12" />
-                    Load Mock Data
+                  <Button variant="outline" size="icon" title="Mock Data">
+                    <FlaskConical className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>Mock Data for Testing & Analysis</DialogTitle>
+                    <DialogTitle>Mock Data Loader</DialogTitle>
                   </DialogHeader>
                   <MockDataLoader />
+                </DialogContent>
+              </Dialog>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="icon" title="Storage Management">
+                    <Database className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Storage Management</DialogTitle>
+                  </DialogHeader>
+                  <StorageManager />
                 </DialogContent>
               </Dialog>
               <HelpAndSupport />
@@ -414,13 +438,34 @@ export const Dashboard = () => {
                     </div>
                   </div>
 
-                  {/* 
+                  {/*
                     The MockDataLoader component is displayed in the empty state to help users
                     get started with some sample data for testing and exploration.
                   */}
-                  <div className="mt-8">
-                    <MockDataLoader />
-                  </div>
+                  <Card className="mt-8 bg-gradient-card border-0 shadow-soft">
+                    <CardContent className="p-6">
+                      <div className="text-center mb-4">
+                        <h4 className="text-lg font-semibold text-foreground">Want to explore with sample data?</h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Load mock data to test features and see how the app works
+                        </p>
+                      </div>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" className="w-full">
+                            <FlaskConical className="h-4 w-4 mr-2" />
+                            Load Sample Data
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>Mock Data Loader</DialogTitle>
+                          </DialogHeader>
+                          <MockDataLoader />
+                        </DialogContent>
+                      </Dialog>
+                    </CardContent>
+                  </Card>
                 </div>
               )}
             </div>
@@ -430,3 +475,5 @@ export const Dashboard = () => {
     </div>
   );
 };
+
+export default Dashboard;

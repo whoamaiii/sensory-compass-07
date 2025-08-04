@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { EmotionEntry, SensoryEntry, TrackingEntry, EnvironmentalEntry } from '@/types/student';
 import { differenceInMinutes, subMinutes } from 'date-fns';
+import { logger } from '@/lib/logger';
 
 interface RealtimeDataOptions {
   enabled: boolean;
@@ -223,7 +224,7 @@ export const useRealtimeData = (
         // 1. Connect to WebSocket/SSE endpoint
         // 2. Listen for data events
         // 3. Call smoothInsertData with received data
-        console.log('Real-time data connection would be established here');
+        logger.info('Real-time data connection would be established here');
       }
     }, 1000);
   }, [options.simulateData, options.updateInterval, simulateDataStream]);
@@ -304,7 +305,8 @@ export const useRealtimeData = (
   // Check if a data point is "live" (recently added)
   const isDataLive = useCallback((timestamp: Date): boolean => {
     const now = new Date();
-    return differenceInMinutes(now, timestamp) * 60 * 1000 < liveDataThreshold;
+    // Use millisecond difference directly to avoid rounding errors from differenceInMinutes
+    return now.getTime() - new Date(timestamp).getTime() < liveDataThreshold;
   }, [liveDataThreshold]);
 
   // Auto-start/stop based on enabled option
@@ -316,7 +318,10 @@ export const useRealtimeData = (
     }
 
     return () => {
-      stopStream();
+      // Only stop if currently live; avoid redundant calls after an explicit stop
+      if (state.isLive) {
+        stopStream();
+      }
     };
   }, [options.enabled, state.isLive, startStream, stopStream]);
 

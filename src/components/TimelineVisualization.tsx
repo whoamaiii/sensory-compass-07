@@ -267,6 +267,11 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
   };
 
   // Playback animation

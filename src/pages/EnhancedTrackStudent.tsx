@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { analyticsManager } from "@/lib/analyticsManager";
 import { format } from "date-fns";
+import { logger } from "@/lib/logger";
 
 export const EnhancedTrackStudent = () => {
   const { studentId } = useParams();
@@ -131,13 +132,13 @@ export const EnhancedTrackStudent = () => {
       // Trigger analytics update only if there's data
       if (sessionEmotions.length > 0 || sessionSensoryInputs.length > 0) {
         analyticsManager.initializeStudentAnalytics(student.id);
-        await analyticsManager.triggerAnalyticsForStudent(student.id);
+        await analyticsManager.triggerAnalyticsForStudent(student);
       }
 
       toast.success("Session saved successfully!");
       navigate(`/student/${student.id}`);
     } catch (error) {
-      console.error('Save session error:', error);
+      logger.error('Save session error', { error });
       toast.error("Failed to save session. Please try again.");
     }
   };

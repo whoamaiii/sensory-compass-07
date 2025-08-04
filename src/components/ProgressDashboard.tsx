@@ -1,13 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Goal, Student, GoalDataPoint } from "@/types/student";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, Crosshair, Calendar, Award, Clock, CheckCircle } from "lucide-react";
+import { Goal, Student } from "@/types/student";
+import type { EChartsOption } from "echarts";
+import { EChartContainer } from "@/components/charts/EChartContainer";
+import { TrendingUp, Crosshair, Award, Clock, CheckCircle } from "lucide-react";
 import { format, differenceInDays, startOfWeek, endOfWeek, eachWeekOfInterval, startOfMonth, endOfMonth } from "date-fns";
+import { OptimizedAnimatedCounter } from "@/components/optimized";
 
 interface ProgressDashboardProps {
   student: Student;
@@ -16,6 +18,7 @@ interface ProgressDashboardProps {
 
 export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) => {
   const [selectedTimeframe, setSelectedTimeframe] = useState<'week' | 'month' | 'quarter'>('month');
+  const [isAnalyzingTrends, setIsAnalyzingTrends] = useState(false);
 
   // Calculate progress metrics
   const progressMetrics = useMemo(() => {
@@ -52,6 +55,8 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
   }, [goals]);
 
   // Prepare chart data for progress over time
+
+
   const progressChartData = useMemo(() => {
     const allDataPoints: Array<{
       date: Date;
@@ -80,7 +85,7 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
     
     const weeks = eachWeekOfInterval({ start: startDate, end: endDate });
     
-    return weeks.map(weekStart => {
+    const result = weeks.map(weekStart => {
       const weekEnd = endOfWeek(weekStart);
       const weekData = allDataPoints.filter(point => 
         point.date >= weekStart && point.date <= weekEnd
@@ -96,6 +101,14 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
         dataPoints: weekData.length
       };
     });
+    return result;
+  }, [goals]);
+
+  // Brief analyzing skeleton to smooth chart updates when goals change
+  useEffect(() => {
+    setIsAnalyzingTrends(true);
+    const t = setTimeout(() => setIsAnalyzingTrends(false), 300);
+    return () => clearTimeout(t);
   }, [goals]);
 
   // Category progress data
@@ -141,7 +154,8 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
       .slice(0, 5);
   };
 
-  return (
+
+ return (
     <div className="space-y-6">
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -151,7 +165,9 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
             <Crosshair className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{progressMetrics.totalGoals}</div>
+            <div className="text-2xl font-bold text-primary">
+              <OptimizedAnimatedCounter value={progressMetrics.totalGoals} />
+            </div>
             <p className="text-xs text-muted-foreground">
               {progressMetrics.activeGoals} active, {progressMetrics.achievedGoals} achieved
             </p>
@@ -164,7 +180,9 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{Math.round(progressMetrics.overallProgress)}%</div>
+            <div className="text-2xl font-bold text-primary">
+              <OptimizedAnimatedCounter value={Math.round(progressMetrics.overallProgress)} />%
+            </div>
             <Progress value={progressMetrics.overallProgress} className="mt-2" />
           </CardContent>
         </Card>
@@ -175,7 +193,9 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{progressMetrics.onTrackGoals}</div>
+            <div className="text-2xl font-bold text-green-600">
+              <OptimizedAnimatedCounter value={progressMetrics.onTrackGoals} />
+            </div>
             <p className="text-xs text-muted-foreground">
               goals meeting expectations
             </p>
@@ -188,7 +208,9 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
             <Clock className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{progressMetrics.atRiskGoals}</div>
+            <div className="text-2xl font-bold text-red-600">
+              <OptimizedAnimatedCounter value={progressMetrics.atRiskGoals} />
+            </div>
             <p className="text-xs text-muted-foreground">
               goals needing attention
             </p>
@@ -211,27 +233,36 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
               <CardTitle>Progress Trends (Last 3 Months)</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={progressChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="progress" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    dot={{ fill: 'hsl(var(--primary))' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {isAnalyzingTrends ? (
+                <div aria-label="Loading trends chart" className="h-[300px] w-full">
+                  <div className="h-full w-full animate-pulse rounded-md border border-border/50 bg-muted/20" />
+                </div>
+              ) : (() => {
+                const option: EChartsOption = {
+                  dataset: { source: progressChartData },
+                  grid: { top: 24, right: 16, bottom: 32, left: 40 },
+                  xAxis: { type: "category", name: "Week", nameGap: 24 },
+                  yAxis: { type: "value", name: "Progress (%)", nameGap: 28, min: 0, max: 100 },
+                  tooltip: {
+                    trigger: "axis",
+                    axisPointer: { type: "line" },
+                    valueFormatter: (val) => (typeof val === "number" ? `${Math.round(val)}%` : String(val)),
+                  },
+                  legend: { show: false },
+                  series: [
+                    {
+                      type: "line",
+                      smooth: true,
+                      showSymbol: true,
+                      symbolSize: 6,
+                      encode: { x: "week", y: "progress" },
+                      lineStyle: { width: 2 },
+                      areaStyle: { opacity: 0.08 },
+                    },
+                  ],
+                };
+                return <EChartContainer option={option} height={300} aria-label="Progress trends line chart" />;
+              })()}
             </CardContent>
           </Card>
 
@@ -279,21 +310,29 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
               <CardTitle>Goal Completion Trends</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={categoryData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="category" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Bar dataKey="progress" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {(() => {
+                const option: EChartsOption = {
+                  dataset: { source: categoryData },
+                  grid: { top: 24, right: 16, bottom: 32, left: 40 },
+                  xAxis: { type: "category", name: "Category", nameGap: 24 },
+                  yAxis: { type: "value", name: "Progress (%)", nameGap: 28, min: 0, max: 100 },
+                  tooltip: {
+                    trigger: "axis",
+                    axisPointer: { type: "shadow" },
+                    valueFormatter: (val) => (typeof val === "number" ? `${Math.round(val)}%` : String(val)),
+                  },
+                  legend: { show: false },
+                  series: [
+                    {
+                      type: "bar",
+                      encode: { x: "category", y: "progress" },
+                      barWidth: "50%",
+                      itemStyle: { borderRadius: [4, 4, 0, 0] },
+                    },
+                  ],
+                };
+                return <EChartContainer option={option} height={300} aria-label="Goal completion by category bar chart" />;
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
@@ -305,25 +344,31 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
                 <CardTitle>Progress by Category</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ category, progress }) => `${category}: ${progress}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="progress"
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                {(() => {
+                  const option: EChartsOption = {
+                    dataset: {
+                      source: categoryData.map((d) => ({ name: d.category, value: d.progress })),
+                    },
+                    tooltip: {
+                      trigger: "item",
+                      valueFormatter: (val) => (typeof val === "number" ? `${Math.round(val)}%` : String(val)),
+                    },
+                    legend: { bottom: 0, type: "scroll" },
+                    series: [
+                      {
+                        type: "pie",
+                        radius: ["50%", "70%"],
+                        avoidLabelOverlap: true,
+                        label: {
+                          show: true,
+                          formatter: "{b}: {c}%",
+                        },
+                        encode: { itemName: "name", value: "value" },
+                      },
+                    ],
+                  };
+                  return <EChartContainer option={option} height={250} aria-label="Progress by category donut chart" />;
+                })()}
               </CardContent>
             </Card>
 

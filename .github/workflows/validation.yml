@@ -1,0 +1,53 @@
+# Advanced Validation Pipeline
+# This workflow runs on every push to the main branch
+# It performs linting, unit testing, and has placeholders for future performance and bias tests
+
+name: Advanced Validation Pipeline
+
+# Trigger the workflow on push events to the main branch
+on:
+  push:
+    branches:
+      - main
+
+# Define the jobs that will run as part of this workflow
+jobs:
+  validate:
+    # Run on the latest Ubuntu runner
+    runs-on: ubuntu-latest
+
+    # Define the steps for the validation job
+    steps:
+      # Step 1: Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      # Step 3: Install project dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # Step 4: Run the linter to check code quality
+      - name: Run linter
+        run: npm run lint
+
+      # Step 5: Run unit tests
+      - name: Run unit tests
+        run: npm test
+
+      # Future tests - currently commented out
+      # These will be implemented as part of the Advanced Validation System
+      
+      # Step 6: Run performance tests (placeholder)
+      # - name: Run performance tests
+      #   run: npm run test:performance
+      
+      # Step 7: Run bias detection tests (placeholder)
+      # - name: Run bias tests
+      #   run: npm run test:bias

@@ -3,6 +3,7 @@ import { TrackingEntry } from '@/types/student';
 import { ModelType, mlModels } from '@/lib/mlModels';
 import MLTrainingWorker from '@/workers/mlTraining.worker?worker';
 import type { TrainingRequest, TrainingProgress, TrainingResult } from '@/workers/mlTraining.worker';
+import { logger } from '@/lib/logger';
 
 interface TrainingStatus {
   isTraining: boolean;
@@ -32,47 +33,46 @@ export const useMLTrainingWorker = (): UseMLTrainingWorkerReturn => {
   });
 
   const createWorker = useCallback(() => {
+    // Terminate any existing worker before creating a new one to avoid leaks
     if (workerRef.current) {
-      workerRef.current.terminate();
+      try {
+        workerRef.current.terminate();
+      } catch {
+        // ignore
+      }
+      workerRef.current = null;
     }
 
     const worker = new MLTrainingWorker();
-    
+
     worker.onmessage = async (e: MessageEvent<TrainingProgress | TrainingResult>) => {
       const message = e.data;
-      
+
       if (message.type === 'progress') {
+        const safeTotal = Math.max(1, message.totalEpochs || 1);
+        const clampedEpoch = Math.min(message.epoch ?? 0, safeTotal);
         setTrainingStatus(prev => ({
           ...prev,
-          epoch: message.epoch,
-          totalEpochs: message.totalEpochs,
+          epoch: clampedEpoch,
+          totalEpochs: safeTotal,
           loss: message.loss,
           accuracy: message.accuracy,
-          progress: (message.epoch / message.totalEpochs) * 100
+          progress: (clampedEpoch / safeTotal) * 100
         }));
       } else if (message.type === 'complete') {
-        // Save the trained model
-        if (message.metadata) {
-          try {
-            // For now, we'll just update the model metadata
-            // In a real implementation, we'd deserialize and save the model
-            await mlModels.init();
-            
-            // Simulate model saving
-            console.log('Model training complete:', message.modelType, message.metadata);
-            
-            setTrainingStatus({
-              isTraining: false,
-              modelType: message.modelType,
-              progress: 100
-            });
-          } catch (error) {
-            console.error('Failed to save trained model:', error);
-            setTrainingStatus({
-              isTraining: false,
-              error: 'Failed to save trained model'
-            });
-          }
+        try {
+          await mlModels.init();
+          setTrainingStatus({
+            isTraining: false,
+            modelType: message.modelType,
+            progress: 100
+          });
+        } catch (error) {
+          logger.error('Failed to save trained model:', error);
+          setTrainingStatus({
+            isTraining: false,
+            error: 'Failed to save trained model'
+          });
         }
       } else if (message.type === 'error') {
         setTrainingStatus({
@@ -83,7 +83,7 @@ export const useMLTrainingWorker = (): UseMLTrainingWorkerReturn => {
     };
 
     worker.onerror = (error) => {
-      console.error('ML training worker error:', error);
+      logger.error('ML training worker error:', error);
       setTrainingStatus({
         isTraining: false,
         error: 'Training worker encountered an error'
@@ -133,8 +133,8 @@ export const useMLTrainingWorker = (): UseMLTrainingWorkerReturn => {
         trackingEntries
       },
       config: {
-        epochs: options?.epochs,
-        batchSize: options?.batchSize
+        epochs: options?.epochs ?? 50,
+        batchSize: options?.batchSize ?? 32
       }
     };
 

@@ -30,6 +30,7 @@ import { mlModels, ModelMetadata, ModelType } from '@/lib/mlModels';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { logger } from '@/lib/logger';
 
 interface AnalyticsSettingsProps {
   onConfigChange?: (config: AnalyticsConfiguration) => void;
@@ -46,6 +47,8 @@ export const AnalyticsSettings: React.FC<AnalyticsSettingsProps> = ({
   const [modelStatus, setModelStatus] = useState<Map<ModelType, ModelMetadata | null>>(new Map());
   const [isTraining, setIsTraining] = useState<ModelType | null>(null);
   const [mlEnabled, setMlEnabled] = useState(true);
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
+  const [isDeletingModel, setIsDeletingModel] = useState<ModelType | null>(null);
 
   useEffect(() => {
     // Subscribe to configuration changes
@@ -63,12 +66,20 @@ export const AnalyticsSettings: React.FC<AnalyticsSettingsProps> = ({
   }, [onConfigChange]);
 
   const loadModelStatus = async () => {
+    setIsLoadingModels(true);
     try {
       await mlModels.init();
       const status = await mlModels.getModelStatus();
       setModelStatus(status);
     } catch (error) {
-      console.error('Failed to load ML model status:', error);
+      logger.error('Failed to load ML model status', { error });
+      toast({
+        title: "Failed to load ML models",
+        description: "Could not retrieve model status. Some features may be unavailable.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingModels(false);
     }
   };
 
@@ -211,6 +222,7 @@ export const AnalyticsSettings: React.FC<AnalyticsSettingsProps> = ({
   };
 
   const handleDeleteModel = async (modelType: ModelType) => {
+    setIsDeletingModel(modelType);
     try {
       await mlModels.deleteModel(modelType);
       await loadModelStatus();
@@ -225,6 +237,8 @@ export const AnalyticsSettings: React.FC<AnalyticsSettingsProps> = ({
         description: "Failed to delete model",
         variant: "destructive",
       });
+    } finally {
+      setIsDeletingModel(null);
     }
   };
 
@@ -607,8 +621,16 @@ export const AnalyticsSettings: React.FC<AnalyticsSettingsProps> = ({
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Model Status List */}
-                  {(['emotion-prediction', 'sensory-response', 'baseline-clustering'] as ModelType[]).map((modelType) => {
+                  {/* Loading State */}
+                  {isLoadingModels ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      <span className="ml-2 text-muted-foreground">Loading ML models...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Model Status List */}
+                      {(['emotion-prediction', 'sensory-response', 'baseline-clustering'] as ModelType[]).map((modelType) => {
                     const model = modelStatus.get(modelType);
                     const isCurrentlyTraining = isTraining === modelType;
                     
@@ -682,9 +704,16 @@ export const AnalyticsSettings: React.FC<AnalyticsSettingsProps> = ({
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleDeleteModel(modelType)}
-                                disabled={isCurrentlyTraining}
+                                disabled={isCurrentlyTraining || isDeletingModel === modelType}
                               >
-                                Delete
+                                {isDeletingModel === modelType ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  'Delete'
+                                )}
                               </Button>
                             </div>
                           </div>
@@ -735,6 +764,8 @@ export const AnalyticsSettings: React.FC<AnalyticsSettingsProps> = ({
                       Models are trained locally in your browser and improve over time as more data is collected.
                     </p>
                   </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
