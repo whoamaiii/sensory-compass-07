@@ -241,6 +241,19 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     setPanOffset(prev => prev + delta);
   };
 
+  useEffect(() => {
+    const handleMouseUp = () => {
+      // No need to do anything here, just to have a reference
+    };
+    const handleMouseMove = () => {
+      // No need to do anything here, just to have a reference
+    };
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   // Handle brush selection
   const handleMouseDown = (e: React.MouseEvent<SVGElement>) => {
     if (!svgRef.current) return;
@@ -267,11 +280,6 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
   };
 
   // Playback animation

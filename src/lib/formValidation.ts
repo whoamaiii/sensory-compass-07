@@ -47,7 +47,7 @@ export const environmentalEntrySchema = z.object({
 });
 
 // Validation functions
-export function validateStudent(data: any) {
+export function validateStudent(data: unknown) {
   try {
     return {
       success: true,
@@ -73,7 +73,7 @@ export function validateStudent(data: any) {
   }
 }
 
-export function validateEmotionEntry(data: any) {
+export function validateEmotionEntry(data: unknown) {
   try {
     return {
       success: true,
@@ -99,7 +99,7 @@ export function validateEmotionEntry(data: any) {
   }
 }
 
-export function validateSensoryEntry(data: any) {
+export function validateSensoryEntry(data: unknown) {
   try {
     return {
       success: true,
@@ -125,7 +125,7 @@ export function validateSensoryEntry(data: any) {
   }
 }
 
-export function validateEnvironmentalEntry(data: any) {
+export function validateEnvironmentalEntry(data: unknown) {
   try {
     return {
       success: true,
@@ -159,8 +159,8 @@ export function sanitizeInput(input: string): string {
     .slice(0, 10000); // Limit length
 }
 
-export function sanitizeObject(obj: Record<string, any>): Record<string, any> {
-  const sanitized: Record<string, any> = {};
+export function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
   
   for (const [key, value] of Object.entries(obj)) {
     if (typeof value === 'string') {

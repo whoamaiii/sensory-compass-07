@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
-import { analyticsManager } from "@/lib/analyticsManager";
+import { lazyAnalyticsManager } from "@/lib/lazyAnalyticsManager";
 import { dataStorage } from "@/lib/dataStorage";
 import { logger } from "@/lib/logger";
 
@@ -47,7 +47,7 @@ const AddStudent = () => {
       dataStorage.saveStudent(newStudent);
       
       // Initialize analytics infrastructure only (no mock data generation)
-      analyticsManager.initializeStudentAnalytics(newStudent.id);
+      lazyAnalyticsManager.getInstance().then(manager => manager.initializeStudentAnalytics(newStudent.id));
       
       toast.success(String(tStudent('addStudent.success')));
       navigate('/');

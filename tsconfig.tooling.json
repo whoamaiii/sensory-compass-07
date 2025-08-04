@@ -3,13 +3,13 @@
   "compilerOptions": {
     "module": "CommonJS",
     "target": "ES2022",
-    "outDir": "./dist/scripts",
-    "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
     "noImplicitAny": false
   },
   "include": [
-    "scripts/**/*.ts"
+    "tailwind.config.ts",
+    "postcss.config.js",
+    "eslint.config.js"
   ]
 }

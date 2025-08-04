@@ -22,7 +22,7 @@ export const AlertManager = ({ studentId, showOnlyUnresolved = false }: AlertMan
 
   useEffect(() => {
     loadAlerts();
-  }, [studentId, showOnlyUnresolved]);
+  }, [studentId, showOnlyUnresolved, loadAlerts]);
 
   const loadAlerts = () => {
     let alertList: AlertHistoryEntry[];

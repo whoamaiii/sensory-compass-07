@@ -32,6 +32,15 @@ export const useMLTrainingWorker = (): UseMLTrainingWorkerReturn => {
     isTraining: false
   });
 
+  useEffect(() => {
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+    };
+  }, []);
+
   const createWorker = useCallback(() => {
     // Terminate any existing worker before creating a new one to avoid leaks
     if (workerRef.current) {

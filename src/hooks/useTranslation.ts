@@ -12,12 +12,12 @@ export const useTranslation = (namespace?: string) => {
   const currentLanguage = i18n.language as 'nb' | 'en';
   
   // Helper functions for common translations
-  const tCommon = (key: string, options?: any) => t(key, { ns: 'common', ...options });
-  const tDashboard = (key: string, options?: any) => t(key, { ns: 'dashboard', ...options });
-  const tStudent = (key: string, options?: any) => t(key, { ns: 'student', ...options });
-  const tTracking = (key: string, options?: any) => t(key, { ns: 'tracking', ...options });
-  const tAnalytics = (key: string, options?: any) => t(key, { ns: 'analytics', ...options });
-  const tSettings = (key: string, options?: any) => t(key, { ns: 'settings', ...options });
+  const tCommon = (key: string, options?: Record<string, unknown>) => t(key, { ns: 'common', ...options });
+  const tDashboard = (key: string, options?: Record<string, unknown>) => t(key, { ns: 'dashboard', ...options });
+  const tStudent = (key: string, options?: Record<string, unknown>) => t(key, { ns: 'student', ...options });
+  const tTracking = (key: string, options?: Record<string, unknown>) => t(key, { ns: 'tracking', ...options });
+  const tAnalytics = (key: string, options?: Record<string, unknown>) => t(key, { ns: 'analytics', ...options });
+  const tSettings = (key: string, options?: Record<string, unknown>) => t(key, { ns: 'settings', ...options });
   
   // Norwegian-specific date formatting
   const formatDate = (date: Date) => {

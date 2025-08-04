@@ -117,7 +117,7 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
       updateStats('evictions');
       bumpMutation();
     }
-  }, [updateStats, bumpMutation]);
+  }, [updateStats, bumpMutation, removeFromTagIndex]);
 
   const removeFromTagIndex = useCallback((key: string, tags: string[]) => {
     tags.forEach(tag => {

@@ -12,7 +12,8 @@ import {
   CheckCircle,
   Clock
 } from "lucide-react";
-import { analyticsManager } from "@/lib/analyticsManager";
+import { lazyAnalyticsManager } from "@/lib/lazyAnalyticsManager";
+import { AnalyticsStatus } from "@/lib/analyticsManager";
 import { formatDistanceToNow } from "date-fns";
 import { logger } from "@/lib/logger";
 
@@ -22,24 +23,25 @@ interface AnalyticsStatusIndicatorProps {
   className?: string;
 }
 
-export const AnalyticsStatusIndicator = ({ 
-  studentId, 
-  showDetails = false, 
-  className = "" 
+export const AnalyticsStatusIndicator = ({
+  studentId,
+  showDetails = false,
+  className = ""
 }: AnalyticsStatusIndicatorProps) => {
-  const [analyticsStatus, setAnalyticsStatus] = useState<any[]>([]);
+  const [analyticsStatus, setAnalyticsStatus] = useState<AnalyticsStatus[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     loadAnalyticsStatus();
-    
+
     // Refresh status every 30 seconds
     const interval = setInterval(loadAnalyticsStatus, 30000);
     return () => clearInterval(interval);
-  }, [studentId]);
+  }, [studentId, loadAnalyticsStatus]);
 
-  const loadAnalyticsStatus = () => {
-    const status = analyticsManager.getAnalyticsStatus();
+  const loadAnalyticsStatus = async () => {
+    const manager = await lazyAnalyticsManager.getInstance();
+    const status = manager.getAnalyticsStatus();
     if (studentId) {
       setAnalyticsStatus(status.filter(s => s.studentId === studentId));
     } else {
@@ -49,11 +51,12 @@ export const AnalyticsStatusIndicator = ({
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    const manager = await lazyAnalyticsManager.getInstance();
     try {
       if (studentId) {
-        await analyticsManager.triggerAnalyticsForStudent(studentId);
+        await manager.triggerAnalyticsForStudent(studentId);
       } else {
-        await analyticsManager.triggerAnalyticsForAllStudents();
+        await manager.triggerAnalyticsForAllStudents();
       }
       loadAnalyticsStatus();
     } catch (error) {
@@ -63,7 +66,7 @@ export const AnalyticsStatusIndicator = ({
     }
   };
 
-  const getStatusIcon = (status: any) => {
+  const getStatusIcon = (status: AnalyticsStatus) => {
     if (!status.isInitialized) return <Clock className="h-4 w-4 text-muted-foreground" />;
     if (status.healthScore >= 80) return <CheckCircle className="h-4 w-4 text-green-600" />;
     if (status.healthScore >= 60) return <TrendingUp className="h-4 w-4 text-yellow-600" />;
@@ -71,14 +74,14 @@ export const AnalyticsStatusIndicator = ({
     return <AlertTriangle className="h-4 w-4 text-red-600" />;
   };
 
-  const getStatusColor = (status: any) => {
+  const getStatusColor = (status: AnalyticsStatus) => {
     if (!status.isInitialized) return "secondary";
     if (status.healthScore >= 80) return "default";
     if (status.healthScore >= 60) return "secondary";
     return "destructive";
   };
 
-  const getStatusText = (status: any) => {
+  const getStatusText = (status: AnalyticsStatus) => {
     if (!status.isInitialized) return "Initializing";
     if (status.healthScore >= 80) return "Excellent";
     if (status.healthScore >= 60) return "Good";

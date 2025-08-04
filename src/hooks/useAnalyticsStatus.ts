@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { analyticsManager } from "@/lib/analyticsManager";
+import { lazyAnalyticsManager } from "@/lib/lazyAnalyticsManager";
 import { logger } from "@/lib/logger";
 
 interface AnalyticsStatus {
@@ -53,7 +53,8 @@ export const useAnalyticsStatus = (studentId?: string): UseAnalyticsStatusReturn
 
   const loadStatus = useCallback(async () => {
     try {
-      const status = analyticsManager.getAnalyticsStatus();
+      const manager = await lazyAnalyticsManager.getInstance();
+      const status = manager.getAnalyticsStatus();
       if (studentId) {
         setAnalyticsStatus(status.filter(s => s.studentId === studentId));
       } else {
@@ -76,17 +77,19 @@ export const useAnalyticsStatus = (studentId?: string): UseAnalyticsStatusReturn
     return analyticsStatus.find(status => status.studentId === targetStudentId);
   }, [analyticsStatus]);
 
-  const initializeStudent = useCallback((targetStudentId: string) => {
-    analyticsManager.initializeStudentAnalytics(targetStudentId);
+  const initializeStudent = useCallback(async (targetStudentId: string) => {
+    const manager = await lazyAnalyticsManager.getInstance();
+    manager.initializeStudentAnalytics(targetStudentId);
     loadStatus();
   }, [loadStatus]);
 
   const triggerAnalytics = useCallback(async (targetStudentId?: string) => {
     try {
+      const manager = await lazyAnalyticsManager.getInstance();
       if (targetStudentId) {
-        await analyticsManager.triggerAnalyticsForStudent(targetStudentId);
+        await manager.triggerAnalyticsForStudent(targetStudentId);
       } else {
-        await analyticsManager.triggerAnalyticsForAllStudents();
+        await manager.triggerAnalyticsForAllStudents();
       }
       await loadStatus();
     } catch (error) {

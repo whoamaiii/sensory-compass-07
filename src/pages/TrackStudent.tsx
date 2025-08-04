@@ -9,7 +9,7 @@ import { ArrowLeft, Save, User } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
-import { analyticsManager } from "@/lib/analyticsManager";
+import { lazyAnalyticsManager } from "@/lib/lazyAnalyticsManager";
 import { logger } from "@/lib/logger";
 
 const TrackStudent = () => {
@@ -41,7 +41,7 @@ const TrackStudent = () => {
         navigate('/');
       }
     }
-  }, [studentId, navigate]);
+  }, [studentId, navigate, tTracking]);
 
   const handleEmotionAdd = (emotion: Omit<EmotionEntry, 'id' | 'timestamp'>) => {
     setEmotions([...emotions, emotion]);
@@ -100,7 +100,8 @@ const TrackStudent = () => {
       localStorage.setItem('sensoryTracker_entries', JSON.stringify(entries));
 
       // Trigger analytics update for this student
-      await analyticsManager.triggerAnalyticsForStudent(student);
+      const manager = await lazyAnalyticsManager.getInstance();
+      await manager.triggerAnalyticsForStudent(student);
 
       toast.success(String(tTracking('session.sessionSaved')));
       navigate(`/student/${student.id}`);

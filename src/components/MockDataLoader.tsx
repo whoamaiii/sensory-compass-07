@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,6 +17,19 @@ export const MockDataLoader = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [selectedScenario, setSelectedScenario] = useState<string>('all');
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleLoadMockData = async () => {
     setIsLoading(true);
@@ -27,10 +40,12 @@ export const MockDataLoader = () => {
       setLoadingProgress(25);
       
       // Generate and load the data based on selected scenario
-      const progressInterval = setInterval(() => {
+      intervalRef.current = setInterval(() => {
         setLoadingProgress((oldProgress) => {
           if (oldProgress === 100) {
-            clearInterval(progressInterval);
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+            }
             return 100;
           }
           const diff = Math.random() * 10;
@@ -72,7 +87,7 @@ export const MockDataLoader = () => {
       
       setLoadingProgress(75);
       
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => timeoutRef.current = setTimeout(resolve, 300));
       setLoadingProgress(100);
       
       // Get stats for success message

@@ -77,6 +77,18 @@ export const ensureUniversalAnalyticsInitialization = async (): Promise<void> =>
 };
 
 /**
+ * Defines the analytics status for a student.
+ */
+export interface AnalyticsStatus {
+  studentId: string;
+  studentName: string;
+  isInitialized: boolean;
+  lastAnalyzed: Date | null;
+  healthScore: number;
+  hasMinimumData: boolean;
+}
+
+/**
  * Defines the analytics profile for a student, tracking configuration and health.
  */
 interface StudentAnalyticsProfile {
@@ -238,7 +250,7 @@ function generateInsights(
  * @description A singleton service that manages all analytics-related operations, including caching,
  * profile management, and orchestrating analysis tasks.
  */
-class AnalyticsManagerService {
+export class AnalyticsManagerService {
   private static instance: AnalyticsManagerService;
   private analyticsProfiles: AnalyticsProfileMap;
   private analyticsCache: AnalyticsCache = new Map();
@@ -433,7 +445,7 @@ class AnalyticsManagerService {
    * This is useful for displaying a high-level dashboard of the system's state.
    * @returns {Array<object>} An array of status objects for each student.
    */
-  public getAnalyticsStatus() {
+  public getAnalyticsStatus(): AnalyticsStatus[] {
     const students = this.storage.getStudents();
     return students.map(student => {
       const profile = this.analyticsProfiles.get(student.id);
