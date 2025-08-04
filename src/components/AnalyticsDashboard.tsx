@@ -27,7 +27,7 @@ import {
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from "@/types/student";
 import { PatternResult, CorrelationResult } from "@/lib/patternAnalysis";
 import { useAnalyticsWorker } from "@/hooks/useAnalyticsWorker";
-import { analyticsManager } from "@/lib/analyticsManager";
+import { lazyAnalyticsManager } from "@/lib/lazyAnalyticsManager";
 import { useTranslation } from "@/hooks/useTranslation";
 import { analyticsExport, ExportFormat } from "@/lib/analyticsExport";
 import { toast } from "sonner";
@@ -130,7 +130,7 @@ export const AnalyticsDashboard = memo(({
       runAnalysis(normalize(filteredData));
     }
     // Ensure student analytics exists for all students, including new and mock
-    analyticsManager.initializeStudentAnalytics(student.id);
+    lazyAnalyticsManager.getInstance().then(manager => manager.initializeStudentAnalytics(student.id));
   }, [student.id, filteredData, runAnalysis]);
 
   // Track component unmount and check for leaks

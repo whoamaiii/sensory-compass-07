@@ -107,7 +107,20 @@ class ExportSystem {
   ): string {
     const { includeFields, dateRange, anonymize } = options;
     
-    const exportData: any = {
+    interface ExportData {
+      version: string;
+      exportDate: string;
+      options: ExportOptions;
+      data: {
+        students?: Student[];
+        emotions?: EmotionEntry[];
+        sensoryInputs?: SensoryEntry[];
+        goals?: Goal[];
+        trackingEntries?: TrackingEntry[];
+      };
+    }
+
+    const exportData: ExportData = {
       version: this.CURRENT_VERSION,
       exportDate: new Date().toISOString(),
       options,
@@ -242,10 +255,10 @@ class ExportSystem {
   async importFromCSV(csvContent: string, dataType: 'emotions' | 'sensoryInputs' | 'students'): Promise<{
     success: boolean;
     errors: string[];
-    imported: any[];
+    imported: (EmotionEntry | SensoryEntry | Student)[];
   }> {
     const errors: string[] = [];
-    const imported: any[] = [];
+    const imported: (EmotionEntry | SensoryEntry | Student)[] = [];
 
     try {
       const lines = csvContent.split('\n').filter(line => line.trim() !== '');
@@ -332,7 +345,40 @@ class ExportSystem {
     };
   }
 
-  private generateHTMLReport(content: any, options: ExportOptions): string {
+  private generateHTMLReport(content: {
+    header: {
+      title: string;
+      dateRange: string;
+      generatedDate: string;
+      studentInfo: {
+        name: string;
+        grade: string;
+        id: string;
+      };
+    };
+    summary: {
+      totalSessions: number;
+      totalEmotions: number;
+      totalSensoryInputs: number;
+      activeGoals: number;
+      completedGoals: number;
+    };
+    emotionAnalysis: {
+      mostCommon: string;
+      avgIntensity: string;
+      positiveRate: string;
+    };
+    sensoryAnalysis: {
+      seekingRatio: string;
+      mostCommonType: string;
+    };
+    goalProgress: {
+      title: string;
+      progress: number;
+      status: string;
+    }[];
+    recommendations: string[];
+  }, options: ExportOptions): string {
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -633,7 +679,10 @@ class ExportSystem {
     }));
   }
 
-  private generateRecommendations(data: any): string[] {
+  private generateRecommendations(data: {
+    emotions: EmotionEntry[];
+    sensoryInputs: SensoryEntry[];
+  }): string[] {
     const recommendations: string[] = [];
 
     // Basic recommendations based on data patterns
@@ -645,10 +694,10 @@ class ExportSystem {
     }
 
     if (data.sensoryInputs.length > 0) {
-      const seekingRatio = data.sensoryInputs.filter((s: SensoryEntry) => 
+      const seekingRatio = data.sensoryInputs.filter((s: SensoryEntry) =>
         s.response.toLowerCase().includes('seeking')
       ).length / data.sensoryInputs.length;
-      
+
       if (seekingRatio > 0.7) {
         recommendations.push('Provide more structured sensory breaks and tools');
       }
@@ -709,8 +758,8 @@ class ExportSystem {
     return result;
   }
 
-  private parseCSVRowData(headers: string[], values: string[], dataType: string): any | null {
-    const data: any = {};
+  private parseCSVRowData(headers: string[], values: string[], dataType: string): EmotionEntry | SensoryEntry | Student | null {
+    const data: Record<string, string> = {};
     headers.forEach((header, index) => {
       data[header] = values[index];
     });

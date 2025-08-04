@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, CheckCircle, AlertCircle, Users } from 'lucide-react';
 import { universalAnalyticsInitializer } from '@/lib/universalAnalyticsInitializer';
-import { analyticsManager } from '@/lib/analyticsManager';
+import { lazyAnalyticsManager } from '@/lib/lazyAnalyticsManager';
 import { logger } from '@/lib/logger';
 
 interface AnalyticsStatusData {

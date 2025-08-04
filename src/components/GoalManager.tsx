@@ -35,7 +35,7 @@ export const GoalManager = ({ student, onGoalUpdate }: GoalManagerProps) => {
 
   useEffect(() => {
     loadGoals();
-  }, [student.id]);
+  }, [student.id, loadGoals]);
 
   const loadGoals = () => {
     const allGoals = dataStorage.getGoals();

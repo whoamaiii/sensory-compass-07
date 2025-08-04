@@ -23,7 +23,7 @@ import { dataStorage } from '@/lib/dataStorage';
 import { useAnalyticsWorker } from '@/hooks/useAnalyticsWorker';
 import { usePerformanceCache } from '@/hooks/usePerformanceCache';
 import { AnalyticsConfigTest } from '@/components/AnalyticsConfigTest';
-import { toast } from 'sonner';
+import { lazyAnalyticsManager } from '@/lib/lazyAnalyticsManager';
 import { logger } from '@/lib/logger';
 
 interface TestingDebugPanelProps {
@@ -103,7 +103,8 @@ export const TestingDebugPanel = ({ className = "" }: TestingDebugPanelProps) =>
       });
       setTestResults([...results]);
       
-      const analyticsStatus = analyticsManager.getAnalyticsStatus();
+      const manager = await lazyAnalyticsManager.getInstance();
+      const analyticsStatus = manager.getAnalyticsStatus();
       const initStatus = universalAnalyticsInitializer.getInitializationStatus();
       
       results[1] = {
@@ -123,8 +124,8 @@ export const TestingDebugPanel = ({ className = "" }: TestingDebugPanelProps) =>
       
       // Create a test student temporarily
       const testStudentId = 'test-' + Date.now();
-      analyticsManager.initializeStudentAnalytics(testStudentId);
-      const testStatus = analyticsManager.getAnalyticsStatus().find(s => s.studentId === testStudentId);
+      manager.initializeStudentAnalytics(testStudentId);
+      const testStatus = manager.getAnalyticsStatus().find(s => s.studentId === testStudentId);
       
       results[2] = {
         name: "New Student Flow",

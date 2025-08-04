@@ -1,4 +1,4 @@
-import { analyticsManager } from './analyticsManager';
+import { lazyAnalyticsManager } from './lazyAnalyticsManager';
 import { dataStorage } from './dataStorage';
 import { logger } from './logger';
 
@@ -47,8 +47,9 @@ export class UniversalAnalyticsInitializer {
    */
   async ensureStudentHasAnalytics(studentId: string): Promise<void> {
     try {
+      const manager = await lazyAnalyticsManager.getInstance();
       // Initialize analytics infrastructure only
-      analyticsManager.initializeStudentAnalytics(studentId);
+      manager.initializeStudentAnalytics(studentId);
       
       
     } catch (error) {
@@ -59,20 +60,22 @@ export class UniversalAnalyticsInitializer {
   /**
    * Initialize analytics infrastructure for a new student (no auto-data generation)
    */
-  initializeNewStudentAnalytics(studentId: string): void {
-    analyticsManager.initializeStudentAnalytics(studentId);
+  async initializeNewStudentAnalytics(studentId: string): Promise<void> {
+    const manager = await lazyAnalyticsManager.getInstance();
+    manager.initializeStudentAnalytics(studentId);
   }
 
   /**
    * Get initialization status
    */
-  getInitializationStatus(): {
+  async getInitializationStatus(): Promise<{
     isInitialized: boolean;
     studentsWithAnalytics: number;
     totalStudents: number;
-  } {
+  }> {
     const students = dataStorage.getStudents();
-    const analyticsStatus = analyticsManager.getAnalyticsStatus();
+    const manager = await lazyAnalyticsManager.getInstance();
+    const analyticsStatus = manager.getAnalyticsStatus();
     
     return {
       isInitialized: this.initialized,

@@ -46,7 +46,7 @@
     "@react-three/fiber": "^9.3.0",
     "@tanstack/react-query": "^5.56.2",
     "@tensorflow/tfjs": "^4.22.0",
-    "@tensorflow/tfjs-vis": "^1.1.0",
+    "@tensorflow/tfjs-vis": "^1.5.1",
     "@types/three": "^0.178.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

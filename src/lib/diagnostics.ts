@@ -16,7 +16,7 @@ interface DiagnosticInfo {
   activeListeners?: number;
   componentName?: string;
   action?: string;
-  data?: any;
+  data?: unknown;
 }
 
 class DiagnosticLogger {
@@ -24,6 +24,7 @@ class DiagnosticLogger {
   private activeTimers = new Set<number>();
   private activeListeners = new Map<string, number>();
   private diagnosticMode = true;
+  private performanceMonitoringInterval: NodeJS.Timeout | null = null;
 
   private constructor() {
     // Track performance metrics
@@ -41,14 +42,15 @@ class DiagnosticLogger {
 
   private startPerformanceMonitoring() {
     // Monitor memory usage every 5 seconds
-    setInterval(() => {
-      if (this.diagnosticMode && (performance as any).memory) {
-        const memInfo = (performance as any).memory;
+    this.performanceMonitoringInterval = setInterval(() => {
+      const perf = window.performance as PerformanceWithMemory;
+      if (this.diagnosticMode && perf.memory) {
+        const memInfo = perf.memory;
         const usedMB = (memInfo.usedJSHeapSize / 1048576).toFixed(2);
         const totalMB = (memInfo.totalJSHeapSize / 1048576).toFixed(2);
-        
+
         logger.info(`[DIAGNOSTIC] Memory Usage: ${usedMB}MB / ${totalMB}MB`);
-        
+
         // Warning if memory usage is high
         if (memInfo.usedJSHeapSize / memInfo.jsHeapSizeLimit > 0.9) {
           logger.warn('[DIAGNOSTIC] High memory usage detected!', {
@@ -102,7 +104,7 @@ class DiagnosticLogger {
     }
   }
 
-  logWorkerMessage(workerName: string, messageType: string, data?: any) {
+  logWorkerMessage(workerName: string, messageType: string, data?: unknown) {
     if (!this.diagnosticMode) return;
     
     logger.debug('[DIAGNOSTIC] Worker Message', {
@@ -206,18 +208,33 @@ class DiagnosticLogger {
     this.diagnosticMode = enabled;
     logger.info(`[DIAGNOSTIC] Diagnostic mode ${enabled ? 'enabled' : 'disabled'}`);
   }
+
+  cleanup() {
+    if (this.performanceMonitoringInterval) {
+      clearInterval(this.performanceMonitoringInterval);
+      this.performanceMonitoringInterval = null;
+    }
+  }
 }
 
 export const diagnostics = DiagnosticLogger.getInstance();
 
 // Wrap setTimeout and clearTimeout to track timers
+interface PerformanceWithMemory extends Performance {
+  memory?: {
+    usedJSHeapSize: number;
+    totalJSHeapSize: number;
+    jsHeapSizeLimit: number;
+  };
+}
+
 if (typeof window !== 'undefined') {
   const originalSetTimeout = window.setTimeout;
   const originalClearTimeout = window.clearTimeout;
 
-  window.setTimeout = function(...args: any[]) {
-    const timerId = originalSetTimeout.apply(window, args as any);
-    diagnostics.trackTimer(timerId as any);
+  window.setTimeout = function(...args: Parameters<typeof setTimeout>) {
+    const timerId = originalSetTimeout.apply(window, args);
+    diagnostics.trackTimer(timerId as unknown as number);
     return timerId;
   };
 

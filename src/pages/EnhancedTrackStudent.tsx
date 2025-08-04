@@ -10,7 +10,7 @@ import { dataStorage } from "@/lib/dataStorage";
 import { ArrowLeft, Save, X, Clock, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
-import { analyticsManager } from "@/lib/analyticsManager";
+import { lazyAnalyticsManager } from "@/lib/lazyAnalyticsManager";
 import { format } from "date-fns";
 import { logger } from "@/lib/logger";
 
@@ -131,8 +131,9 @@ export const EnhancedTrackStudent = () => {
 
       // Trigger analytics update only if there's data
       if (sessionEmotions.length > 0 || sessionSensoryInputs.length > 0) {
-        analyticsManager.initializeStudentAnalytics(student.id);
-        await analyticsManager.triggerAnalyticsForStudent(student);
+        const manager = await lazyAnalyticsManager.getInstance();
+        manager.initializeStudentAnalytics(student.id);
+        await manager.triggerAnalyticsForStudent(student);
       }
 
       toast.success("Session saved successfully!");

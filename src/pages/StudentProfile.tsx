@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
 import { MockDataLoader } from "@/components/MockDataLoader";
-import { analyticsManager } from "@/lib/analyticsManager";
+import { lazyAnalyticsManager } from "@/lib/lazyAnalyticsManager";
 import { logger } from "@/lib/logger";
 
 /**
@@ -139,9 +139,9 @@ const StudentProfile = () => {
     
     // Analytics triggers
     if (student) {
-        analyticsManager.triggerAnalyticsForStudent(student);
+        lazyAnalyticsManager.getInstance().then(manager => manager.triggerAnalyticsForStudent(student));
     } else if (studentId) {
-        analyticsManager.initializeStudentAnalytics(studentId);
+        lazyAnalyticsManager.getInstance().then(manager => manager.initializeStudentAnalytics(studentId));
     }
 
     return () => {
