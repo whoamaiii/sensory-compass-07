@@ -92,7 +92,7 @@ export const SmartDataEntry: React.FC<SmartDataEntryProps> = ({
 
     // Analyze recent sensory patterns
     const recentSensoryTypes = recentSensoryInputs.reduce((acc, sensory) => {
-      acc[sensory.type] = (acc[sensory.type] || 0) + 1;
+      acc[sensory.sensoryType] = (acc[sensory.sensoryType] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -175,7 +175,7 @@ export const SmartDataEntry: React.FC<SmartDataEntryProps> = ({
     if (!selectedSensoryType || !selectedSensoryInput || !sensoryResponse) return;
     
     onSensoryAdd({
-      type: selectedSensoryType,
+      sensoryType: selectedSensoryType,
       input: selectedSensoryInput,
       response: sensoryResponse,
       context: sensoryContext
