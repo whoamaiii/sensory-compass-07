@@ -10,6 +10,7 @@
     "noImplicitAny": false
   },
   "include": [
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "tests/setup.polyfills.ts"
   ]
 }

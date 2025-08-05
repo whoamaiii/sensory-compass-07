@@ -413,16 +413,16 @@ export const InteractiveDataVisualization = ({
   }, [layoutMode]);
 
   // Render chart based on type
-  const renderChart = () => {
+  const renderChart = () => {
     if (chartData.length === 0) {
       return (
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          <div className="text-center">
-            <Activity className="h-16 w-16 mx-auto mb-4 opacity-50" />
-            <p>No data available for selected time range</p>
-            <p className="text-xs mt-1">Try expanding the time range or adjusting filters</p>
-          /div>
-        /div>
+        <div className="flex items-center justify-center h-64 text-muted-foreground">
+          <div className="text-center">
+            <Activity className="h-16 w-16 mx-auto mb-4 opacity-50" />
+            <p>No data available for selected time range</p>
+            <p className="text-xs mt-1">Try expanding the time range or adjusting filters</p>
+          </div>
+        </div>
       );
     }
 

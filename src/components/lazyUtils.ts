@@ -11,7 +11,7 @@ export function createLazyComponent<T extends ComponentType<any>>(
   return function WrappedLazyComponent(props: React.ComponentProps<T>) {
     return (
       <LazyLoadWrapper fallback={fallback} errorFallback={errorFallback}>
-        <Suspense fallback={fallback}>
+        <Suspense fallback={fallback ?? null}>
           <LazyComponent {...props} />
         </Suspense>
       </LazyLoadWrapper>
