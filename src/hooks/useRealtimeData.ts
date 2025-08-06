@@ -230,12 +230,21 @@ export const useRealtimeData = (
     // 10% chance of no new data this cycle
   }, [smoothInsertData]);
 
+  // Track connection timeout to ensure proper cleanup
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Start the real-time stream
   const startStream = useCallback(() => {
     dispatch({ type: 'START_STREAM' });
 
+    // Clear any existing connection timeout
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+
     // Simulate connection delay
-    const connectionTimeout = setTimeout(() => {
+    connectionTimeoutRef.current = setTimeout(() => {
       dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'connected' });
 
       if (options.simulateData) {
@@ -245,13 +254,20 @@ export const useRealtimeData = (
       } else {
         logger.info('Real-time data connection would be established here');
       }
+      
+      // Clear the ref once timeout executes
+      connectionTimeoutRef.current = null;
     }, 1000);
-
-    return () => clearTimeout(connectionTimeout);
   }, [options.simulateData, options.updateInterval, simulateDataStream]);
 
   // Stop the real-time stream
   const stopStream = useCallback(() => {
+    // Clear connection timeout if it's still pending
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -272,12 +288,21 @@ export const useRealtimeData = (
     dispatch({ type: 'CLEAR_NEW_DATA_INDICATOR' });
   }, []);
 
+  // Track historical data timeout to ensure proper cleanup
+  const historicalDataTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Get historical data (simulate API call)
   const getHistoricalData = useCallback((minutes: number) => {
     dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'connecting' });
 
+    // Clear any existing historical data timeout
+    if (historicalDataTimeoutRef.current) {
+      clearTimeout(historicalDataTimeoutRef.current);
+      historicalDataTimeoutRef.current = null;
+    }
+
     // Simulate API call delay
-    const historicalDataTimeout = setTimeout(() => {
+    historicalDataTimeoutRef.current = setTimeout(() => {
       const now = new Date();
       const historicalEmotions: EmotionEntry[] = [];
       const historicalSensory: SensoryEntry[] = [];
@@ -317,9 +342,10 @@ export const useRealtimeData = (
           trackingEntries: historicalTracking.reverse() 
         } 
       });
+      
+      // Clear the ref once timeout executes
+      historicalDataTimeoutRef.current = null;
     }, 500);
-
-    return () => clearTimeout(historicalDataTimeout);
   }, []);
 
   // Check if a data point is "live" (recently added)
@@ -347,7 +373,8 @@ export const useRealtimeData = (
 
   // Handle connection errors (simulated)
   useEffect(() => {
-    let reconnectTimeout: NodeJS.Timeout;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    
     if (state.connectionStatus === 'connected' && Math.random() < 0.01) { // 1% chance of error
       dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
       
@@ -365,6 +392,34 @@ export const useRealtimeData = (
       }
     };
   }, [state.connectionStatus, state.isLive, startStream]);
+
+  // Comprehensive cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Clear all timeouts on unmount
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
+      
+      if (historicalDataTimeoutRef.current) {
+        clearTimeout(historicalDataTimeoutRef.current);
+        historicalDataTimeoutRef.current = null;
+      }
+      
+      // Clear intervals
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      
+      // Cancel animation frames
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, []); // Empty dependency array ensures this only runs on unmount
 
   return {
     ...filteredData,
