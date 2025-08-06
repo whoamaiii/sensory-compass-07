@@ -183,22 +183,23 @@ export class DataStorageManager implements IDataStorage {
     const indexData = localStorage.getItem(STORAGE_KEYS.STORAGE_INDEX);
     if (indexData) {
       const parsed = JSON.parse(indexData);
+      
       // Convert date strings back to Date objects for accurate timestamp comparison
-      Object.keys(parsed.students || {}).forEach(key => {
-        parsed.students[key] = new Date(parsed.students[key]);
-      });
-      Object.keys(parsed.trackingEntries || {}).forEach(key => {
-        parsed.trackingEntries[key] = new Date(parsed.trackingEntries[key]);
-      });
-      Object.keys(parsed.goals || {}).forEach(key => {
-        parsed.goals[key] = new Date(parsed.goals[key]);
-      });
-      Object.keys(parsed.interventions || {}).forEach(key => {
-        parsed.interventions[key] = new Date(parsed.interventions[key]);
-      });
-      Object.keys(parsed.alerts || {}).forEach(key => {
-        parsed.alerts[key] = new Date(parsed.alerts[key]);
-      });
+      // Optimized: Use a single loop to process all index categories
+      const indexCategories = ['students', 'trackingEntries', 'goals', 'interventions', 'alerts'] as const;
+      
+      for (const category of indexCategories) {
+        if (parsed[category]) {
+          // Process all entries in this category at once
+          const entries = Object.entries(parsed[category]);
+          parsed[category] = entries.reduce((acc, [key, value]) => {
+            acc[key] = new Date(value as string);
+            return acc;
+          }, {} as Record<string, Date>);
+        }
+      }
+      
+      // Convert the lastUpdated timestamp
       parsed.lastUpdated = new Date(parsed.lastUpdated);
       return parsed;
     }

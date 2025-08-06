@@ -68,15 +68,22 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
     let filteredSensoryInputs = sensoryInputs;
     let filteredGoals = goals;
 
-    // Text search
+    // Text search - optimized to build Set during filtering
     if (filters.query.trim()) {
       const query = filters.query.toLowerCase();
-      filteredStudents = filteredStudents.filter(student =>
-        student.name.toLowerCase().includes(query) ||
-        student.notes?.toLowerCase().includes(query)
-      );
+      const studentIds = new Set<string>();
       
-      const studentIds = new Set(filteredStudents.map(s => s.id));
+      // Filter students and collect IDs in a single pass
+      filteredStudents = filteredStudents.filter(student => {
+        const matches = student.name.toLowerCase().includes(query) ||
+                        student.notes?.toLowerCase().includes(query);
+        if (matches) {
+          studentIds.add(student.id);
+        }
+        return matches;
+      });
+      
+      // Use pre-built Set for filtering related data
       filteredEntries = filteredEntries.filter(entry => studentIds.has(entry.studentId));
       filteredEmotions = filteredEmotions.filter(emotion => studentIds.has(emotion.studentId));
       filteredSensoryInputs = filteredSensoryInputs.filter(sensory => studentIds.has(sensory.studentId));
@@ -97,23 +104,35 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
       );
     }
 
-    // Emotion type filter
+    // Emotion type filter - optimized to build Set during filtering
     if (filters.emotions.length > 0) {
-      filteredEmotions = filteredEmotions.filter(emotion =>
-        filters.emotions.includes(emotion.emotion)
-      );
+      const emotionStudentIds = new Set<string>();
       
-      const emotionStudentIds = new Set(filteredEmotions.map(e => e.studentId));
+      // Filter emotions and collect student IDs in a single pass
+      filteredEmotions = filteredEmotions.filter(emotion => {
+        const matches = filters.emotions.includes(emotion.emotion);
+        if (matches && emotion.studentId) {
+          emotionStudentIds.add(emotion.studentId);
+        }
+        return matches;
+      });
+      
       filteredStudents = filteredStudents.filter(student => emotionStudentIds.has(student.id));
     }
 
-    // Sensory type filter
+    // Sensory type filter - optimized to build Set during filtering
     if (filters.sensoryTypes.length > 0) {
-      filteredSensoryInputs = filteredSensoryInputs.filter(sensory =>
-        filters.sensoryTypes.includes(sensory.sensoryType)
-      );
+      const sensoryStudentIds = new Set<string>();
       
-      const sensoryStudentIds = new Set(filteredSensoryInputs.map(s => s.studentId));
+      // Filter sensory inputs and collect student IDs in a single pass
+      filteredSensoryInputs = filteredSensoryInputs.filter(sensory => {
+        const matches = filters.sensoryTypes.includes(sensory.sensoryType);
+        if (matches && sensory.studentId) {
+          sensoryStudentIds.add(sensory.studentId);
+        }
+        return matches;
+      });
+      
       if (filters.emotions.length === 0) {
         filteredStudents = filteredStudents.filter(student => sensoryStudentIds.has(student.id));
       }
@@ -125,13 +144,19 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
       emotion.intensity <= filters.intensityRange.max
     );
 
-    // Goal status filter
+    // Goal status filter - optimized to build Set during filtering
     if (filters.goalStatus.length > 0) {
-      filteredGoals = filteredGoals.filter(goal =>
-        filters.goalStatus.includes(goal.status)
-      );
+      const goalStudentIds = new Set<string>();
       
-      const goalStudentIds = new Set(filteredGoals.map(g => g.studentId));
+      // Filter goals and collect student IDs in a single pass
+      filteredGoals = filteredGoals.filter(goal => {
+        const matches = filters.goalStatus.includes(goal.status);
+        if (matches && goal.studentId) {
+          goalStudentIds.add(goal.studentId);
+        }
+        return matches;
+      });
+      
       if (filters.emotions.length === 0 && filters.sensoryTypes.length === 0) {
         filteredStudents = filteredStudents.filter(student => goalStudentIds.has(student.id));
       }
