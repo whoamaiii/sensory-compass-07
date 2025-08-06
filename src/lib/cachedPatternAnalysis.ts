@@ -62,7 +62,16 @@ export class CachedPatternAnalysisEngine {
   }
 
   /**
-   * Analyzes emotion patterns with caching
+   * Analyzes emotion patterns from a student's data, with results cached to prevent redundant computation.
+   * It generates a cache key based on the data's fingerprint and other parameters.
+   * If a valid cached result exists, it's returned immediately. Otherwise, it performs the analysis
+   * and caches the result with tags for targeted invalidation (e.g., by student ID).
+   *
+   * @param {EmotionEntry[]} emotions The array of emotion entries to analyze.
+   * @param {number} [timeframeDays=30] The number of days to look back for the analysis.
+   * @returns {PatternResult[]} An array of identified emotion patterns.
+   * @example
+   * const emotionPatterns = cachedAnalysis.analyzeEmotionPatterns(student.emotions, 30);
    */
   analyzeEmotionPatterns(emotions: EmotionEntry[], timeframeDays: number = 30): PatternResult[] {
     const cacheKey = this.cache.createKey('emotion-patterns', {
@@ -89,7 +98,15 @@ export class CachedPatternAnalysisEngine {
   }
 
   /**
-   * Analyzes sensory patterns with caching
+   * Analyzes sensory input patterns from a student's data, with results cached for performance.
+   * A unique cache key is created from the data fingerprint and parameters. It returns cached data
+   * if available and still valid. Otherwise, it computes the patterns and caches the new results.
+   *
+   * @param {SensoryEntry[]} sensoryInputs The array of sensory input entries to analyze.
+   * @param {number} [timeframeDays=30] The timeframe in days for the analysis.
+   * @returns {PatternResult[]} An array of identified sensory patterns.
+   * @example
+   * const sensoryPatterns = cachedAnalysis.analyzeSensoryPatterns(student.sensoryInputs, 30);
    */
   analyzeSensoryPatterns(sensoryInputs: SensoryEntry[], timeframeDays: number = 30): PatternResult[] {
     const cacheKey = this.cache.createKey('sensory-patterns', {
@@ -116,7 +133,14 @@ export class CachedPatternAnalysisEngine {
   }
 
   /**
-   * Analyzes environmental correlations with caching
+   * Analyzes correlations between environmental factors and student data, with caching.
+   * The cache key includes the data fingerprint to ensure results are specific to the dataset.
+   * It returns from cache if possible or runs the analysis and stores the results.
+   *
+   * @param {TrackingEntry[]} trackingEntries The array of tracking entries containing environmental data.
+   * @returns {CorrelationResult[]} An array of identified environmental correlations.
+   * @example
+   * const correlations = cachedAnalysis.analyzeEnvironmentalCorrelations(student.trackingEntries);
    */
   analyzeEnvironmentalCorrelations(trackingEntries: TrackingEntry[]): CorrelationResult[] {
     const cacheKey = this.cache.createKey('env-correlations', {
@@ -142,7 +166,15 @@ export class CachedPatternAnalysisEngine {
   }
 
   /**
-   * Generates trigger alerts with caching
+   * Generates trigger alerts based on emotion, sensory, and tracking data, with caching.
+   * The cache key is a composite of fingerprints from all data sources and the student ID.
+   * This ensures that alerts are re-calculated only when underlying data changes.
+   *
+   * @param {EmotionEntry[]} emotions The array of emotion entries.
+   * @param {SensoryEntry[]} sensoryInputs The array of sensory input entries.
+   * @param {TrackingEntry[]} trackingEntries The array of tracking entries.
+   * @param {string} studentId The ID of the student for whom to generate alerts.
+   * @returns {TriggerAlert[]} An array of trigger alerts.
    */
   generateTriggerAlerts(
     emotions: EmotionEntry[], 
@@ -169,7 +201,16 @@ export class CachedPatternAnalysisEngine {
   }
 
   /**
-   * Generates predictive insights with caching
+   * Asynchronously generates predictive insights using enhanced pattern analysis, with caching.
+   * The method is asynchronous and returns a promise. The cache key considers all data sources,
+   * including student goals, ensuring a comprehensive check before re-computation.
+   *
+   * @param {EmotionEntry[]} emotions The array of emotion entries.
+   * @param {SensoryEntry[]} sensoryInputs The array of sensory input entries.
+   * @param {TrackingEntry[]} trackingEntries The array of tracking entries.
+   * @param {Goal[]} [goals=[]] An optional array of student goals to factor into the insights.
+   * @returns {Promise<PredictiveInsight[]>} A promise that resolves to an array of predictive insights.
+   * @note This is a performance-intensive operation and relies heavily on caching.
    */
   async generatePredictiveInsights(
     emotions: EmotionEntry[],
@@ -205,7 +246,14 @@ export class CachedPatternAnalysisEngine {
   }
 
   /**
-   * Detects anomalies with caching
+   * Detects anomalies in student data, with results cached for efficiency.
+   * It uses a cache key generated from fingerprints of all relevant data streams.
+   * If a cached result is found, it is returned; otherwise, a new analysis is performed.
+   *
+   * @param {EmotionEntry[]} emotions The array of emotion entries.
+   * @param {SensoryEntry[]} sensoryInputs The array of sensory input entries.
+   * @param {TrackingEntry[]} trackingEntries The array of tracking entries.
+   * @returns {AnomalyDetection[]} An array of detected anomalies.
    */
   detectAnomalies(
     emotions: EmotionEntry[],
@@ -238,7 +286,12 @@ export class CachedPatternAnalysisEngine {
   }
 
   /**
-   * Analyzes trends with statistics and caching
+   * Analyzes trends in a given time-series dataset, with caching.
+   * It returns a trend analysis object or null if the analysis is not possible.
+   * The cache key is based on the data fingerprint to ensure accuracy.
+   *
+   * @param {{ value: number; timestamp: Date }[]} data The time-series data to analyze.
+   * @returns {TrendAnalysis | null} A trend analysis object, or null if analysis fails.
    */
   analyzeTrendsWithStatistics(data: { value: number; timestamp: Date }[]): TrendAnalysis | null {
     const cacheKey = this.cache.createKey('trend-analysis', {
@@ -257,7 +310,12 @@ export class CachedPatternAnalysisEngine {
   }
 
   /**
-   * Generates correlation matrix with caching
+   * Generates a correlation matrix from tracking entries, with caching.
+   * This is useful for visualizing relationships between different variables.
+   * The results are cached to avoid re-computing the matrix for the same dataset.
+   *
+   * @param {TrackingEntry[]} trackingEntries The array of tracking entries.
+   * @returns {CorrelationMatrix} The generated correlation matrix.
    */
   generateCorrelationMatrix(trackingEntries: TrackingEntry[]): CorrelationMatrix {
     const cacheKey = this.cache.createKey('correlation-matrix', {
@@ -282,7 +340,15 @@ export class CachedPatternAnalysisEngine {
   }
 
   /**
-   * Generates confidence explanation with caching
+   * Generates a human-readable explanation for a given confidence score, with caching.
+   * The explanation includes the confidence level, a descriptive text, and contributing factors.
+   * Caching is used to avoid re-generating explanations for the same input parameters.
+   *
+   * @param {number} dataPoints The number of data points used in the analysis.
+   * @param {number} timeSpanDays The time span of the data in days.
+   * @param {number} rSquared The R-squared value from a regression analysis.
+   * @param {number} confidence The confidence score to be explained.
+   * @returns {{ level: 'low' | 'medium' | 'high'; explanation: string; factors: string[] }} An object containing the confidence explanation.
    */
   generateConfidenceExplanation(
     dataPoints: number,
@@ -313,14 +379,24 @@ export class CachedPatternAnalysisEngine {
   }
 
   /**
-   * Invalidate cache for a specific student
+   * Invalidates all cache entries associated with a specific student ID.
+   * This is done by finding and removing all cache entries tagged with `student-${studentId}`.
+   *
+   * @param {string} studentId The ID of the student whose cache should be invalidated.
+   * @returns {number} The number of cache entries that were invalidated.
+   * @example
+   * const invalidatedCount = cachedAnalysis.invalidateStudentCache('student-123');
    */
   invalidateStudentCache(studentId: string): number {
     return this.cache.invalidateByTag(`student-${studentId}`);
   }
 
   /**
-   * Invalidate all pattern analysis cache
+   * Invalidates the entire analysis cache by clearing entries associated with known tags.
+   * This is a broad operation that should be used when global changes (like a new app version)
+   * might affect the validity of all cached results.
+   *
+   * @returns {number} The total number of cache entries that were invalidated.
    */
   invalidateAllCache(): number {
     // Invalidate all known tags
@@ -345,7 +421,10 @@ export class CachedPatternAnalysisEngine {
   }
 
   /**
-   * Invalidate cache when configuration changes
+   * Invalidate the entire cache. This is typically called when a configuration change
+   * would affect the outcomes of all analyses, thus requiring a full reset.
+   *
+   * @returns {number} The total number of cache entries that were invalidated.
    */
   invalidateConfigurationCache(): number {
     return this.invalidateAllCache();

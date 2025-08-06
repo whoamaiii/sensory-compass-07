@@ -27,12 +27,28 @@ export interface StoredModel {
   metadata: ModelMetadata;
 }
 
-// Session-like interface for ML training
+/**
+ * Session-like interface for ML training, capturing the state
+ * of a student in various sensory and emotional dimensions.
+ */
 export interface MLSession {
+  /**
+   * Unique session identifier.
+   */
   id: string;
+  /**
+   * Identifier of the student associated with the session.
+   */
   studentId: string;
+  /**
+   * Date of the session in ISO string format.
+   */
   date: string;
   emotion: {
+    /**
+     * Average intensity values for each emotional state.
+     * Ranges from 0 (none) to 10 (very intense).
+     */
     happy?: number;
     sad?: number;
     angry?: number;
@@ -42,6 +58,9 @@ export interface MLSession {
     frustrated?: number;
   };
   sensory: {
+    /**
+     * Sensory response types, categorized as seeking, avoiding, or neutral.
+     */
     visual?: 'seeking' | 'avoiding' | 'neutral';
     auditory?: 'seeking' | 'avoiding' | 'neutral';
     tactile?: 'seeking' | 'avoiding' | 'neutral';
@@ -49,14 +68,23 @@ export interface MLSession {
     proprioceptive?: 'seeking' | 'avoiding' | 'neutral';
   };
   environment: {
+    /**
+     * Environmental conditions affecting the session.
+     */
     lighting?: 'bright' | 'dim' | 'moderate';
     noise?: 'loud' | 'moderate' | 'quiet';
     temperature?: 'hot' | 'cold' | 'comfortable';
     crowded?: 'very' | 'moderate' | 'not';
-    smells?: boolean;
-    textures?: boolean;
+    smells?: boolean;  // Presence of specific smells
+    textures?: boolean;  // Presence of notable textures
   };
+  /**
+   * Activities performed during the session.
+   */
   activities: string[];
+  /**
+   * Additional notes and observations.
+   */
   notes: string;
 }
 
@@ -103,12 +131,20 @@ export interface BaselineCluster {
 }
 
 // Model storage class using IndexedDB
+/**
+ * Class for managing model storage using IndexedDB.
+ * Handles model serialization and deserialization.
+ */
 class ModelStorage {
   private dbName = 'sensory-compass-ml';
   private storeName = 'models';
   private db: IDBDatabase | null = null;
 
-  async init(): Promise<void> {
+/**
+ * Initialize the IndexedDB database connection.
+ * Sets up the object store if it does not already exist.
+ */
+async init(): Promise<void> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, 1);
       
@@ -127,7 +163,15 @@ class ModelStorage {
     });
   }
 
-  async saveModel(name: ModelType, model: tf.LayersModel, metadata: ModelMetadata): Promise<void> {
+/**
+ * Save a model to IndexedDB with its metadata.
+ * Handles model artifacts serialization with a custom handler.
+ *
+ * @param name - Unique name for the model type.
+ * @param model - The model to be saved.
+ * @param metadata - Metadata associated with the model.
+ */
+async saveModel(name: ModelType, model: tf.LayersModel, metadata: ModelMetadata): Promise<void> {
     if (!this.db) await this.init();
     
     // Save model to IndexedDB
@@ -150,7 +194,14 @@ class ModelStorage {
     }));
   }
 
-  async loadModel(name: ModelType): Promise<StoredModel | null> {
+/**
+ * Load a model from IndexedDB using its name.
+ * Deserializes model artifacts and reconstructs the TensorFlow.js model.
+ *
+ * @param name - Unique name for the model type to be loaded.
+ * @returns The stored model along with its metadata, or null if not found.
+ */
+async loadModel(name: ModelType): Promise<StoredModel | null> {
     if (!this.db) await this.init();
     
     return new Promise((resolve, reject) => {
@@ -177,7 +228,12 @@ class ModelStorage {
     });
   }
 
-  async deleteModel(name: ModelType): Promise<void> {
+/**
+ * Delete a model from IndexedDB by its name.
+ *
+ * @param name - The model type identifier to delete.
+ */
+async deleteModel(name: ModelType): Promise<void> {
     if (!this.db) await this.init();
     
     return new Promise((resolve, reject) => {
@@ -190,7 +246,12 @@ class ModelStorage {
     });
   }
 
-  async listModels(): Promise<ModelMetadata[]> {
+/**
+ * List all models stored in IndexedDB.
+ *
+ * @returns An array of metadata for all stored models.
+ */
+async listModels(): Promise<ModelMetadata[]> {
     if (!this.db) await this.init();
     
     return new Promise((resolve, reject) => {
@@ -209,8 +270,18 @@ class ModelStorage {
 }
 
 // Data preprocessing utilities
+/**
+ * Utility class for preprocessing data related to ML models.
+ */
 export class DataPreprocessor {
-  // Normalize data to 0-1 range
+  /**
+   * Normalize an array of numbers to a 0-1 range based on defined min and max.
+   *
+   * @param data - The array of numbers to normalize.
+   * @param min - Optional minimum value for normalization. Defaults to min of data.
+   * @param max - Optional maximum value for normalization. Defaults to max of data.
+   * @returns Normalized array of numbers.
+   */
   static normalizeData(data: number[], min?: number, max?: number): number[] {
     const dataMin = min ?? Math.min(...data);
     const dataMax = max ?? Math.max(...data);
@@ -219,7 +290,13 @@ export class DataPreprocessor {
     return data.map(value => (value - dataMin) / range);
   }
 
-  // Extract time features from date
+/**
+   * Extract cyclically encoded time features from a date.
+   * Applies sine and cosine transformations for cyclic representation.
+   *
+   * @param date - The date from which to extract features.
+   * @returns Array of encoded time features.
+   */
   static extractTimeFeatures(date: Date): number[] {
     const dayOfWeek = date.getDay() / 6; // 0-1
     const hourOfDay = date.getHours() / 23; // 0-1
@@ -242,7 +319,15 @@ export class DataPreprocessor {
     ];
   }
 
-  // Convert TrackingEntry to MLSession format
+/**
+   * Converts tracking entries into ML-compatible session format.
+   *
+   * @param entries - Array of raw tracking entries from the database.
+   * @returns Array of MLSession objects with normalized data.
+   * @example
+   * const sessions = DataPreprocessor.convertTrackingEntriesToSessions(trackingEntries);
+   * // Returns sessions with averaged emotions, categorized sensory responses, and environmental data.
+   */
   static convertTrackingEntriesToSessions(entries: TrackingEntry[]): MLSession[] {
     return entries.map(entry => {
       // Extract emotion averages
@@ -306,7 +391,14 @@ export class DataPreprocessor {
     });
   }
 
-  // Prepare emotion data for training
+/**
+   * Prepare emotion data for LSTM training.
+   * Sequences are created with recent sessions, preparing for predictions.
+   *
+   * @param sessions - Array of MLSession objects containing emotion data.
+   * @param sequenceLength - Optional sequence length for training, default is 7.
+   * @returns Object containing normalized inputs and outputs for training.
+   */
   static prepareEmotionData(sessions: MLSession[], sequenceLength: number = 7): {
     inputs: tf.Tensor3D;
     outputs: tf.Tensor2D;

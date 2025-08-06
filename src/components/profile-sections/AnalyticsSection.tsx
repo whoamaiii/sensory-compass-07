@@ -42,47 +42,27 @@ export function AnalyticsSection({
 }: AnalyticsSectionProps) {
   const { tAnalytics, tCommon } = useTranslation();
 
-  // Debug logging
   useEffect(() => {
-    logger.debug('[AnalyticsSection] Component mounted');
-    logger.debug('[AnalyticsSection] Props:', {
-      student: student?.id,
+    logger.debug('[AnalyticsSection] Props received', {
+      studentId: student?.id,
       trackingEntriesCount: trackingEntries?.length,
       filteredDataEntriesCount: filteredData?.entries?.length,
       hasInsights: !!insights,
-      isLoadingInsights
+      isLoadingInsights,
     });
-    
-    // Validate required props
-    if (!student) {
-    logger.error('[AnalyticsSection] Missing required prop: student');
-    }
-    if (!filteredData) {
-    logger.error('[AnalyticsSection] Missing required prop: filteredData');
-    }
-    if (!filteredData?.entries || !filteredData?.emotions || !filteredData?.sensoryInputs) {
-    logger.error('[AnalyticsSection] Missing required filteredData properties:', {
-      hasEntries: !!filteredData?.entries,
-      hasEmotions: !!filteredData?.emotions,
-      hasSensoryInputs: !!filteredData?.sensoryInputs
-    });
-    }
-    
-    return () => {
-      logger.debug('[AnalyticsSection] Component unmounting');
-    };
-  }, [student, filteredData]);
+  }, [student, trackingEntries, filteredData, insights, isLoadingInsights]);
 
-  // Early return if required props are missing
-  if (!student || !filteredData) {
+  if (!student || !filteredData || !trackingEntries) {
     return (
       <div className="space-y-6">
         <Card className="bg-gradient-card border-0 shadow-soft">
           <CardContent className="p-6">
             <div className="text-center text-muted-foreground">
               <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-              <p>Unable to load analytics data</p>
-              <p className="text-sm mt-2">Required data is missing or still loading.</p>
+              <p>Analytics data is not available</p>
+              <p className="text-sm mt-2">
+                The required data for this section is missing or still loading. Please try again later.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -90,18 +70,15 @@ export function AnalyticsSection({
     );
   }
 
-  // Ensure filteredData has the required properties
   const safeFilteredData = {
-    entries: filteredData?.entries || [],
-    emotions: filteredData?.emotions || [],
-    sensoryInputs: filteredData?.sensoryInputs || []
+    entries: filteredData.entries || [],
+    emotions: filteredData.emotions || [],
+    sensoryInputs: filteredData.sensoryInputs || [],
   };
 
-  // Calculate confidence level based on data availability
   const getConfidenceLevel = () => {
-    const totalEntries = filteredData?.entries?.length || 0;
-    const totalEmotions = filteredData?.emotions?.length || 0;
-    const totalSensory = filteredData?.sensoryInputs?.length || 0;
+    const totalEntries = safeFilteredData.entries.length;
+    const totalEmotions = safeFilteredData.emotions.length;
     
     if (totalEntries < 5) return 0.3;
     if (totalEntries < 15 || totalEmotions < 10) return 0.7;
@@ -124,7 +101,7 @@ export function AnalyticsSection({
       <ErrorBoundary showToast={false}>
         <AnalyticsDashboard
           student={student}
-          filteredData={filteredData}
+          filteredData={safeFilteredData}
         />
       </ErrorBoundary>
 
@@ -164,9 +141,9 @@ export function AnalyticsSection({
         <CardContent>
           <ErrorBoundary showToast={false}>
             <LazyInteractiveDataVisualization 
-              trackingEntries={filteredData.entries}
-              emotions={filteredData.emotions}
-              sensoryInputs={filteredData.sensoryInputs}
+              emotions={safeFilteredData.emotions}
+              sensoryInputs={safeFilteredData.sensoryInputs}
+              trackingEntries={safeFilteredData.entries}
               studentName={student.name}
             />
           </ErrorBoundary>

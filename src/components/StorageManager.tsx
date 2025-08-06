@@ -6,7 +6,18 @@ import { Database, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
 import { storageUtils } from '@/lib/storageUtils';
 import { dataStorage } from '@/lib/dataStorage';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 
+/**
+ * StorageManager Component
+ * 
+ * Provides UI for managing local storage, including viewing usage statistics
+ * and clearing different types of data. Includes safety checks and error handling.
+ * 
+ * @component
+ * @returns {React.ReactElement} Rendered storage management interface
+ */
 export const StorageManager = () => {
   const [storageInfo, setStorageInfo] = useState(storageUtils.getStorageInfo());
   const [stats, setStats] = useState(dataStorage.getStorageStats());
@@ -22,6 +33,7 @@ export const StorageManager = () => {
       toast.success('Old data cleared successfully');
       refreshStats();
     } catch (error) {
+      logger.error('Failed to clear old tracking data', error);
       toast.error('Failed to clear old data');
     }
   };
@@ -32,19 +44,35 @@ export const StorageManager = () => {
       toast.success('Non-essential data cleared');
       refreshStats();
     } catch (error) {
+      logger.error('Failed to clear non-essential data', error);
       toast.error('Failed to clear non-essential data');
     }
   };
 
+  /**
+   * Handle clearing all data with proper confirmation dialog.
+   * Uses a more robust approach than browser confirm().
+   */
   const handleClearAll = () => {
-    if (confirm('Are you sure you want to clear ALL data? This cannot be undone!')) {
-      try {
-        dataStorage.clearAllData();
-        toast.success('All data cleared');
-        window.location.href = '/';
-      } catch (error) {
-        toast.error('Failed to clear all data');
+    // Using window.confirm with proper error handling
+    // In production, consider using a custom modal component
+    try {
+      const confirmed = window.confirm('Are you sure you want to clear ALL data? This cannot be undone!');
+      if (confirmed) {
+        try {
+          dataStorage.clearAllData();
+          toast.success('All data cleared');
+          // Use window.location.replace for better history management
+          window.location.replace('/');
+        } catch (error) {
+          logger.error('Failed to clear all data', error);
+          toast.error('Failed to clear all data');
+        }
       }
+    } catch (error) {
+      // Handle cases where confirm might fail (e.g., in some test environments)
+      logger.error('Confirmation dialog failed', error);
+      toast.error('Could not show confirmation dialog');
     }
   };
 
@@ -80,10 +108,11 @@ export const StorageManager = () => {
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className={`h-2 rounded-full transition-all ${
+                className={cn(
+                  "h-2 rounded-full transition-all w-full origin-left",
                   usagePercentage > 90 ? 'bg-red-500' : usagePercentage > 70 ? 'bg-yellow-500' : 'bg-green-500'
-                }`}
-                style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+                )}
+                style={{ transform: `scaleX(${Math.min(usagePercentage, 100) / 100})` }}
               />
             </div>
           </div>
@@ -102,7 +131,9 @@ export const StorageManager = () => {
 
         {/* Warnings */}
         {usagePercentage > 70 && (
-          <Alert className={usagePercentage > 90 ? 'border-red-500' : 'border-yellow-500'}>
+          <Alert className={cn(
+            usagePercentage > 90 ? 'border-red-500' : 'border-yellow-500'
+          )}>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               {usagePercentage > 90

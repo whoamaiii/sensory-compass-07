@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { AlertTriangle, CheckCircle, Eye, EyeOff, Clock, TrendingUp } from "luci
 import { alertSystem, AlertHistoryEntry } from "@/lib/alertSystem";
 import { TriggerAlert } from "@/lib/patternAnalysis";
 import { toast } from "sonner";
+import { logger } from '@/lib/logger';
 
 interface AlertManagerProps {
   studentId?: string;
@@ -20,11 +21,7 @@ export const AlertManager = ({ studentId, showOnlyUnresolved = false }: AlertMan
   const [resolveNotes, setResolveNotes] = useState<string>('');
   const [isResolving, setIsResolving] = useState<boolean>(false);
 
-  useEffect(() => {
-    loadAlerts();
-  }, [studentId, showOnlyUnresolved]);
-
-  const loadAlerts = () => {
+  const loadAlerts = useCallback(() => {
     let alertList: AlertHistoryEntry[];
     
     if (studentId) {
@@ -46,7 +43,11 @@ export const AlertManager = ({ studentId, showOnlyUnresolved = false }: AlertMan
     });
 
     setAlerts(alertList);
-  };
+  }, [studentId, showOnlyUnresolved]);
+
+  useEffect(() => {
+    loadAlerts();
+  }, [loadAlerts]);
 
   const handleMarkAsViewed = (alertId: string) => {
     alertSystem.markAlertAsViewed(alertId);
@@ -54,21 +55,33 @@ export const AlertManager = ({ studentId, showOnlyUnresolved = false }: AlertMan
     toast.success('Alert marked as viewed');
   };
 
+  /**
+   * Handle alert resolution with proper cleanup and state management.
+   * Ensures dialog state is properly reset after resolution.
+   */
   const handleResolveAlert = () => {
     if (!selectedAlert) return;
     
     setIsResolving(true);
-    alertSystem.resolveAlert(
-      selectedAlert.alert.id, 
-      'Teacher', // In a real app, this would be the current user
-      resolveNotes.trim() || undefined
-    );
     
-    setSelectedAlert(null);
-    setResolveNotes('');
-    setIsResolving(false);
-    loadAlerts();
-    toast.success('Alert resolved successfully');
+    try {
+      alertSystem.resolveAlert(
+        selectedAlert.alert.id, 
+        'Teacher', // In a real app, this would be the current user
+        resolveNotes.trim() || undefined
+      );
+      
+      // Clean up state after successful resolution
+      setSelectedAlert(null);
+      setResolveNotes('');
+      loadAlerts();
+      toast.success('Alert resolved successfully');
+    } catch (error) {
+      logger.error('Failed to resolve alert', error);
+      toast.error('Failed to resolve alert. Please try again.');
+    } finally {
+      setIsResolving(false);
+    }
   };
 
   const getSeverityIcon = (severity: string) => {
@@ -172,12 +185,21 @@ export const AlertManager = ({ studentId, showOnlyUnresolved = false }: AlertMan
                   </Button>
                 )}
                 {!alertEntry.resolved && (
-                  <Dialog>
+                  <Dialog 
+                    open={selectedAlert?.alert.id === alertEntry.alert.id}
+                    onOpenChange={(open) => {
+                      if (open) {
+                        setSelectedAlert(alertEntry);
+                      } else {
+                        setSelectedAlert(null);
+                        setResolveNotes('');
+                      }
+                    }}
+                  >
                     <DialogTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setSelectedAlert(alertEntry)}
                       >
                         Resolve
                       </Button>

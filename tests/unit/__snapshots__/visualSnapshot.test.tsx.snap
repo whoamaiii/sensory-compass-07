@@ -1,0 +1,392 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Visual Snapshot Tests > Dashboard component renders consistently 1`] = `
+<div
+  class="dashboard"
+>
+  <h1>
+    Student Dashboard
+  </h1>
+  <div
+    class="student-card"
+  >
+    <h2>
+      John Doe
+    </h2>
+    <p>
+      Grade: 
+      8
+    </p>
+    <p>
+      DOB: 
+      2010-01-01
+    </p>
+    <p>
+      Notes: 
+      Test student for snapshot testing
+    </p>
+    <div
+      class="goals"
+    >
+      <h3>
+        IEP Goals:
+      </h3>
+      <div
+        class="goal"
+      >
+        <h4>
+          Improve Focus
+        </h4>
+        <p>
+          Improve attention span through sensory strategies
+        </p>
+        <progress
+          max="100"
+          value="65"
+        >
+          65
+          %
+        </progress>
+      </div>
+    </div>
+  </div>
+  <div
+    class="data-sections"
+  >
+    <div
+      class="emotion-chart"
+    >
+      <h3>
+        Emotion Tracking
+      </h3>
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Time
+            </th>
+            <th>
+              Emotion
+            </th>
+            <th>
+              Intensity
+            </th>
+            <th>
+              Triggers
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              10:00:00 AM
+            </td>
+            <td>
+              happy
+            </td>
+            <td>
+              4
+              /5
+            </td>
+            <td>
+              positive feedback
+            </td>
+          </tr>
+          <tr>
+            <td>
+              2:00:00 PM
+            </td>
+            <td>
+              anxious
+            </td>
+            <td>
+              3
+              /5
+            </td>
+            <td>
+              loud noise
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div
+      class="sensory-profile"
+    >
+      <h3>
+        Sensory Profile
+      </h3>
+      <div
+        class="sensory-items"
+      >
+        <div
+          class="sensory-item"
+        >
+          <span
+            class="type"
+          >
+            auditory
+          </span>
+          <span
+            class="response"
+          >
+            avoiding
+          </span>
+          <span
+            class="intensity"
+          >
+            Intensity: 
+            4
+            /5
+          </span>
+          <p
+            class="notes"
+          >
+            Covered ears during music class
+          </p>
+        </div>
+        <div
+          class="sensory-item"
+        >
+          <span
+            class="type"
+          >
+            tactile
+          </span>
+          <span
+            class="response"
+          >
+            seeking
+          </span>
+          <span
+            class="intensity"
+          >
+            Intensity: 
+            3
+            /5
+          </span>
+          <p
+            class="notes"
+          >
+            Requested fidget toy
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Visual Snapshot Tests > EmotionChart component renders consistently 1`] = `
+<div
+  class="emotion-chart"
+>
+  <h3>
+    Emotion Tracking
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th>
+          Time
+        </th>
+        <th>
+          Emotion
+        </th>
+        <th>
+          Intensity
+        </th>
+        <th>
+          Triggers
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          10:00:00 AM
+        </td>
+        <td>
+          happy
+        </td>
+        <td>
+          4
+          /5
+        </td>
+        <td>
+          positive feedback
+        </td>
+      </tr>
+      <tr>
+        <td>
+          2:00:00 PM
+        </td>
+        <td>
+          anxious
+        </td>
+        <td>
+          3
+          /5
+        </td>
+        <td>
+          loud noise
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+`;
+
+exports[`Visual Snapshot Tests > Empty states render consistently 1`] = `
+<div
+  class="emotion-chart"
+>
+  <h3>
+    Emotion Tracking
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th>
+          Time
+        </th>
+        <th>
+          Emotion
+        </th>
+        <th>
+          Intensity
+        </th>
+        <th>
+          Triggers
+        </th>
+      </tr>
+    </thead>
+    <tbody />
+  </table>
+</div>
+`;
+
+exports[`Visual Snapshot Tests > Empty states render consistently 2`] = `
+<div
+  class="sensory-profile"
+>
+  <h3>
+    Sensory Profile
+  </h3>
+  <div
+    class="sensory-items"
+  />
+</div>
+`;
+
+exports[`Visual Snapshot Tests > SensoryProfile component renders consistently 1`] = `
+<div
+  class="sensory-profile"
+>
+  <h3>
+    Sensory Profile
+  </h3>
+  <div
+    class="sensory-items"
+  >
+    <div
+      class="sensory-item"
+    >
+      <span
+        class="type"
+      >
+        auditory
+      </span>
+      <span
+        class="response"
+      >
+        avoiding
+      </span>
+      <span
+        class="intensity"
+      >
+        Intensity: 
+        4
+        /5
+      </span>
+      <p
+        class="notes"
+      >
+        Covered ears during music class
+      </p>
+    </div>
+    <div
+      class="sensory-item"
+    >
+      <span
+        class="type"
+      >
+        tactile
+      </span>
+      <span
+        class="response"
+      >
+        seeking
+      </span>
+      <span
+        class="intensity"
+      >
+        Intensity: 
+        3
+        /5
+      </span>
+      <p
+        class="notes"
+      >
+        Requested fidget toy
+      </p>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Visual Snapshot Tests > StudentCard component renders consistently 1`] = `
+<div
+  class="student-card"
+>
+  <h2>
+    John Doe
+  </h2>
+  <p>
+    Grade: 
+    8
+  </p>
+  <p>
+    DOB: 
+    2010-01-01
+  </p>
+  <p>
+    Notes: 
+    Test student for snapshot testing
+  </p>
+  <div
+    class="goals"
+  >
+    <h3>
+      IEP Goals:
+    </h3>
+    <div
+      class="goal"
+    >
+      <h4>
+        Improve Focus
+      </h4>
+      <p>
+        Improve attention span through sensory strategies
+      </p>
+      <progress
+        max="100"
+        value="65"
+      >
+        65
+        %
+      </progress>
+    </div>
+  </div>
+</div>
+`;

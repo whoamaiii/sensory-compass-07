@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,9 @@ interface TestResult {
   message: string;
 }
 
-export const AnalyticsConfigTest: React.FC = () => {
+interface AnalyticsConfigTestProps {}
+
+const AnalyticsConfigTest: React.FC<AnalyticsConfigTestProps> = () => {
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [currentConfig, setCurrentConfig] = useState(analyticsConfig.getConfig());
   const { cacheSize, clearCache } = useAnalyticsWorker();
@@ -213,7 +215,7 @@ export const AnalyticsConfigTest: React.FC = () => {
     setTestResults(results);
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = useCallback((status: TestResult['status']): React.ReactElement => {
     switch (status) {
       case 'pass':
         return <CheckCircle className="h-5 w-5 text-green-600" />;
@@ -222,9 +224,9 @@ export const AnalyticsConfigTest: React.FC = () => {
       default:
         return <RefreshCw className="h-5 w-5 text-gray-400 animate-spin" />;
     }
-  };
+  }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: TestResult['status']): 'default' | 'destructive' | 'secondary' | 'outline' => {
     switch (status) {
       case 'pass':
         return 'default';
@@ -233,7 +235,7 @@ export const AnalyticsConfigTest: React.FC = () => {
       default:
         return 'secondary';
     }
-  };
+  }, []);
 
   return (
     <Card>
@@ -327,4 +329,4 @@ export const AnalyticsConfigTest: React.FC = () => {
   );
 };
 
-export default AnalyticsConfigTest;
+export { AnalyticsConfigTest };

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -34,12 +34,18 @@ interface QualityMetric {
   icon: React.ComponentType<any>;
 }
 
-export const DataQualityFeedback = ({ 
+/**
+ * DataQualityFeedback
+ *
+ * Provides visual feedback about the coverage and balance of collected data.
+ * Protects against incorrect metric calculations if arrays or their elements are missing/broken.
+ */
+export const DataQualityFeedback = memo(({ 
   emotions, 
   sensoryInputs, 
   entries, 
   className 
-}: DataQualityFeedbackProps) => {
+}: DataQualityFeedbackProps) = {
   const { tAnalytics, formatDate } = useTranslation();
 
   // Calculate comprehensive data quality metrics
@@ -57,6 +63,10 @@ export const DataQualityFeedback = ({
       ...sensoryInputs.map(s => s.timestamp),
       ...entries.map(e => e.timestamp)
     ].sort((a, b) => a.getTime() - b.getTime());
+
+    if (allTimestamps.length === 0) {
+      return [];
+    }
     
     const dataSpan = differenceInDays(new Date(), allTimestamps[0]) + 1;
     const startDate = allTimestamps[0];
@@ -77,11 +87,11 @@ export const DataQualityFeedback = ({
     const consistencyStatus = consistencyScore >= 80 ? 'excellent' : consistencyScore >= 60 ? 'good' : consistencyScore >= 40 ? 'fair' : 'poor';
 
     // 3. Data Diversity Quality (balance between emotions and sensory)
-    const emotionRatio = emotions.length / totalDataPoints;
-    const sensoryRatio = sensoryInputs.length / totalDataPoints;
+    const emotionRatio = totalDataPoints === 0 ? 0 : emotions.length / totalDataPoints;
+    const sensoryRatio = totalDataPoints === 0 ? 0 : sensoryInputs.length / totalDataPoints;
     const diversityBalance = 1 - Math.abs(emotionRatio - sensoryRatio);
     const diversityScore = diversityBalance * 100;
-    const diversityStatus = diversityScore >= 80 ? 'excellent' : diversityScore >= 60 ? 'good' : diversityScore >= 40 ? 'fair' : 'poor';
+    const diversityStatus = diversityScore = 80 ? 'excellent' : diversityScore = 60 ? 'good' : diversityScore = 40 ? 'fair' : 'poor';
 
     // 4. Recent Activity Quality (data freshness)
     const recentData = [...emotions, ...sensoryInputs].filter(item => 
@@ -91,11 +101,11 @@ export const DataQualityFeedback = ({
     const recentActivityStatus = recentActivityScore >= 80 ? 'excellent' : recentActivityScore >= 60 ? 'good' : recentActivityScore >= 40 ? 'fair' : 'poor';
 
     // 5. Session Completeness (emotions + sensory in same sessions)
-    const completeSessions = entries.filter(entry => 
-      entry.emotions.length > 0 && entry.sensoryInputs.length > 0
+    const completeSessions = entries.filter(entry = 
+      Array.isArray(entry.emotions) && Array.isArray(entry.sensoryInputs) && entry.emotions.length  0 && entry.sensoryInputs.length  0
     );
-    const completenessScore = totalEntries > 0 ? (completeSessions.length / totalEntries) * 100 : 0;
-    const completenessStatus = completenessScore >= 80 ? 'excellent' : completenessScore >= 60 ? 'good' : completenessScore >= 40 ? 'fair' : 'poor';
+    const completenessScore = totalEntries  0 ? (completeSessions.length / totalEntries) * 100 : 0;
+    const completenessStatus = completenessScore = 80 ? 'excellent' : completenessScore = 60 ? 'good' : completenessScore = 40 ? 'fair' : 'poor';
 
     const metrics: QualityMetric[] = [
       {
@@ -299,4 +309,6 @@ export const DataQualityFeedback = ({
       </CardContent>
     </Card>
   );
-};
+});
+
+DataQualityFeedback.displayName = 'DataQualityFeedback';

@@ -131,7 +131,7 @@ const AxisLabels: React.FC<{ xLabel: string; yLabel: string; zLabel: string }> =
       <Text
         position={[size + 0.5, 0, 0]}
         fontSize={0.5}
-        color="black"
+        color="var(--foreground)"
         anchorX="left"
       >
         {xLabel}
@@ -145,7 +145,7 @@ const AxisLabels: React.FC<{ xLabel: string; yLabel: string; zLabel: string }> =
       <Text
         position={[0, size + 0.5, 0]}
         fontSize={0.5}
-        color="black"
+        color="var(--foreground)"
         anchorX="center"
       >
         {yLabel}
@@ -159,7 +159,7 @@ const AxisLabels: React.FC<{ xLabel: string; yLabel: string; zLabel: string }> =
       <Text
         position={[0, 0, size + 0.5]}
         fontSize={0.5}
-        color="black"
+        color="var(--foreground)"
         anchorX="center"
       >
         {zLabel}
@@ -498,8 +498,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
             }} />
           </Canvas>
           
-          {/* Legend */}
-          <div className="absolute top-4 left-4 bg-background/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+        <div className="absolute top-4 left-4 bg-background/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
             <h4 className="font-medium text-sm mb-2">Legend</h4>
             <div className="space-y-1">
               {colorBy === 'category' && (
@@ -527,7 +526,6 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
             </div>
           </div>
           
-          {/* Stats */}
           <div className="absolute bottom-4 left-4 bg-background/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
             <div className="text-xs space-y-1">
               <p>Points: {filteredPoints.length}</p>

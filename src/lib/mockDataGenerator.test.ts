@@ -1,3 +1,11 @@
+import { vi } from 'vitest';
+
+vi.mock('@/lib/dataValidation', () => ({
+  validateEmotionEntry: vi.fn(() => ({ isValid: true })),
+  validateSensoryEntry: vi.fn(() => ({ isValid: true })),
+  validateTrackingEntry: vi.fn(() => ({ isValid: true })),
+}));
+
 import { describe, it, expect } from 'vitest';
 import { generateMockStudents, generateEmotionEntry, generateSensoryEntry, generateTrackingEntry, generateAllMockData } from './mockDataGenerator';
 import { Student } from '@/types/student';

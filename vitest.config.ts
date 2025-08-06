@@ -9,8 +9,8 @@ export default defineConfig({
   },
   test: {
     // Ensure all tests get storage polyfills before modules import
-    setupFiles: ['tests/setup.polyfills.ts', 'src/setupTests.ts'],
-    // Use Node environment for library tests; switch to 'jsdom' for DOM-heavy tests
-    environment: 'node',
+    setupFiles: ['tests/setup.polyfills.ts', 'src/setupTests.ts', 'tests/setup.ts'],
+    // Use jsdom for React component testing
+    environment: 'jsdom',
   },
 });

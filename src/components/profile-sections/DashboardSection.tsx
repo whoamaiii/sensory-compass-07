@@ -13,6 +13,7 @@ import { Student, TrackingEntry, EmotionEntry, SensoryEntry, Insights } from '@/
 import { useTranslation } from '@/hooks/useTranslation';
 import { Plus, Calendar, BarChart3, TrendingUp, ChevronDown, Info, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 /**
  * @interface DashboardSectionProps
@@ -189,10 +190,13 @@ export function DashboardSection({
             </Badge>
           </div>
           
-          <div className="bg-muted rounded-full h-2 mb-4">
+          <div className="bg-muted rounded-full h-2 mb-4 overflow-hidden">
             <div 
-              className="bg-primary h-2 rounded-full transition-all duration-500"
-              style={{ width: `${dataQualityScore}%` }}
+              className={cn(
+                "bg-primary h-2 rounded-full transition-all duration-500",
+                "w-full origin-left"
+              )}
+              style={{ transform: `scaleX(${dataQualityScore / 100})` }}
             />
           </div>
 
@@ -202,7 +206,10 @@ export function DashboardSection({
                 <span className="text-sm text-muted-foreground">
                   {showAdvancedDetails ? 'Skjul detaljer' : 'Vis detaljert analyse'}
                 </span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedDetails ? 'rotate-180' : ''}`} />
+                <ChevronDown className={cn(
+                  "h-4 w-4 transition-transform",
+                  showAdvancedDetails && "rotate-180"
+                )} />
               </Button>
             </CollapsibleTrigger>
             

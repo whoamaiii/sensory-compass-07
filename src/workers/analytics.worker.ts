@@ -9,15 +9,11 @@
 import { PatternResult, CorrelationResult } from '@/lib/patternAnalysis';
 import { PredictiveInsight, AnomalyDetection } from '@/lib/enhancedPatternAnalysis';
 import { TrackingEntry, EmotionEntry, SensoryEntry } from '@/types/student';
+import { AnalyticsData, AnalyticsResults, AnalyticsConfiguration, WorkerCacheEntry } from '@/types/analytics';
 import { createCachedPatternAnalysis } from '@/lib/cachedPatternAnalysis';
-import { AnalyticsConfiguration } from '@/lib/analyticsConfig';
 import { logger } from '@/lib/logger';
 
-interface CacheEntry {
-  data: unknown;
-  expires: number;
-  tags?: string[];
-}
+// Type is now imported from @/types/analytics
 
 let workerCacheTTL = 5 * 60 * 1000; // default 5 minutes, overridden by config
 let workerCacheMaxSize = 200; // soft cap, overridden by config if provided
@@ -25,7 +21,7 @@ const insertionOrder: string[] = []; // FIFO order for eviction
 
 // Create a simple cache implementation for the worker
 const workerCache = {
-  storage: new Map<string, CacheEntry>(),
+  storage: new Map<string, WorkerCacheEntry>(),
   
   get(key: string): unknown | undefined {
     const entry = this.storage.get(key);
@@ -141,30 +137,8 @@ const getConfigHash = (cfg: AnalyticsConfiguration | null): string => {
 // Configuration passed from main thread
 let currentConfig: AnalyticsConfiguration | null = null;
 
-/**
- * @interface AnalyticsData
- * Defines the shape of the data the worker expects to receive.
- */
-export interface AnalyticsData {
-  entries: TrackingEntry[];
-  emotions: EmotionEntry[];
-  sensoryInputs: SensoryEntry[];
-  cacheKey?: string; // Optional cache key for storing results
-  config?: AnalyticsConfiguration; // Configuration passed from main thread
-}
-
-/**
- * @interface AnalyticsResults
- * Defines the shape of the results the worker will post back to the main thread.
- */
-export interface AnalyticsResults {
-  patterns: PatternResult[];
-  correlations: CorrelationResult[];
-  predictiveInsights: PredictiveInsight[];
-  anomalies: AnomalyDetection[];
-  insights: string[];
-  cacheKey?: string; // Include cache key in results for storage
-}
+// Types are now imported from @/types/analytics
+export type { AnalyticsData, AnalyticsResults } from '@/types/analytics';
 
 /**
  * Generates high-level, human-readable insights from the raw analysis results.
@@ -224,18 +198,22 @@ const generateInsights = (
  * This function is triggered when the main thread calls `worker.postMessage()`.
  * It orchestrates the analysis process and posts the results back.
  */
-self.onmessage = async (e: MessageEvent<AnalyticsData>) => {
+export async function handleMessage(e: MessageEvent<AnalyticsData>) {
   const filteredData = e.data;
 
-  // Diagnostic log: message received
+  // Diagnostic log: message received - use cache to limit verbosity
   try {
-    logger.debug('[analytics.worker] onmessage', {
-      hasConfig: !!filteredData?.config,
-      cacheKey: filteredData?.cacheKey ?? null,
-      entries: filteredData?.entries?.length ?? 0,
-      emotions: filteredData?.emotions?.length ?? 0,
-      sensory: filteredData?.sensoryInputs?.length ?? 0,
-    });
+    const logKey = `worker_msg_${filteredData?.cacheKey || 'nocache'}_${new Date().getMinutes()}`;
+    if (!workerCache.has(logKey)) {
+      logger.debug('[analytics.worker] onmessage', {
+        hasConfig: !!filteredData?.config,
+        cacheKey: filteredData?.cacheKey ?? null,
+        entries: filteredData?.entries?.length ?? 0,
+        emotions: filteredData?.emotions?.length ?? 0,
+        sensory: filteredData?.sensoryInputs?.length ?? 0,
+      });
+      workerCache.set(logKey, true, ['logging']);
+    }
   } catch (e) {
     /* noop */
   }
@@ -275,11 +253,7 @@ self.onmessage = async (e: MessageEvent<AnalyticsData>) => {
     // Use configured time window or default to 30 days
     const timeWindow = currentConfig?.timeWindows?.defaultAnalysisDays || 30;
 
-    try {
-    logger.debug('[analytics.worker] resolved timeWindow', { timeWindow });
-    } catch (e) {
-      /* noop */
-    }
+    // Removed redundant logging of timeWindow
     
     const emotionPatterns = filteredData.emotions.length > 0
       ? cachedAnalysis.analyzeEmotionPatterns(filteredData.emotions, timeWindow)
@@ -317,6 +291,7 @@ self.onmessage = async (e: MessageEvent<AnalyticsData>) => {
     const results: AnalyticsResults = {
       patterns,
       correlations,
+      environmentalCorrelations: correlations, // Include environmental correlations
       predictiveInsights,
       anomalies,
       insights,
@@ -345,4 +320,9 @@ self.onmessage = async (e: MessageEvent<AnalyticsData>) => {
       cacheKey: filteredData.cacheKey
     });
   }
-}; 
+}
+
+// Attach the handler to self.onmessage for the worker context
+if (typeof self !== 'undefined' && 'onmessage' in self) {
+  self.onmessage = handleMessage;
+}

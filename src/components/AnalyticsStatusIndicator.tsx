@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,21 @@ import {
   Clock
 } from "lucide-react";
 import { analyticsManager } from "@/lib/analyticsManager";
+import { dataStorage } from "@/lib/dataStorage";
 import { formatDistanceToNow } from "date-fns";
 import { logger } from "@/lib/logger";
+
+/**
+ * Represents the analytics status for a single student
+ */
+interface AnalyticsStatus {
+  studentId: string;
+  studentName: string;
+  isInitialized: boolean;
+  lastAnalyzed: Date | null;
+  healthScore: number;
+  hasMinimumData: boolean;
+}
 
 interface AnalyticsStatusIndicatorProps {
   studentId?: string;
@@ -22,48 +35,78 @@ interface AnalyticsStatusIndicatorProps {
   className?: string;
 }
 
+/**
+ * AnalyticsStatusIndicator Component
+ * 
+ * Displays the current analytics health and status for one or all students.
+ * Auto-refreshes every 30 seconds to show real-time status updates.
+ * 
+ * @component
+ * @param {AnalyticsStatusIndicatorProps} props - Component props
+ * @param {string} [props.studentId] - Optional student ID to filter analytics
+ * @param {boolean} [props.showDetails=false] - Whether to show detailed analytics systems status
+ * @param {string} [props.className=""] - Additional CSS classes
+ */
 export const AnalyticsStatusIndicator = ({ 
   studentId, 
   showDetails = false, 
   className = "" 
 }: AnalyticsStatusIndicatorProps) => {
-  const [analyticsStatus, setAnalyticsStatus] = useState<any[]>([]);
+  const [analyticsStatus, setAnalyticsStatus] = useState<AnalyticsStatus[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadAnalyticsStatus();
-    
-    // Refresh status every 30 seconds
-    const interval = setInterval(loadAnalyticsStatus, 30000);
-    return () => clearInterval(interval);
-  }, [studentId]);
-
-  const loadAnalyticsStatus = () => {
-    const status = analyticsManager.getAnalyticsStatus();
+  /**
+   * Load analytics status from the analytics manager.
+   * Memoized to prevent recreation on every render.
+   * Filters by studentId if provided.
+   */
+  const loadAnalyticsStatus = useCallback(() => {
+    const status = analyticsManager.getAnalyticsStatus() as AnalyticsStatus[];
     if (studentId) {
       setAnalyticsStatus(status.filter(s => s.studentId === studentId));
     } else {
       setAnalyticsStatus(status);
     }
-  };
+  }, [studentId]);
+
+  /**
+   * Effect to load analytics status and set up auto-refresh.
+   * Properly includes loadAnalyticsStatus in dependencies.
+   */
+  useEffect(() => {
+    // Initial load
+    loadAnalyticsStatus();
+    
+    // Set up auto-refresh every 30 seconds
+    const interval = setInterval(loadAnalyticsStatus, 30000);
+    
+    // Cleanup on unmount
+    return () => clearInterval(interval);
+  }, [loadAnalyticsStatus]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
       if (studentId) {
-        await analyticsManager.triggerAnalyticsForStudent(studentId);
+        // Get the full Student object from storage
+        const student = dataStorage.getStudentById(studentId);
+        if (student) {
+          await analyticsManager.triggerAnalyticsForStudent(student);
+        } else {
+          logger.warn('Student not found for refresh', { studentId });
+        }
       } else {
         await analyticsManager.triggerAnalyticsForAllStudents();
       }
       loadAnalyticsStatus();
     } catch (error) {
-      logger.error('Error refreshing analytics', { error });
+      logger.error('Error refreshing analytics', error);
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  const getStatusIcon = (status: any) => {
+  const getStatusIcon = (status: AnalyticsStatus) => {
     if (!status.isInitialized) return <Clock className="h-4 w-4 text-muted-foreground" />;
     if (status.healthScore >= 80) return <CheckCircle className="h-4 w-4 text-green-600" />;
     if (status.healthScore >= 60) return <TrendingUp className="h-4 w-4 text-yellow-600" />;
@@ -71,14 +114,14 @@ export const AnalyticsStatusIndicator = ({
     return <AlertTriangle className="h-4 w-4 text-red-600" />;
   };
 
-  const getStatusColor = (status: any) => {
+  const getStatusColor = (status: AnalyticsStatus): "default" | "secondary" | "destructive" | "outline" => {
     if (!status.isInitialized) return "secondary";
     if (status.healthScore >= 80) return "default";
     if (status.healthScore >= 60) return "secondary";
     return "destructive";
   };
 
-  const getStatusText = (status: any) => {
+  const getStatusText = (status: AnalyticsStatus): string => {
     if (!status.isInitialized) return "Initializing";
     if (status.healthScore >= 80) return "Excellent";
     if (status.healthScore >= 60) return "Good";

@@ -58,7 +58,9 @@ import { format, subDays, isWithinInterval } from "date-fns";
 import { analyticsExport, ExportFormat, AnalyticsExportData } from "@/lib/analyticsExport";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ChartTooltip } from "./charts/ChartTooltip";
 import { logger } from "@/lib/logger";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 // Import new components
 import { Visualization3D } from './Visualization3D';
@@ -84,6 +86,16 @@ interface HighlightState {
   relatedIds: string[];
 }
 
+const parseTimestamp = (entry: { timestamp: string | Date }): Date | null => {
+  if (entry.timestamp instanceof Date) {
+    return entry.timestamp;
+  }
+  if (typeof entry.timestamp === 'string') {
+    const date = new Date(entry.timestamp);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  return null;
+};
 export const InteractiveDataVisualization = ({ 
   emotions: initialEmotions, 
   sensoryInputs: initialSensoryInputs, 
@@ -92,7 +104,14 @@ export const InteractiveDataVisualization = ({
 }: InteractiveDataVisualizationProps) => {
   const [selectedChartType, setSelectedChartType] = useState<ChartType>('line');
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('30d');
-  const [selectedEmotions, setSelectedEmotions] = useState<string[]>(['all']);
+const safeInitialEmotions = Array.isArray(initialEmotions) ? initialEmotions : [];
+const safeInitialSensoryInputs = Array.isArray(initialSensoryInputs) ? initialSensoryInputs : [];
+const safeInitialTracking = Array.isArray(initialTrackingEntries) ? initialTrackingEntries : [];
+
+const availableEmotions = Array.from(
+  new Set(safeInitialEmotions.map(e => e.emotion))
+);
+const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmotions);
   const [correlationMatrix, setCorrelationMatrix] = useState<CorrelationMatrix | null>(null);
   const [patterns, setPatterns] = useState<PatternResult[]>([]);
   const [predictiveInsights, setPredictiveInsights] = useState<PredictiveInsight[]>([]);
@@ -148,69 +167,76 @@ export const InteractiveDataVisualization = ({
   );
 
   // Use real-time data if enabled, otherwise use initial data
-  const emotions = filterCriteria.realtime ? realtimeData.emotions : initialEmotions;
-  const sensoryInputs = filterCriteria.realtime ? realtimeData.sensoryInputs : initialSensoryInputs;
-  const trackingEntries = filterCriteria.realtime ? realtimeData.trackingEntries : initialTrackingEntries;
+  const emotions = filterCriteria.realtime ? realtimeData.emotions : safeInitialEmotions;
+  const sensoryInputs = filterCriteria.realtime ? realtimeData.sensoryInputs : safeInitialSensoryInputs;
+  const trackingEntries = filterCriteria.realtime ? realtimeData.trackingEntries : safeInitialTracking;
 
   // Apply filters to data
   const filteredData = useMemo(() => {
-    const now = new Date();
-    const cutoff = selectedTimeRange === '7d' ? subDays(now, 7) :
-                   selectedTimeRange === '30d' ? subDays(now, 30) :
-                   selectedTimeRange === '90d' ? subDays(now, 90) : null;
-
-    // Apply time range filter first
-    let filteredEmotions = cutoff ? emotions.filter(e => e.timestamp >= cutoff) : emotions;
-    let filteredSensory = cutoff ? sensoryInputs.filter(s => s.timestamp >= cutoff) : sensoryInputs;
-    let filteredTracking = cutoff ? trackingEntries.filter(t => t.timestamp >= cutoff) : trackingEntries;
-
-    // Apply advanced filters
-    filteredEmotions = applyFilters(
-      filteredEmotions,
-      filterCriteria,
-      (e) => e,
-      null,
-      null
-    );
-
-    filteredSensory = applyFilters(
-      filteredSensory,
-      filterCriteria,
-      null,
-      (s) => s,
-      null
-    );
-
-    filteredTracking = applyFilters(
-      filteredTracking,
-      filterCriteria,
-      (t) => t.emotions?.[0] || null,
-      (t) => t.sensoryInputs?.[0] || null,
-      (t) => t.environmentalData || null
-    );
-
-    // Apply highlight filter if active
-    if (highlightState.type && highlightState.id) {
-      // Filter to show only highlighted items and related items
-      filteredEmotions = filteredEmotions.filter(e => 
-        e.id === highlightState.id || highlightState.relatedIds.includes(e.id)
-      );
-      filteredSensory = filteredSensory.filter(s => 
-        s.id === highlightState.id || highlightState.relatedIds.includes(s.id)
-      );
-      filteredTracking = filteredTracking.filter(t => 
-        t.id === highlightState.id || highlightState.relatedIds.includes(t.id)
-      );
+    try {
+      const now = new Date();
+      const cutoff = selectedTimeRange === '7d' ? subDays(now, 7) :
+                     selectedTimeRange === '30d' ? subDays(now, 30) :
+                     selectedTimeRange === '90d' ? subDays(now, 90) : null;
+  
+      // Apply time range filter first with null-safe guards
+      let filteredEmotions = Array.isArray(emotions) ? (cutoff ? emotions.filter(e => {
+        const timestamp = parseTimestamp(e);
+        return timestamp && timestamp >= cutoff;
+      }) : emotions) : [];
+      let filteredSensory = Array.isArray(sensoryInputs) ? (cutoff ? sensoryInputs.filter(s => {
+        const timestamp = parseTimestamp(s);
+        return timestamp && timestamp >= cutoff;
+      }) : sensoryInputs) : [];
+      let filteredTracking = Array.isArray(trackingEntries) ? (cutoff ? trackingEntries.filter(t => {
+        const timestamp = parseTimestamp(t);
+        return timestamp && timestamp >= cutoff;
+      }) : trackingEntries) : [];
+  
+      // Apply advanced filters
+      filteredEmotions = applyFilters(
+        filteredEmotions,
+        filterCriteria,
+        (e) => e,
+        null,
+        null
+      ) || [];
+  
+      filteredSensory = applyFilters(
+        filteredSensory,
+        filterCriteria,
+        null,
+        (s) => s,
+        null
+      ) || [];
+  
+      filteredTracking = applyFilters(
+        filteredTracking,
+        filterCriteria,
+        (t) => t?.emotions?.[0] || null,
+        (t) => t?.sensoryInputs?.[0] || null,
+        (t) => t?.environmentalData || null
+      ) || [];
+  
+      // Apply highlight filter if active
+      if (highlightState.type && highlightState.id) {
+        const related = new Set(highlightState.relatedIds);
+        filteredEmotions = filteredEmotions.filter(e => e?.id === highlightState.id || related.has(e?.id));
+        filteredSensory = filteredSensory.filter(s => s?.id === highlightState.id || related.has(s?.id));
+        filteredTracking = filteredTracking.filter(t => t?.id === highlightState.id || related.has(t?.id));
+      }
+  
+      return {
+        emotions: filteredEmotions.map(e => ({...e, timestamp: parseTimestamp(e)})),
+        sensoryInputs: filteredSensory.map(s => ({...s, timestamp: parseTimestamp(s)})),
+        trackingEntries: filteredTracking.map(t => ({...t, timestamp: parseTimestamp(t)}))
+      };
+    } catch (error) {
+      logger.error("InteractiveDataVisualization.filteredData failed", { error });
+      return { emotions: [], sensoryInputs: [], trackingEntries: [] };
     }
-
-    return {
-      emotions: filteredEmotions,
-      sensoryInputs: filteredSensory,
-      trackingEntries: filteredTracking
-    };
   }, [emotions, sensoryInputs, trackingEntries, selectedTimeRange, filterCriteria, highlightState]);
 
-  // Process data for charts
   const chartData = useMemo(() => {
     interface ChartDataPoint {
       date: string;
@@ -226,66 +252,82 @@ export const InteractiveDataVisualization = ({
     }
     const dataMap = new Map<string, ChartDataPoint>();
 
-    // Process emotions
-    filteredData.emotions.forEach(emotion => {
-      const date = format(emotion.timestamp, 'yyyy-MM-dd');
-      if (!dataMap.has(date)) {
-        dataMap.set(date, { 
-          date, 
-          timestamp: emotion.timestamp,
-          emotionCount: 0,
-          avgEmotionIntensity: 0,
-          positiveEmotions: 0,
-          negativeEmotions: 0,
-          sensorySeekingCount: 0,
-          sensoryAvoidingCount: 0,
-          totalSensoryInputs: 0
-        });
-      }
-      
-      const data = dataMap.get(date)!;
-      data.emotionCount++;
-      data.avgEmotionIntensity = ((data.avgEmotionIntensity * (data.emotionCount - 1)) + emotion.intensity) / data.emotionCount;
-      
-      if (['happy', 'calm', 'focused', 'excited', 'proud'].includes(emotion.emotion.toLowerCase())) {
-        data.positiveEmotions++;
-      } else if (['sad', 'angry', 'anxious', 'frustrated', 'overwhelmed'].includes(emotion.emotion.toLowerCase())) {
-        data.negativeEmotions++;
-      }
-      
-      data[emotion.emotion] = ((data[emotion.emotion] as number) || 0) + emotion.intensity;
-    });
+    try {
+      filteredData.emotions.forEach(emotion => {
+        if (!emotion?.timestamp) return;
+        const date = format(emotion.timestamp, 'yyyy-MM-dd');
+        if (!dataMap.has(date)) {
+          dataMap.set(date, {
+            date,
+            timestamp: emotion.timestamp,
+            emotionCount: 0,
+            avgEmotionIntensity: 0,
+            positiveEmotions: 0,
+            negativeEmotions: 0,
+            sensorySeekingCount: 0,
+            sensoryAvoidingCount: 0,
+            totalSensoryInputs: 0
+          });
+        }
+        
+        const data = dataMap.get(date)!;
+        data.emotionCount++;
+        const intensity = typeof (emotion as any).intensity === "number" ? (emotion as any).intensity : 0;
+        data.avgEmotionIntensity = ((data.avgEmotionIntensity * (data.emotionCount - 1)) + intensity) / data.emotionCount;
+        
+        const name = String((emotion as any).emotion || "").toLowerCase();
+        if (['happy', 'calm', 'focused', 'excited', 'proud'].includes(name)) {
+          data.positiveEmotions++;
+        } else if (['sad', 'angry', 'anxious', 'frustrated', 'overwhelmed'].includes(name)) {
+          data.negativeEmotions++;
+        }
+        
+        data[(emotion as any).emotion] = (typeof data[(emotion as any).emotion] === "number" ? (data[(emotion as any).emotion] as number) : 0) + intensity;
+      });
+    } catch (err) {
+      logger.error("InteractiveDataVisualization.chartData emotion aggregation failed", { error: err });
+    }
 
-    // Process sensory inputs
-    filteredData.sensoryInputs.forEach(sensory => {
-      const date = format(sensory.timestamp, 'yyyy-MM-dd');
-      if (!dataMap.has(date)) {
-        dataMap.set(date, { 
-          date, 
-          timestamp: sensory.timestamp,
-          emotionCount: 0,
-          avgEmotionIntensity: 0,
-          positiveEmotions: 0,
-          negativeEmotions: 0,
-          sensorySeekingCount: 0,
-          sensoryAvoidingCount: 0,
-          totalSensoryInputs: 0
-        });
-      }
-      
-      const data = dataMap.get(date)!;
-      data.totalSensoryInputs++;
-      
-      if (sensory.response.toLowerCase().includes('seeking')) {
-        data.sensorySeekingCount++;
-      } else if (sensory.response.toLowerCase().includes('avoiding')) {
-        data.sensoryAvoidingCount++;
-      }
-    });
+    try {
+      filteredData.sensoryInputs.forEach(sensory => {
+        if (!sensory?.timestamp) return;
+        const date = format(sensory.timestamp, 'yyyy-MM-dd');
+        if (!dataMap.has(date)) {
+          dataMap.set(date, {
+            date,
+            timestamp: sensory.timestamp,
+            emotionCount: 0,
+            avgEmotionIntensity: 0,
+            positiveEmotions: 0,
+            negativeEmotions: 0,
+            sensorySeekingCount: 0,
+            sensoryAvoidingCount: 0,
+            totalSensoryInputs: 0
+          });
+        }
+        
+        const data = dataMap.get(date)!;
+        data.totalSensoryInputs++;
+        
+        const response = String((sensory as any).response || "").toLowerCase();
+        if (response.includes('seeking')) {
+          data.sensorySeekingCount++;
+        } else if (response.includes('avoiding')) {
+          data.sensoryAvoidingCount++;
+        }
+      });
+    } catch (err) {
+      logger.error("InteractiveDataVisualization.chartData sensory aggregation failed", { error: err });
+    }
 
-    return Array.from(dataMap.values()).sort((a, b) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    try {
+      return Array.from(dataMap.values()).sort((a, b) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+    } catch (err) {
+      logger.error("InteractiveDataVisualization.chartData sort failed", { error: err });
+      return [];
+    }
   }, [filteredData]);
 
   // Pattern analysis effect
@@ -394,7 +436,7 @@ export const InteractiveDataVisualization = ({
   // Picture-in-picture simulation (would need actual implementation)
   const togglePictureInPicture = useCallback(() => {
     setIsPictureInPicture(!isPictureInPicture);
-    toast.info(isPictureInPicture ? 'Exited picture-in-picture mode' : 'Entered picture-in-picture mode');
+    toast(isPictureInPicture ? 'Exited picture-in-picture mode' : 'Entered picture-in-picture mode');
   }, [isPictureInPicture]);
 
   // Layout grid configuration
@@ -413,25 +455,32 @@ export const InteractiveDataVisualization = ({
   }, [layoutMode]);
 
   // Render chart based on type
-  const renderChart = () => {
-    if (chartData.length === 0) {
-      return (
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          <div className="text-center">
-            <Activity className="h-16 w-16 mx-auto mb-4 opacity-50" />
-            <p>No data available for selected time range</p>
-            <p className="text-xs mt-1">Try expanding the time range or adjusting filters</p>
-          /div>
-        /div>
-      );
-    }
-
-    const commonProps = {
-      data: chartData,
-      margin: { top: 5, right: 30, left: 20, bottom: 5 }
-    };
-
-    const enhancedTooltip = (params: any) => {
+  const renderChart = () => {
+    try {
+      if (chartData.length === 0) {
+        return (
+          <div className="flex items-center justify-center h-64 text-muted-foreground">
+            <div className="text-center">
+              <Activity className="h-16 w-16 mx-auto mb-4 opacity-50" />
+              <p>No data available for selected time range</p>
+              <p className="text-xs mt-1">Try expanding the time range or adjusting filters</p>
+            </div>
+          </div>
+        );
+      }
+  
+      const commonProps = {
+        dataset: {
+          source: chartData
+        },
+        legend: {
+          type: "scroll",
+          data: availableEmotions
+        },
+        margin: { top: 5, right: 30, left: 20, bottom: 5 }
+      };
+  
+      const enhancedTooltip = (params: any) => {
       const p = Array.isArray(params) ? params : [params];
       if (p.length === 0) return "";
       const x = String(p[0].axisValue);
@@ -456,29 +505,7 @@ export const InteractiveDataVisualization = ({
             tooltip: {
               trigger: "axis",
               axisPointer: { type: "line" },
-              formatter: (params) => {
-                const p = Array.isArray(params) ? params : [params];
-                if (p.length === 0) return "";
-                const x = String(p[0].axisValue);
-                const dateStr = format(new Date(x), "MMM dd, yyyy");
-                const lines = p
-                  .map((item) => {
-                    const seriesName = String((item as { seriesName?: unknown }).seriesName ?? "");
-                    const marker = String((item as { marker?: unknown }).marker ?? "");
-                    const encodeY = (item as { encode?: { y?: string[] } }).encode?.y?.[0];
-                    const dataObj = (item as { data?: Record<string, unknown> }).data;
-                    const raw =
-                      (encodeY && dataObj && typeof dataObj[encodeY] === "number"
-                        ? (dataObj[encodeY] as number)
-                        : typeof (item as { value?: unknown }).value === "number"
-                        ? ((item as { value?: number }).value as number)
-                        : null);
-                    const val = raw !== null ? raw.toFixed(1) : String((item as { value?: unknown }).value ?? "");
-                    return `${marker} ${seriesName}: ${val}`;
-                  })
-                  .join("<br/>");
-                return `${dateStr}<br/>${lines}`;
-              }
+              formatter: enhancedTooltip
             },
             xAxis: {
               type: "category",
@@ -543,29 +570,7 @@ export const InteractiveDataVisualization = ({
             tooltip: {
               trigger: "axis",
               axisPointer: { type: "shadow" },
-              formatter: (params) => {
-                const p = Array.isArray(params) ? params : [params];
-                if (p.length === 0) return "";
-                const x = String(p[0].axisValue);
-                const dateStr = format(new Date(x), "MMM dd, yyyy");
-                const lines = p
-                  .map((item) => {
-                    const seriesName = String((item as { seriesName?: unknown }).seriesName ?? "");
-                    const marker = String((item as { marker?: unknown }).marker ?? "");
-                    const encodeY = (item as { encode?: { y?: string[] } }).encode?.y?.[0];
-                    const dataObj = (item as { data?: Record<string, unknown> }).data;
-                    const raw =
-                      (encodeY && dataObj && typeof dataObj[encodeY] === "number"
-                        ? (dataObj[encodeY] as number)
-                        : typeof (item as { value?: unknown }).value === "number"
-                        ? ((item as { value?: number }).value as number)
-                        : null);
-                    const val = raw !== null ? raw.toFixed(1) : String((item as { value?: unknown }).value ?? "");
-                    return `${marker} ${seriesName}: ${val}`;
-                  })
-                  .join("<br/>");
-                return `${dateStr}<br/>${lines}`;
-              }
+              formatter: enhancedTooltip
             },
             xAxis: {
               type: "category",
@@ -600,84 +605,250 @@ export const InteractiveDataVisualization = ({
           return <EChartContainer option={composedOption} height={400} />;
         }
 
-      default: // line
+      default: // line fallback
         {
+          // Teacher-friendly thresholds
+          const emotionThreshold = 7; // Can be configured by teachers
+          const sensoryThreshold = 5;
           const trendsOption: EChartsOption = {
             dataset: { source: chartData },
-            legend: {},
-            tooltip: {
-              trigger: "axis",
-              axisPointer: { type: "line" },
-              formatter: (params) => {
-                const p = Array.isArray(params) ? params : [params];
-                if (p.length === 0) return "";
-                const x = String(p[0].axisValue);
-                const dateStr = format(new Date(x), "MMM dd, yyyy");
-                const lines = p
-                  .map((item) => {
-                    const seriesName = String((item as { seriesName?: unknown }).seriesName ?? "");
-                    const marker = String((item as { marker?: unknown }).marker ?? "");
-                    // Try to read value from dataset-encoded field if available, else fallback to item.value
-                    const encodeY = (item as { encode?: { y?: string[] } }).encode?.y?.[0];
-                    const dataObj = (item as { data?: Record<string, unknown> }).data;
-                    const raw =
-                      (encodeY && dataObj && typeof dataObj[encodeY] === "number"
-                        ? (dataObj[encodeY] as number)
-                        : typeof (item as { value?: unknown }).value === "number"
-                        ? ((item as { value?: number }).value as number)
-                        : null);
-                    const val = raw !== null ? raw.toFixed(1) : String((item as { value?: unknown }).value ?? "");
-                    return `${marker} ${seriesName}: ${val}`;
-                  })
-                  .join("<br/>");
-                return `${dateStr}<br/>${lines}`;
+            title: {
+              left: 'center',
+              top: 0,
+              text: `Emotion Trends Over Time`,
+              textStyle: {
+                fontSize: 16,
+                fontWeight: 600,
+                color: "hsl(var(--foreground))"
               }
             },
+            legend: {
+              bottom: 0,
+              data: ['Avg Emotion Intensity', 'Positive Emotions', 'Negative Emotions', 'Sensory Inputs'],
+              selected: {
+                'Avg Emotion Intensity': true,
+                'Positive Emotions': true,
+                'Negative Emotions': true,
+                'Sensory Inputs': false // Default hidden, toggle available
+              }
+            },
+            tooltip: {
+              trigger: "axis",
+              confine: true,
+              formatter: (params: any) => {
+                const p = Array.isArray(params) ? params : [params];
+                if (p.length === 0) return "";
+                
+                const date = p[0].axisValue;
+                const dateStr = format(new Date(date), "EEEE, MMM dd, yyyy");
+                
+                const violations = p.filter((item: any) => {
+                  const value = item.value || item.data?.[item.encode?.y?.[0]];
+                  return (item.seriesName === 'Avg Emotion Intensity' && value > emotionThreshold) ||
+                         (item.seriesName === 'Sensory Inputs' && value > sensoryThreshold);
+                });
+                
+                let content = `<div style="font-weight: 600; margin-bottom: 8px;">${dateStr}</div>`;
+                if (violations.length > 0) {
+                  content += `
+                    <div style="background: rgba(239, 68, 68, 0.1); 
+                                border: 1px solid rgba(239, 68, 68, 0.3); 
+                                padding: 4px 8px; 
+                                border-radius: 4px; 
+                                margin-bottom: 8px;
+                                font-size: 12px;
+                                color: #ef4444;">
+                      ⚠️ Threshold exceeded
+                    </div>
+                  `;
+                }
+                
+                p.forEach((item: any) => {
+                  const value = item.value || item.data?.[item.encode?.y?.[0]];
+                  const formattedValue = typeof value === 'number' ? value.toFixed(1) : value;
+                  const isOverThreshold = violations.includes(item);
+                  
+                  content += `
+                    <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0;">
+                      ${item.marker}
+                      <span style="color: ${item.color}; font-weight: 500;">${item.seriesName}:</span>
+                      <span style="font-weight: 600; ${isOverThreshold ? 'color: #ef4444;' : ''}">
+                        ${formattedValue}
+                      </span>
+                    </div>
+                  `;
+                });
+                
+                content += `
+                  <div style="margin-top: 8px; 
+                              padding-top: 8px; 
+                              border-top: 1px solid rgba(255,255,255,0.1);
+                              font-size: 11px;
+                              color: hsl(var(--muted-foreground));">
+                    💡 Click to add a note
+                  </div>
+                `;
+                
+                return content;
+              }
+            },
+            toolbox: {
+              show: true,
+              right: 16,
+              top: 16,
+              feature: {
+                dataZoom: {
+                  yAxisIndex: 'none',
+                  title: { zoom: 'Zoom', back: 'Reset' }
+                },
+                restore: { title: 'Reset' },
+                saveAsImage: { 
+                  title: 'Save',
+                  pixelRatio: 2
+                }
+              }
+            },
+            dataZoom: [
+              {
+                type: 'inside',
+                start: 0,
+                end: 100,
+                minValueSpan: 7 
+              },
+              {
+                show: true,
+                type: 'slider',
+                bottom: 50,
+                start: 0,
+                end: 100,
+                height: 20,
+                borderColor: 'hsl(var(--border))',
+                fillerColor: 'hsl(var(--primary) / 0.3)',
+                handleStyle: {
+                  color: 'hsl(var(--primary))'
+                }
+              }
+            ],
             xAxis: {
               type: "category",
               axisLabel: {
                 formatter: (v: string) => format(new Date(v), "MMM dd"),
-              }
+                interval: 'auto'
+              },
+              boundaryGap: false
             },
-            yAxis: [{ type: "value" }],
+            yAxis: [{ 
+              type: "value",
+              max: 10,
+              min: 0,
+              interval: 2
+            }],
             series: [
               {
                 type: "line",
                 name: "Avg Emotion Intensity",
                 smooth: true,
                 encode: { x: "date", y: "avgEmotionIntensity" },
-                symbol: "circle",
-                symbolSize: 8, // approx dot r=4
-                lineStyle: { width: 3 }
+                lineStyle: { width: 3, color: 'hsl(var(--primary))' },
+                showSymbol: false,
+                emphasis: {
+                  focus: 'series',
+                  lineStyle: { width: 4 }
+                },
+                markLine: {
+                  silent: true,
+                  data: [
+                    {
+                      yAxis: emotionThreshold,
+                      label: {
+                        position: 'end',
+                        formatter: 'Emotion Threshold',
+                        color: 'hsl(var(--destructive))'
+                      },
+                      lineStyle: {
+                        color: 'hsl(var(--destructive))',
+                        type: 'dashed',
+                        width: 2
+                      }
+                    }
+                  ]
+                }
               },
               {
                 type: "line",
                 name: "Positive Emotions",
                 smooth: true,
                 encode: { x: "date", y: "positiveEmotions" },
-                symbol: "circle",
-                symbolSize: 6, // approx dot r=3
-                lineStyle: { width: 2 },
-                itemStyle: { color: "hsl(142 76% 36%)" }
+                lineStyle: { width: 2, color: "hsl(142 76% 36%)" },
+                showSymbol: false,
+                itemStyle: { color: "hsl(142 76% 36%)" },
+                emphasis: {
+                  focus: 'series'
+                }
               },
               {
                 type: "line",
                 name: "Negative Emotions",
                 smooth: true,
                 encode: { x: "date", y: "negativeEmotions" },
-                symbol: "circle",
-                symbolSize: 6, // approx dot r=3
-                lineStyle: { width: 2 },
-                itemStyle: { color: "hsl(0 72% 51%)" }
+                lineStyle: { width: 2, color: "hsl(0 72% 51%)" },
+                showSymbol: false,
+                itemStyle: { color: "hsl(0 72% 51%)" },
+                emphasis: {
+                  focus: 'series'
+                }
+              },
+              {
+                type: "line",
+                name: "Sensory Inputs",
+                smooth: true,
+                encode: { x: "date", y: "totalSensoryInputs" },
+                lineStyle: { width: 2, type: "dashed", color: "hsl(199 89% 48%)" },
+                showSymbol: false,
+                itemStyle: { color: "hsl(199 89% 48%)" },
+                emphasis: {
+                  focus: 'series'
+                },
+                markLine: {
+                  silent: true,
+                  data: [
+                    {
+                      yAxis: sensoryThreshold,
+                      label: {
+                        position: 'end',
+                        formatter: 'Sensory Threshold',
+                        color: 'hsl(40 65% 70%)'
+                      },
+                      lineStyle: {
+                        color: 'hsl(40 65% 70%)',
+                        type: 'dashed',
+                        width: 2
+                      }
+                    }
+                  ]
+                }
               }
-            ]
+            ],
+            grid: {
+              backgroundColor: 'rgba(255, 255, 255, 0.02)'
+            }
           };
-          return (
-            <EChartContainer option={trendsOption} height={400} />
-          );
+          return <EChartContainer option={trendsOption} height={400} />;
         }
     }
-  };
+  } catch (error) {
+    logger.error("InteractiveDataVisualization.renderChart failed", { error });
+    return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
+        <div className="text-center">
+          <Activity className="h-16 w-16 mx-auto mb-4 opacity-50" />
+          <p>Could not render chart</p>
+          <p className="text-xs mt-1">An internal error occurred while building the chart</p>
+        </div>
+      </div>
+    );
+  }
+};
 
   const renderCorrelationHeatmap = () => {
     if (!correlationMatrix) {
@@ -720,7 +891,7 @@ export const InteractiveDataVisualization = ({
                       setCorrelationMatrix(matrix);
                       toast.success('Correlation analysis completed');
                     } else {
-                      toast.info('Need at least 10 tracking entries for correlation analysis');
+                      toast('Need at least 10 tracking entries for correlation analysis');
                     }
                   } catch (e) {
                     logger.error('Retry correlation analysis failed', { error: e });
@@ -1244,7 +1415,8 @@ export const InteractiveDataVisualization = ({
   };
 
   return (
-    <div ref={containerRef} className="space-y-6 font-dyslexia">
+    <ErrorBoundary>
+      <div ref={containerRef} className="space-y-6 font-dyslexia">
       {/* Main Controls Bar */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -1401,7 +1573,7 @@ export const InteractiveDataVisualization = ({
         <CardContent>
           {/* Quick Controls */}
           <div className="flex flex-wrap gap-4">
-            <div className="space-y-2">
+<div className="space-y-2">
               <label className="text-sm font-medium">Chart Type</label>
               <Select value={selectedChartType} onValueChange={(value: ChartType) => setSelectedChartType(value)}>
                 <SelectTrigger className="w-32">
@@ -1412,6 +1584,21 @@ export const InteractiveDataVisualization = ({
                   <SelectItem value="area">Area Chart</SelectItem>
                   <SelectItem value="scatter">Scatter Plot</SelectItem>
                   <SelectItem value="composed">Combined</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Emotion Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Emotions</label>
+              <Select value={selectedEmotions} onValueChange={(value: string[]) => setSelectedEmotions(value)} multiple>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Pick emotions..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableEmotions.map(emotion => (
+                    <SelectItem key={emotion} value={emotion}>{emotion}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1765,6 +1952,7 @@ export const InteractiveDataVisualization = ({
           )}
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };

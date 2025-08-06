@@ -221,10 +221,6 @@ All colors MUST be HSL.
     line-height: 1.7;
   }
 
-  /* Smooth transitions for better UX */
-  * {
-    transition: var(--transition-smooth);
-  }
 
   /* Focus styles for accessibility */
   button:focus-visible,

@@ -100,14 +100,13 @@ self.onmessage = async (e: MessageEvent<OptimizationRequest>) => {
         break;
 
       case 'bayesian':
-        // TODO: Implement Bayesian optimization logic
-        result = {
-          bestParameters: {},
-          bestScore: 0,
-          allResults: [],
-          executionTime: Date.now() - startTime,
-          strategy: 'bayesian'
-        };
+        // Bayesian optimization is a complex algorithm that requires significant implementation.
+        // For now, this returns a placeholder result with proper error handling.
+        // Full implementation would require a Gaussian Process model and acquisition function.
+        logger.warn('Bayesian optimization not yet implemented, falling back to random search');
+        result = await performRandomSearch(request);
+        result.strategy = 'bayesian (fallback to random)';
+        result.executionTime = Date.now() - startTime;
         break;
 
       case 'randomSearch':

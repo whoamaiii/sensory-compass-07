@@ -87,9 +87,27 @@ export const ReportBuilder = ({ student, goals, trackingEntries, emotions, senso
     }
   };
 
+  /**
+   * Generate comprehensive report data with error handling.
+   * Safely processes date ranges and handles edge cases.
+   * 
+   * @returns {Object} Aggregated report data for rendering
+   */
   const generateReportData = () => {
+    // Parse dates with validation
     const startDate = new Date(reportData.dateRange.start);
     const endDate = new Date(reportData.dateRange.end);
+    
+    // Validate date parsing
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      toast.error('Invalid date range selected');
+      return null;
+    }
+    
+    if (startDate > endDate) {
+      toast.error('Start date must be before end date');
+      return null;
+    }
 
     // Filter data by date range
     const filteredEntries = trackingEntries.filter(entry => 
@@ -115,7 +133,7 @@ export const ReportBuilder = ({ student, goals, trackingEntries, emotions, senso
         ...goal,
         progressInPeriod: progressInPeriod.length,
         progressChange,
-        currentValue: goal.dataPoints[goal.dataPoints.length - 1]?.value || 0
+        currentValue: goal.dataPoints.length > 0 ? goal.dataPoints[goal.dataPoints.length - 1].value : 0
       };
     });
 

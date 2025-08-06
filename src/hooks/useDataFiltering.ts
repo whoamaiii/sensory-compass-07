@@ -4,9 +4,9 @@ import { EmotionEntry, SensoryEntry, TrackingEntry } from "@/types/student";
 import { TimeRange } from "@/components/DateRangeSelector";
 
 export const useDataFiltering = (
-  trackingEntries: TrackingEntry[],
-  allEmotions: EmotionEntry[],
-  allSensoryInputs: SensoryEntry[]
+  trackingEntries: TrackingEntry[] | null | undefined,
+  allEmotions: EmotionEntry[] | null | undefined,
+  allSensoryInputs: SensoryEntry[] | null | undefined
 ) => {
   const [selectedRange, setSelectedRange] = useState<TimeRange>({
     start: startOfDay(subDays(new Date(), 29)),
@@ -16,8 +16,12 @@ export const useDataFiltering = (
 
   // Memoize the filtering logic with better performance
   const filteredData = useMemo(() => {
+    const safeTrackingEntries = trackingEntries || [];
+    const safeAllEmotions = allEmotions || [];
+    const safeAllSensoryInputs = allSensoryInputs || [];
+
     // Early return if no data
-    if (trackingEntries.length === 0 && allEmotions.length === 0 && allSensoryInputs.length === 0) {
+    if (safeTrackingEntries.length === 0 && safeAllEmotions.length === 0 && safeAllSensoryInputs.length === 0) {
       return {
         entries: [],
         emotions: [],
@@ -28,17 +32,17 @@ export const useDataFiltering = (
     const { start, end } = selectedRange;
     
     // Use more efficient filtering with early returns
-    const filteredEntries = trackingEntries.filter(entry => {
+    const filteredEntries = safeTrackingEntries.filter(entry => {
       const timestamp = entry.timestamp instanceof Date ? entry.timestamp : new Date(entry.timestamp);
       return timestamp >= start && timestamp <= end;
     });
 
-    const filteredEmotions = allEmotions.filter(emotion => {
+    const filteredEmotions = safeAllEmotions.filter(emotion => {
       const timestamp = emotion.timestamp instanceof Date ? emotion.timestamp : new Date(emotion.timestamp);
       return timestamp >= start && timestamp <= end;
     });
 
-    const filteredSensoryInputs = allSensoryInputs.filter(sensory => {
+    const filteredSensoryInputs = safeAllSensoryInputs.filter(sensory => {
       const timestamp = sensory.timestamp instanceof Date ? sensory.timestamp : new Date(sensory.timestamp);
       return timestamp >= start && timestamp <= end;
     });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
 import { EmotionEntry, SensoryEntry, TrackingEntry, EnvironmentalEntry } from '@/types/student';
 import { differenceInMinutes, subMinutes } from 'date-fns';
 import { logger } from '@/lib/logger';
@@ -20,6 +20,49 @@ interface RealtimeDataState {
   connectionStatus: 'connected' | 'disconnected' | 'connecting' | 'error';
   newDataCount: number;
 }
+
+type RealtimeDataAction =
+  | { type: 'START_STREAM' }
+  | { type: 'STOP_STREAM' }
+  | { type: 'SET_CONNECTION_STATUS'; payload: RealtimeDataState['connectionStatus'] }
+  | { type: 'INSERT_DATA'; payload: { emotion?: EmotionEntry; sensory?: SensoryEntry; tracking?: TrackingEntry } }
+  | { type: 'SET_HISTORICAL_DATA'; payload: { emotions: EmotionEntry[]; sensoryInputs: SensoryEntry[]; trackingEntries: TrackingEntry[] } }
+  | { type: 'CLEAR_NEW_DATA_INDICATOR' }
+  | { type: 'RESET_STATE'; payload: RealtimeDataState };
+
+const realtimeDataReducer = (state: RealtimeDataState, action: RealtimeDataAction): RealtimeDataState => {
+  switch (action.type) {
+    case 'START_STREAM':
+      return { ...state, isLive: true, connectionStatus: 'connecting' };
+    case 'STOP_STREAM':
+      return { ...state, isLive: false, connectionStatus: 'disconnected' };
+    case 'SET_CONNECTION_STATUS':
+      return { ...state, connectionStatus: action.payload };
+    case 'INSERT_DATA':
+      return {
+        ...state,
+        lastUpdate: new Date(),
+        newDataCount: state.newDataCount + 1,
+        emotions: action.payload.emotion ? [...state.emotions, action.payload.emotion].slice(-1000) : state.emotions,
+        sensoryInputs: action.payload.sensory ? [...state.sensoryInputs, action.payload.sensory].slice(-1000) : state.sensoryInputs,
+        trackingEntries: action.payload.tracking ? [...state.trackingEntries, action.payload.tracking].slice(-1000) : state.trackingEntries,
+      };
+    case 'SET_HISTORICAL_DATA':
+      return {
+        ...state,
+        emotions: [...action.payload.emotions, ...state.emotions],
+        sensoryInputs: [...action.payload.sensoryInputs, ...state.sensoryInputs],
+        trackingEntries: [...action.payload.trackingEntries, ...state.trackingEntries],
+        connectionStatus: state.isLive ? 'connected' : 'disconnected',
+      };
+    case 'CLEAR_NEW_DATA_INDICATOR':
+      return { ...state, newDataCount: 0 };
+    case 'RESET_STATE':
+      return action.payload;
+    default:
+      return state;
+  }
+};
 
 export interface RealtimeDataReturn extends RealtimeDataState {
   startStream: () => void;
@@ -104,15 +147,17 @@ export const useRealtimeData = (
   },
   options: RealtimeDataOptions
 ): RealtimeDataReturn => {
-  const [state, setState] = useState<RealtimeDataState>({
+  const initialState = useMemo(() => ({
     emotions: initialData.emotions,
     sensoryInputs: initialData.sensoryInputs,
     trackingEntries: initialData.trackingEntries,
     isLive: false,
     lastUpdate: null,
-    connectionStatus: 'disconnected',
-    newDataCount: 0
-  });
+    connectionStatus: 'disconnected' as const,
+    newDataCount: 0,
+  }), [initialData]);
+
+  const [state, dispatch] = useReducer(realtimeDataReducer, initialState);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -148,35 +193,19 @@ export const useRealtimeData = (
     }
 
     const animate = () => {
-      setState(prev => {
-        const now = new Date();
-        newDataTimestamps.current.add(now.getTime());
+      const newTimestamps = new Set(newDataTimestamps.current);
+      newTimestamps.add(new Date().getTime());
 
-        const updates: Partial<RealtimeDataState> = {
-          lastUpdate: now,
-          newDataCount: prev.newDataCount + 1
-        };
-
-        if (newEmotion) {
-          updates.emotions = [...prev.emotions, newEmotion].slice(-1000); // Keep last 1000
+      // Clean up old timestamps
+      const cutoff = Date.now() - liveDataThreshold;
+      newTimestamps.forEach(timestamp => {
+        if (timestamp < cutoff) {
+          newTimestamps.delete(timestamp);
         }
-        if (newSensory) {
-          updates.sensoryInputs = [...prev.sensoryInputs, newSensory].slice(-1000);
-        }
-        if (newTracking) {
-          updates.trackingEntries = [...prev.trackingEntries, newTracking].slice(-1000);
-        }
-
-        // Clean up old timestamps
-        const cutoff = now.getTime() - liveDataThreshold;
-        newDataTimestamps.current.forEach(timestamp => {
-          if (timestamp < cutoff) {
-            newDataTimestamps.current.delete(timestamp);
-          }
-        });
-
-        return { ...prev, ...updates };
       });
+      newDataTimestamps.current = newTimestamps;
+
+      dispatch({ type: 'INSERT_DATA', payload: { emotion: newEmotion, sensory: newSensory, tracking: newTracking } });
     };
 
     if (options.smoothTransitions) {
@@ -203,30 +232,22 @@ export const useRealtimeData = (
 
   // Start the real-time stream
   const startStream = useCallback(() => {
-    setState(prev => ({ 
-      ...prev, 
-      isLive: true, 
-      connectionStatus: 'connecting' 
-    }));
+    dispatch({ type: 'START_STREAM' });
 
     // Simulate connection delay
-    setTimeout(() => {
-      setState(prev => ({ 
-        ...prev, 
-        connectionStatus: 'connected' 
-      }));
+    const connectionTimeout = setTimeout(() => {
+      dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'connected' });
 
       if (options.simulateData) {
         // Start simulated data generation
+        if (intervalRef.current) clearInterval(intervalRef.current);
         intervalRef.current = setInterval(simulateDataStream, options.updateInterval);
       } else {
-        // In a real implementation, you would:
-        // 1. Connect to WebSocket/SSE endpoint
-        // 2. Listen for data events
-        // 3. Call smoothInsertData with received data
         logger.info('Real-time data connection would be established here');
       }
     }, 1000);
+
+    return () => clearTimeout(connectionTimeout);
   }, [options.simulateData, options.updateInterval, simulateDataStream]);
 
   // Stop the real-time stream
@@ -241,26 +262,22 @@ export const useRealtimeData = (
       animationFrameRef.current = null;
     }
 
-    setState(prev => ({ 
-      ...prev, 
-      isLive: false, 
-      connectionStatus: 'disconnected' 
-    }));
+    dispatch({ type: 'STOP_STREAM' });
 
     // In a real implementation, close WebSocket/SSE connection
   }, []);
 
   // Clear new data indicator
   const clearNewDataIndicator = useCallback(() => {
-    setState(prev => ({ ...prev, newDataCount: 0 }));
+    dispatch({ type: 'CLEAR_NEW_DATA_INDICATOR' });
   }, []);
 
   // Get historical data (simulate API call)
   const getHistoricalData = useCallback((minutes: number) => {
-    setState(prev => ({ ...prev, connectionStatus: 'connecting' }));
+    dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'connecting' });
 
     // Simulate API call delay
-    setTimeout(() => {
+    const historicalDataTimeout = setTimeout(() => {
       const now = new Date();
       const historicalEmotions: EmotionEntry[] = [];
       const historicalSensory: SensoryEntry[] = [];
@@ -292,14 +309,17 @@ export const useRealtimeData = (
         }
       }
 
-      setState(prev => ({
-        ...prev,
-        emotions: [...historicalEmotions.reverse(), ...prev.emotions],
-        sensoryInputs: [...historicalSensory.reverse(), ...prev.sensoryInputs],
-        trackingEntries: [...historicalTracking.reverse(), ...prev.trackingEntries],
-        connectionStatus: prev.isLive ? 'connected' : 'disconnected'
-      }));
+      dispatch({ 
+        type: 'SET_HISTORICAL_DATA', 
+        payload: { 
+          emotions: historicalEmotions.reverse(), 
+          sensoryInputs: historicalSensory.reverse(), 
+          trackingEntries: historicalTracking.reverse() 
+        } 
+      });
     }, 500);
+
+    return () => clearTimeout(historicalDataTimeout);
   }, []);
 
   // Check if a data point is "live" (recently added)
@@ -327,16 +347,23 @@ export const useRealtimeData = (
 
   // Handle connection errors (simulated)
   useEffect(() => {
+    let reconnectTimeout: NodeJS.Timeout;
     if (state.connectionStatus === 'connected' && Math.random() < 0.01) { // 1% chance of error
-      setState(prev => ({ ...prev, connectionStatus: 'error' }));
+      dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
       
       // Auto-reconnect after 3 seconds
-      setTimeout(() => {
+      reconnectTimeout = setTimeout(() => {
         if (state.isLive) {
           startStream();
         }
       }, 3000);
     }
+
+    return () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+    };
   }, [state.connectionStatus, state.isLive, startStream]);
 
   return {

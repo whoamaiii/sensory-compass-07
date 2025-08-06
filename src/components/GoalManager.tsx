@@ -1,4 +1,13 @@
-import { useState, useEffect } from "react";
+/**
+ * @fileoverview GoalManager - Comprehensive goal tracking and management system
+ * 
+ * Provides functionality for creating, tracking, and managing student IEP goals.
+ * Supports milestones, progress tracking, and various goal categories.
+ * 
+ * @module components/GoalManager
+ */
+
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,12 +22,24 @@ import { dataStorage } from "@/lib/dataStorage";
 import { Calendar, Plus, Crosshair, TrendingUp, CheckCircle, Edit, Trash2, Calendar as CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { logger } from "@/lib/logger";
 
 interface GoalManagerProps {
   student: Student;
   onGoalUpdate?: () => void;
 }
 
+/**
+ * GoalManager Component
+ * 
+ * Manages IEP goals for a specific student, including creation, tracking,
+ * progress monitoring, and milestone management.
+ * 
+ * @component
+ * @param {GoalManagerProps} props - Component props
+ * @param {Student} props.student - The student whose goals are being managed
+ * @param {Function} [props.onGoalUpdate] - Callback when goals are updated
+ */
 export const GoalManager = ({ student, onGoalUpdate }: GoalManagerProps) => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -33,21 +54,73 @@ export const GoalManager = ({ student, onGoalUpdate }: GoalManagerProps) => {
     baselineValue: 0
   });
 
-  useEffect(() => {
-    loadGoals();
-  }, [student.id]);
-
-  const loadGoals = () => {
+  /**
+   * Load goals for the current student.
+   * Memoized to prevent recreation on every render.
+   */
+  const loadGoals = useCallback(() => {
     const allGoals = dataStorage.getGoals();
     const studentGoals = allGoals.filter(goal => goal.studentId === student.id);
     setGoals(studentGoals);
+  }, [student.id]);
+
+  /**
+   * Effect to load goals when student changes.
+   */
+  useEffect(() => {
+    loadGoals();
+  }, [loadGoals]);
+
+  /**
+   * Generate a unique ID using crypto.randomUUID or fallback.
+   * This is more secure and collision-resistant than Math.random().
+   * 
+   * @returns {string} A unique identifier
+   */
+  const generateId = (): string => {
+    // Use crypto.randomUUID if available (modern browsers)
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    
+    // Fallback to timestamp + random for older browsers
+    // This is still much better than Math.random().toString(36)
+    const timestamp = Date.now().toString(36);
+    const randomPart = Math.random().toString(36).substring(2, 11);
+    const randomPart2 = Math.random().toString(36).substring(2, 11);
+    return `${timestamp}-${randomPart}-${randomPart2}`;
   };
 
-  const generateId = () => Math.random().toString(36).substr(2, 9);
-
   const createGoal = () => {
+    // Validate required fields
     if (!newGoal.title.trim() || !newGoal.description.trim() || !newGoal.measurableObjective.trim()) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    // Validate target date
+    if (!newGoal.targetDate) {
+      toast.error("Please select a target date");
+      return;
+    }
+
+    const targetDate = new Date(newGoal.targetDate);
+    if (isNaN(targetDate.getTime())) {
+      toast.error("Invalid target date");
+      return;
+    }
+
+    // Ensure target date is in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (targetDate < today) {
+      toast.error("Target date must be in the future");
+      return;
+    }
+
+    // Validate baseline and target values
+    if (newGoal.targetValue <= newGoal.baselineValue) {
+      toast.error("Target value must be greater than baseline value");
       return;
     }
 
@@ -57,7 +130,7 @@ export const GoalManager = ({ student, onGoalUpdate }: GoalManagerProps) => {
       title: newGoal.title,
       description: newGoal.description,
       category: newGoal.category,
-      targetDate: new Date(newGoal.targetDate),
+      targetDate,
       createdDate: new Date(),
       status: "active",
       measurableObjective: newGoal.measurableObjective,
@@ -149,16 +222,31 @@ export const GoalManager = ({ student, onGoalUpdate }: GoalManagerProps) => {
     toast.success("Milestone completed! 🎉");
   };
 
+  /**
+   * Delete a goal with proper confirmation and efficient storage update.
+   * 
+   * @param {string} goalId - ID of the goal to delete
+   */
   const deleteGoal = (goalId: string) => {
     const goal = goals.find(g => g.id === goalId);
-    if (!goal) return;
+    if (!goal) {
+      logger.warn('Attempted to delete non-existent goal', { goalId });
+      return;
+    }
 
-    if (confirm(`Are you sure you want to delete the goal "${goal.title}"?`)) {
-      // Note: In a real app, we'd have a delete method in dataStorage
-      const allGoals = dataStorage.getGoals().filter(g => g.id !== goalId);
-      allGoals.forEach(g => dataStorage.saveGoal(g));
-      loadGoals();
-      toast.success("Goal deleted");
+    try {
+      const confirmed = window.confirm(`Are you sure you want to delete the goal "${goal.title}"?`);
+      if (confirmed) {
+        // More efficient deletion: mark as deleted instead of rewriting all goals
+        const updatedGoal = { ...goal, status: 'discontinued' as Goal['status'], deletedAt: new Date() };
+        dataStorage.saveGoal(updatedGoal);
+        loadGoals();
+        toast.success("Goal deleted");
+        onGoalUpdate?.();
+      }
+    } catch (error) {
+      logger.error('Failed to delete goal', error);
+      toast.error('Failed to delete goal. Please try again.');
     }
   };
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,58 +16,37 @@ import { dataStorage } from '@/lib/dataStorage';
 export const MockDataLoader = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [selectedScenario, setSelectedScenario] = useState<string>('all');
 
-  const handleLoadMockData = async () => {
+  const handleLoadMockData = useCallback(async () => {
     setIsLoading(true);
     setLoadingProgress(0);
+    let progressInterval: NodeJS.Timeout | null = null;
 
     try {
       // Simulate loading progress for better UX
       setLoadingProgress(25);
       
       // Generate and load the data based on selected scenario
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         setLoadingProgress((oldProgress) => {
-          if (oldProgress === 100) {
-            clearInterval(progressInterval);
+          if (oldProgress >= 95) {
+            if (progressInterval) {
+              clearInterval(progressInterval);
+              progressInterval = null;
+            }
             return 100;
           }
           const diff = Math.random() * 10;
-          return Math.min(oldProgress + diff, 100);
+          return Math.min(oldProgress + diff, 95);
         });
       }, 500);
 
-      // Load data based on selected scenario
-      if (selectedScenario === 'all') {
-        await loadMockDataToStorage();
-      } else {
-        // Load specific scenario data
-        const scenarios: Record<string, 'emma' | 'lars' | 'astrid'> = {
-          'emma': 'emma',
-          'lars': 'lars',
-          'astrid': 'astrid'
-        };
-        const scenario = scenarios[selectedScenario];
-        if (scenario) {
-          // Clear existing mock data first
-          await clearMockDataFromStorage();
-
-          // Load specific student
-          const students = generateMockStudents();
-          const selectedStudent = students.find(s => s.name.toLowerCase().includes(scenario));
-
-          if (selectedStudent) {
-            dataStorage.saveStudent(selectedStudent);
-
-            // Generate tracking data for the selected student
-            const { trackingEntries } = generateAllMockData();
-            const studentEntries = trackingEntries.filter(entry => entry.studentId === selectedStudent.id);
-            studentEntries.forEach(entry => {
-              dataStorage.saveTrackingEntry(entry);
-            });
-          }
-        }
+      await loadMockDataToStorage();
+      
+      // Clear interval before setting final progress
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
       }
       
       setLoadingProgress(75);
@@ -77,10 +56,9 @@ export const MockDataLoader = () => {
       
       // Get stats for success message
       const stats = dataStorage.getStorageStats();
-      const displayCount = selectedScenario === 'all' ? '3 students' : '1 student';
       
       toast.success('Mock data loaded successfully!', {
-        description: `Loaded ${displayCount} with ${stats.entriesCount} tracking entries`,
+        description: `Loaded ${stats.studentsCount} students with ${stats.entriesCount} tracking entries`,
       });
       
       // Dispatch a custom event to notify other components that mock data has been loaded.
@@ -88,16 +66,24 @@ export const MockDataLoader = () => {
       window.dispatchEvent(new CustomEvent('mockDataLoaded'));
       
     } catch (error) {
+      // Clean up interval on error
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
       toast.error('Failed to load mock data', {
         description: error instanceof Error ? error.message : 'Unknown error occurred',
       });
     } finally {
+      // Ensure interval is cleared
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
       setIsLoading(false);
       setLoadingProgress(0);
     }
-  };
+  }, []);
 
-  const handleClearMockData = async () => {
+  const handleClearMockData = useCallback(async () => {
     try {
       clearMockDataFromStorage();
       
@@ -111,11 +97,14 @@ export const MockDataLoader = () => {
         description: error instanceof Error ? error.message : 'Unknown error occurred',
       });
     }
-  };
+  }, []);
 
-  const mockStudents = generateMockStudents();
-  const currentStats = dataStorage.getStorageStats();
-  const hasMockData = dataStorage.getStudents().some(s => s.id.startsWith('mock_'));
+  const mockStudents = useMemo(() => generateMockStudents(), []);
+  const currentStats = useMemo(() => dataStorage.getStorageStats(), [isLoading]);
+  const hasMockData = useMemo(
+    () => dataStorage.getStudents().some(s => s.id.startsWith('mock_')),
+    [isLoading]
+  );
 
   return (
     <Card className="bg-gradient-card border-0 shadow-soft">
@@ -131,21 +120,6 @@ export const MockDataLoader = () => {
           Mock data includes 3 students with 3-6 months of tracking data each.
         </div>
 
-        {/* Scenario Selection */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Data Scenario</label>
-          <Select value={selectedScenario} onValueChange={setSelectedScenario}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select scenario" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Students (Recommended)</SelectItem>
-              <SelectItem value="emma">Emma - Mild Anxiety Patterns</SelectItem>
-              <SelectItem value="lars">Lars - Sensory Challenges</SelectItem>
-              <SelectItem value="astrid">Astrid - Steady Improvement</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
 
         {/* Student Preview */}
         <div className="space-y-2">

@@ -26,12 +26,19 @@ class Logger {
   private config: LoggerConfig;
   private static instance: Logger;
 
-  constructor() {
+  private constructor() {
     this.config = {
       level: import.meta.env.PROD ? LogLevel.ERROR : LogLevel.DEBUG,
       enableConsole: !import.meta.env.PROD,
       enableRemote: false
     };
+  }
+
+  public static getInstance(): Logger {
+    if (!Logger.instance) {
+      Logger.instance = new Logger();
+    }
+    return Logger.instance;
   }
 
   public init(level: LogLevel) {
@@ -113,4 +120,4 @@ class Logger {
   }
 }
 
-export const logger = new Logger();
+export const logger = Logger.getInstance();

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -12,7 +12,7 @@ interface ConfidenceIndicatorProps {
   className?: string;
 }
 
-export const ConfidenceIndicator: React.FC<ConfidenceIndicatorProps> = ({
+export const ConfidenceIndicator = memo<ConfidenceIndicatorProps>(({
   confidence,
   dataPoints = 0,
   timeSpanDays = 0,
@@ -114,4 +114,6 @@ export const ConfidenceIndicator: React.FC<ConfidenceIndicatorProps> = ({
       </Tooltip>
     </TooltipProvider>
   );
-};
+});
+
+ConfidenceIndicator.displayName = 'ConfidenceIndicator';

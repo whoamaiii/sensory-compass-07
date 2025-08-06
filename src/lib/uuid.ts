@@ -1,5 +1,5 @@
 export function generateUUID(): string {
-  // Use crypto.randomUUID if available (modern browsers)
+// Use crypto.randomUUID for native UUID generation if available (modern browsers)
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }

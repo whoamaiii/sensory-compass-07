@@ -1,7 +1,8 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { motion } from 'framer-motion';
-import { Users, Plus, BookOpen, Target } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Plus, Users, BookOpen, Target } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface PremiumEmptyStateProps {
   title: string;
@@ -84,7 +85,7 @@ export const PremiumEmptyState = ({
             {[...Array(6)].map((_, i) => (
               <motion.div
                 key={i}
-                className="absolute w-2 h-2 bg-primary/30 rounded-full"
+                className="absolute w-2 h-2 bg-primary/30 rounded-full left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
                 initial={{ 
                   x: 0, 
                   y: 0,
@@ -100,11 +101,6 @@ export const PremiumEmptyState = ({
                   repeat: Infinity,
                   delay: i * 0.2,
                   ease: "easeInOut"
-                }}
-                style={{
-                  left: '50%',
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)'
                 }}
               />
             ))}

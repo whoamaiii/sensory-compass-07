@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertManager } from "@/components/AlertManager";
-import { DataVisualization } from "@/components/DataVisualization";
+import { LazyInteractiveDataVisualization as DataVisualization } from "@/components/lazy/LazyInteractiveDataVisualization";
 import { AnalyticsSettings } from "@/components/AnalyticsSettings";
 import {
   TrendingUp,
@@ -33,6 +33,7 @@ import { analyticsExport, ExportFormat } from "@/lib/analyticsExport";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
 import { diagnostics } from "@/lib/diagnostics";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 /**
  * @interface AnalyticsDashboardProps
@@ -144,6 +145,7 @@ export const AnalyticsDashboard = memo(({
   // useMemo hooks to prevent re-calculating derived data on every render.
   const patterns = useMemo(() => results?.patterns || [], [results]);
   const correlations = useMemo(() => results?.correlations || [], [results]);
+  const environmentalCorrelations = useMemo(() => results?.environmentalCorrelations || results?.correlations || [], [results]);
   const insights = useMemo(() => results?.insights || [], [results]);
 
   // Mark visualization as ready on any terminal condition: results | error | not analyzing with data known
@@ -239,9 +241,9 @@ export const AnalyticsDashboard = memo(({
     return 'text-orange-600';
   };
 
-  try {
-    return (
-    <div className="space-y-6">
+  return (
+    <ErrorBoundary>
+      <div className="space-y-6">
       {/* Header card, displays the student's name and export options. */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -360,6 +362,7 @@ export const AnalyticsDashboard = memo(({
               <DataVisualization
                 emotions={filteredData.emotions}
                 sensoryInputs={filteredData.sensoryInputs}
+                trackingEntries={filteredData.entries}
                 studentName={student.name}
               />
             )}
@@ -485,16 +488,16 @@ export const AnalyticsDashboard = memo(({
                   <p>{error}</p>
                 </div>
               )}
-              {!isAnalyzing && !error && correlations.length === 0 && (
+              {!isAnalyzing && !error && environmentalCorrelations.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No significant correlations found.</p>
                   <p className="text-sm">Environmental data may be needed for correlation analysis.</p>
                 </div>
               )}
-              {!isAnalyzing && !error && correlations.length > 0 && (
+              {!isAnalyzing && !error && environmentalCorrelations.length > 0 && (
                 <div className="space-y-4">
-                  {correlations.map((correlation: CorrelationResult, index) => (
+                  {environmentalCorrelations.map((correlation: CorrelationResult, index) => (
                     <Card key={index} className="border-l-4 border-l-blue-500">
                       <CardContent className="pt-4">
                         <div className="flex items-start justify-between">
@@ -556,33 +559,9 @@ export const AnalyticsDashboard = memo(({
           onClose={() => setShowSettings(false)}
         />
       )}
-    </div>
-    );
-  } catch (error) {
-    logger.error('Error in AnalyticsDashboard:', error);
-    logger.error('Error details:', {
-      name: error?.name,
-      message: error?.message,
-      stack: error?.stack
-    });
-    return (
-      <Card className="border-red-500">
-        <CardHeader>
-          <CardTitle className="text-red-600">Error in Analytics Dashboard</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-2">An error occurred while rendering the analytics dashboard.</p>
-          <details className="text-xs">
-            <summary className="cursor-pointer text-red-600 mb-1">Error details (click to expand)</summary>
-            <pre className="bg-gray-100 dark:bg-gray-900 p-2 rounded overflow-auto max-h-40">
-              {error?.message || 'Unknown error'}
-              {error?.stack && `\n\nStack trace:\n${error.stack}`}
-            </pre>
-          </details>
-        </CardContent>
-      </Card>
-    );
-  }
+      </div>
+    </ErrorBoundary>
+  );
 }, (prevProps, nextProps) => {
   // Custom comparison for React.memo to prevent unnecessary re-renders
   return (

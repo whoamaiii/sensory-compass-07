@@ -8,7 +8,7 @@ import { isToday } from "date-fns";
 import { useTranslation } from "@/hooks/useTranslation";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { LanguageSettings } from "@/components/LanguageSettings";
-import { PremiumStudentCard } from "@/components/PremiumStudentCard";
+import { PremiumStudentCard } from "@/components/ui/PremiumStudentCard";
 import { MockDataLoader } from "@/components/MockDataLoader";
 import { StorageManager } from "@/components/StorageManager";
 import { dataStorage } from "@/lib/dataStorage";
@@ -19,6 +19,7 @@ import { HelpAndSupport } from "@/components/HelpAndSupport";
 import { subWeeks, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { logger } from "@/lib/logger";
+import { cn } from "@/lib/utils";
 
 /**
  * Dashboard component - Main landing page with modern glassmorphism design
@@ -198,7 +199,7 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
             <div className="flex items-center space-x-4">
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="icon" title="Mock Data">
+                  <Button variant="outline" size="icon" title="Mock Data" aria-label="Open mock data loader">
                     <FlaskConical className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
@@ -211,7 +212,7 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
               </Dialog>
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="icon" title="Storage Management">
+                  <Button variant="outline" size="icon" title="Storage Management" aria-label="Open storage management">
                     <Database className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
@@ -231,7 +232,7 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
             {/* Overview section with buttons */}
             <div 
               className="flex justify-between items-center mb-8 animate-fade-in" 
-              style={{ animationDelay: '0.2s' }}
+              data-animation-delay="0.2s"
             >
               <h2 className="text-3xl font-bold tracking-tight text-foreground">Oversikt</h2>
               <div className="flex items-center space-x-4">
@@ -278,7 +279,7 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
               <Card 
                 className="animate-fade-in" 
-                style={{ animationDelay: '0.3s' }}
+                data-animation-delay="0.3s"
               >
                 <div className="flex justify-between items-start">
                   <h3 className="text-lg font-medium text-muted-foreground">
@@ -288,19 +289,19 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
                     <Users className="text-primary h-5 w-5" />
                   </div>
                 </div>
-                <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" style={{ animationDelay: '0.4s' }}>
+                <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" data-animation-delay="0.4s">
                   <AnimatedCounter value={isLoading ? 0 : students.length} />
                 </p>
                 <div className="flex items-center text-sm mt-3">
                   {weeklyTrend.students >= 0 ? <TrendingUp className="text-green-400 h-4 w-4 mr-1" /> : <TrendingDown className="text-red-400 h-4 w-4 mr-1" />}
-                  <span className={weeklyTrend.students >= 0 ? "text-green-400" : "text-red-400"}>{Math.abs(weeklyTrend.students).toFixed(0)}%</span>
+                  <span className={cn(weeklyTrend.students >= 0 ? "text-green-400" : "text-red-400")}>{Math.abs(weeklyTrend.students).toFixed(0)}%</span>
                   <span className="ml-1 text-muted-foreground">from last week</span>
                 </div>
               </Card>
 
               <Card 
                 className="animate-fade-in" 
-                style={{ animationDelay: '0.4s' }}
+                data-animation-delay="0.4s"
               >
                 <div className="flex justify-between items-start">
                   <h3 className="text-lg font-medium text-muted-foreground">
@@ -310,19 +311,19 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
                     <CalendarDays className="text-primary h-5 w-5" />
                   </div>
                 </div>
-                <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" style={{ animationDelay: '0.5s' }}>
+                <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" data-animation-delay="0.5s">
                   <AnimatedCounter value={isLoading ? 0 : todayEntries} />
                 </p>
                 <div className="flex items-center text-sm mt-3">
                   {weeklyTrend.entries >= 0 ? <TrendingUp className="text-green-400 h-4 w-4 mr-1" /> : <TrendingDown className="text-red-400 h-4 w-4 mr-1" />}
-                  <span className={weeklyTrend.entries >= 0 ? "text-green-400" : "text-red-400"}>{Math.abs(weeklyTrend.entries).toFixed(0)}%</span>
+                  <span className={cn(weeklyTrend.entries >= 0 ? "text-green-400" : "text-red-400")}>{Math.abs(weeklyTrend.entries).toFixed(0)}%</span>
                   <span className="ml-1 text-muted-foreground">from last week</span>
                 </div>
               </Card>
 
               <Card 
                 className="animate-fade-in" 
-                style={{ animationDelay: '0.5s' }}
+                data-animation-delay="0.5s"
               >
                 <div className="flex justify-between items-start">
                   <h3 className="text-lg font-medium text-muted-foreground">
@@ -332,7 +333,7 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
                     <BarChart3 className="text-primary h-5 w-5" />
                   </div>
                 </div>
-                <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" style={{ animationDelay: '0.6s' }}>
+                <p className="text-5xl font-bold mt-6 text-foreground animate-number-pop" data-animation-delay="0.6s">
                   <AnimatedCounter value={isLoading ? 0 : totalEntries} />
                 </p>
                 <div className="flex items-center text-sm mt-3">
@@ -347,7 +348,7 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
             <div>
               <div 
                 className="flex justify-between items-center mb-8 text-foreground animate-fade-in" 
-                style={{ animationDelay: '0.6s' }}
+                data-animation-delay="0.6s"
               >
                 <h2 className="text-3xl font-bold tracking-tight">Elever</h2>
                 <Button 
@@ -363,7 +364,7 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
 
               {/* Students grid or empty state */}
               {isLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in" style={{ animationDelay: '0.7s' }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in" data-animation-delay="0.7s">
                   {[...Array(3)].map((_, i) => (
                     <div key={i} className="glass-card rounded-3xl p-6 animate-pulse">
                       <div className="flex items-start gap-4 mb-4">
@@ -386,7 +387,7 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
                   ))}
                 </div>
               ) : students.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in" style={{ animationDelay: '0.7s' }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in" data-animation-delay="0.7s">
                   {students.map((student, index) => (
                     <PremiumStudentCard
                       key={student.id}
@@ -398,7 +399,7 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
                   ))}
                 </div>
               ) : (
-                <div className="space-y-8 animate-fade-in" style={{ animationDelay: '0.7s' }}>
+                <div className="space-y-8 animate-fade-in" data-animation-delay="0.7s">
                   {/* Empty State */}
                   <div className="relative glass-card rounded-3xl p-8 text-center min-h-[400px] flex flex-col justify-center items-center overflow-hidden">
                     {/* Decorative SVG elements */}
@@ -476,4 +477,4 @@ const csvBlob = new Blob([csvContent], { type: 'text/csv' });
   );
 };
 
-export default Dashboard;
+export { Dashboard };

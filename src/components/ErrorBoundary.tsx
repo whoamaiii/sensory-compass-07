@@ -1,3 +1,19 @@
+/**
+ * @fileoverview ErrorBoundary - React error boundary for graceful error handling
+ * 
+ * Provides a fallback UI when React components throw errors during rendering,
+ * lifecycle methods, or in constructors. Prevents the entire app from crashing.
+ * 
+ * Features:
+ * - Custom fallback UI
+ * - Automatic recovery after multiple errors
+ * - Development-mode error details
+ * - Toast notifications
+ * - Centralized error logging
+ * 
+ * @module components/ErrorBoundary
+ */
+
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,36 +22,91 @@ import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import { handleErrorBoundaryError } from '@/lib/errorHandler';
 
+/**
+ * Props for the ErrorBoundary component
+ */
 interface Props {
+  /** Child components to be wrapped by the error boundary */
   children: ReactNode;
+  /** Optional custom fallback UI to display when an error occurs */
   fallback?: ReactNode;
+  /** Optional callback function called when an error is caught */
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  /** Whether to show toast notifications on error (default: true) */
   showToast?: boolean;
 }
 
+/**
+ * State for the ErrorBoundary component
+ */
 interface State {
+  /** Whether an error has been caught */
   hasError: boolean;
+  /** The caught error object */
   error?: Error;
+  /** Additional error information from React */
   errorInfo?: ErrorInfo;
+  /** Count of errors caught (used for auto-recovery) */
   errorCount: number;
 }
 
+/**
+ * ErrorBoundary Component
+ * 
+ * A React error boundary that catches JavaScript errors anywhere in the child
+ * component tree, logs those errors, and displays a fallback UI.
+ * 
+ * @class
+ * @extends {Component<Props, State>}
+ */
 export class ErrorBoundary extends Component<Props, State> {
+  /** Timeout ID for auto-recovery mechanism */
   private resetTimeoutId: NodeJS.Timeout | null = null;
   
+  /** Initial component state */
   public state: State = {
     hasError: false,
     errorCount: 0
   };
 
-  public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error, errorCount: 0 };
+  /**
+   * Static lifecycle method that updates state when an error is thrown.
+   * Called during the "render" phase, so side effects are not permitted.
+   * 
+   * @static
+   * @param {Error} error - The error that was thrown
+   * @returns {Pick<State, 'hasError' | 'error'>} New state values
+   */
+  public static getDerivedStateFromError(error: Error): Pick<State, 'hasError' | 'error'> {
+    return { hasError: true, error };
   }
 
+  /**
+   * Lifecycle method called after an error has been thrown by a descendant.
+   * Used for error logging and side effects.
+   * 
+   * @param {Error} error - The error that was thrown
+   * @param {ErrorInfo} errorInfo - Object with componentStack key containing info about which component threw the error
+   */
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Use the logger service for proper error tracking
+    // This respects environment configuration and doesn't log to console in production
+    logger.error('[ErrorBoundary] Component error caught', {
+      error: {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+      },
+      errorInfo: {
+        componentStack: errorInfo?.componentStack,
+      },
+      route: typeof window !== 'undefined' ? window.location?.pathname : 'unknown',
+      timestamp: new Date().toISOString(),
+    });
+
     // Use centralized error handler
     handleErrorBoundaryError(error, errorInfo);
-    
+
     this.setState(prevState => ({
       error,
       errorInfo,
@@ -52,30 +123,50 @@ export class ErrorBoundary extends Component<Props, State> {
 
     // Only show toast if explicitly enabled (default is true for backward compatibility)
     if (this.props.showToast !== false) {
-      toast.error('An unexpected error occurred', {
-        description: 'Please try again or refresh the page.',
-        action: {
-          label: 'Dismiss',
-          onClick: () => {}
-        }
-      });
+      // Use built-in toast system if available; also emit a dev-only minimal toast payload
+      try {
+        toast.error('An unexpected error occurred', {
+          description: import.meta.env.DEV && this.state.error
+            ? `DEV: ${this.state.error.name}: ${this.state.error.message}`
+            : 'Please try again or refresh the page.',
+          action: {
+            label: 'Dismiss',
+            onClick: () => {}
+          }
+        });
+      } catch {
+        // no-op; avoid crashing when toast system not mounted
+      }
     }
   }
 
+  /**
+   * Schedules an automatic reset of the error boundary after multiple errors.
+   * This prevents infinite error loops by giving the app a chance to recover.
+   * 
+   * @private
+   */
   private scheduleAutoReset = () => {
+    // Clear any existing timeout
     if (this.resetTimeoutId) {
       clearTimeout(this.resetTimeoutId);
     }
     
+    // Schedule auto-reset after 5 seconds
     this.resetTimeoutId = setTimeout(() => {
       this.handleRetry();
-      toast.info('Page automatically refreshed after multiple errors');
+      toast('Page automatically refreshed after multiple errors');
     }, 5000);
   };
 
+  /**
+   * Cleanup method called when the component is unmounting.
+   * Ensures no memory leaks from pending timeouts.
+   */
   public componentWillUnmount() {
     if (this.resetTimeoutId) {
       clearTimeout(this.resetTimeoutId);
+      this.resetTimeoutId = null;
     }
   }
 
@@ -106,83 +197,54 @@ export class ErrorBoundary extends Component<Props, State> {
       // Default error UI
       return (
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
-          <Card className="w-full max-w-lg bg-gradient-card border-0 shadow-soft">
-            <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-4">
-                <AlertTriangle className="w-8 h-8 text-destructive" />
-              </div>
-              <CardTitle className="text-xl">Something went wrong</CardTitle>
+          <Card className="max-w-lg w-full">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Something went wrong
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-muted-foreground text-center">
-                An unexpected error occurred while rendering this page. 
-                This error has been logged and will be investigated.
+              <p className="text-sm text-muted-foreground">
+                An unexpected error occurred. The application may not be working correctly.
               </p>
-
+              
               {import.meta.env.DEV && this.state.error && (
-                <details className="bg-muted p-4 rounded-md text-sm">
-                  <summary className="cursor-pointer font-medium mb-2">
-                    Error Details (Development Only)
-                  </summary>
-                  <div className="space-y-2">
-                    <div>
-                      <strong>Error:</strong> {this.state.error.message}
-                    </div>
-                    {this.state.error.stack && (
-                      <div>
-                        <strong>Stack:</strong>
-                        <pre className="whitespace-pre-wrap text-xs mt-1 bg-background p-2 rounded">
-                          {this.state.error.stack}
-                        </pre>
-                      </div>
-                    )}
-                    {this.state.errorInfo?.componentStack && (
-                      <div>
-                        <strong>Component Stack:</strong>
-                        <pre className="whitespace-pre-wrap text-xs mt-1 bg-background p-2 rounded">
-                          {this.state.errorInfo.componentStack}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
+                <details className="text-xs">
+                  <summary className="cursor-pointer font-medium">Error Details</summary>
+                  <pre className="mt-2 p-2 bg-muted rounded overflow-auto max-h-40">
+                    {this.state.error.message}
+                    {this.state.error.stack}
+                  </pre>
                 </details>
               )}
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button 
-                  onClick={this.handleRetry} 
-                  className="flex-1"
-                  variant="default"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
+              
+              <div className="flex gap-2">
+                <Button onClick={this.handleRetry} variant="default">
+                  <RefreshCw className="h-4 w-4 mr-2" />
                   Try Again
                 </Button>
                 <Button 
                   onClick={this.handleReload} 
-                  className="flex-1"
                   variant="outline"
                 >
-                  <RefreshCw className="w-4 h-4 mr-2" />
+                  <RefreshCw className="h-4 w-4 mr-2" />
                   Reload Page
                 </Button>
                 <Button 
                   onClick={this.handleGoHome} 
-                  className="flex-1"
                   variant="outline"
                 >
-                  <Home className="w-4 h-4 mr-2" />
+                  <Home className="h-4 w-4 mr-2" />
                   Go Home
                 </Button>
               </div>
-
-              <div className="text-xs text-muted-foreground text-center pt-4 border-t">
-                If this problem persists, please contact your system administrator.
-                {this.state.errorCount > 2 && (
-                  <p className="mt-2 text-orange-600">
-                    Multiple errors detected. Auto-refreshing in 5 seconds...
-                  </p>
-                )}
-              </div>
+              
+              {this.state.errorCount >= 3 && (
+                <p className="text-xs text-muted-foreground">
+                  Auto-refreshing in 5 seconds...
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

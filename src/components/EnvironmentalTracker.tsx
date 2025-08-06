@@ -48,7 +48,8 @@ export const EnvironmentalTracker = ({ onEnvironmentalAdd, studentId }: Environm
 
   const handleSubmit = () => {
     if (!lighting || !classroomActivity || !weather || !timeOfDay) {
-      return; // Could add validation toast here
+      toast.error('Please fill out all required fields (lighting, activity, weather, time of day).');
+      return;
     }
 
     const entry: Omit<EnvironmentalEntry, 'id' | 'timestamp'> = {

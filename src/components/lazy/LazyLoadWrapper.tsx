@@ -2,7 +2,7 @@ import React, { Suspense, lazy, ComponentType } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
-import { ErrorWrapper } from './ErrorWrapper';
+import { ErrorWrapper } from '@/components/ErrorWrapper';
 import { logger } from '@/lib/logger';
 
 interface LazyLoadWrapperProps {

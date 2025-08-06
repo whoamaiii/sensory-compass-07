@@ -1,3 +1,15 @@
+/**
+ * @fileoverview ProgressDashboard - Comprehensive goal tracking and analytics visualization
+ * 
+ * Provides detailed insights into student goal progress with multiple visualization types:
+ * - Overall progress metrics and KPIs
+ * - Time-series progress tracking
+ * - Category-based performance analysis  
+ * - Priority goal recommendations
+ * 
+ * @module components/ProgressDashboard
+ */
+
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,11 +28,38 @@ interface ProgressDashboardProps {
   goals: Goal[];
 }
 
+/**
+ * ProgressDashboard Component
+ * 
+ * Displays comprehensive analytics and visualizations for student goal progress.
+ * Provides metrics, trends, category breakdowns, and priority recommendations.
+ * 
+ * @component
+ * @param {ProgressDashboardProps} props - Component props
+ * @param {Student} props.student - Student whose progress is being tracked
+ * @param {Goal[]} props.goals - Array of student goals to analyze
+ * 
+ * @example
+ * ```tsx
+ * <ProgressDashboard student={currentStudent} goals={studentGoals} />
+ * ```
+ */
 export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) => {
   const [selectedTimeframe, setSelectedTimeframe] = useState<'week' | 'month' | 'quarter'>('month');
   const [isAnalyzingTrends, setIsAnalyzingTrends] = useState(false);
 
-  // Calculate progress metrics
+  /**
+   * Calculate key progress metrics from goals data.
+   * Memoized to prevent unnecessary recalculations on re-renders.
+   * 
+   * @returns {Object} Progress metrics
+   * @returns {number} totalGoals - Total number of goals
+   * @returns {number} activeGoals - Number of active goals
+   * @returns {number} achievedGoals - Number of achieved goals
+   * @returns {number} overallProgress - Average progress percentage
+   * @returns {number} onTrackGoals - Goals meeting expected progress
+   * @returns {number} atRiskGoals - Goals falling behind schedule
+   */
   const progressMetrics = useMemo(() => {
     const activeGoals = goals.filter(g => g.status === 'active');
     const achievedGoals = goals.filter(g => g.status === 'achieved');
@@ -104,11 +143,28 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
     return result;
   }, [goals]);
 
-  // Brief analyzing skeleton to smooth chart updates when goals change
+  /**
+   * Effect to show a brief loading state when goals data changes.
+   * This provides visual feedback during data processing and prevents jarring updates.
+   * Includes proper cleanup to prevent memory leaks.
+   * 
+   * @dependencies goals - Triggers when goals data changes
+   */
   useEffect(() => {
+    // Set loading state for smooth transitions
     setIsAnalyzingTrends(true);
-    const t = setTimeout(() => setIsAnalyzingTrends(false), 300);
-    return () => clearTimeout(t);
+    
+    // Create timeout for loading animation
+    const timeoutId = setTimeout(() => {
+      setIsAnalyzingTrends(false);
+    }, 300);
+    
+    // Cleanup function to prevent memory leaks
+    return () => {
+      clearTimeout(timeoutId);
+      // Ensure loading state is reset if component unmounts during loading
+      setIsAnalyzingTrends(false);
+    };
   }, [goals]);
 
   // Category progress data

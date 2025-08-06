@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { motion, useSpring, useTransform } from 'framer-motion';
 
 interface AnimatedCounterProps {
@@ -7,7 +7,7 @@ interface AnimatedCounterProps {
   className?: string;
 }
 
-export const AnimatedCounter = ({ value, duration = 0.8, className }: AnimatedCounterProps) => {
+export const AnimatedCounter = memo(({ value, duration = 0.8, className }: AnimatedCounterProps) => {
   const [displayValue, setDisplayValue] = useState(0);
   const spring = useSpring(0, { stiffness: 80, damping: 20 });
   const display = useTransform(spring, (latest) => Math.round(latest));
@@ -45,4 +45,6 @@ export const AnimatedCounter = ({ value, duration = 0.8, className }: AnimatedCo
       {displayValue}
     </motion.span>
   );
-};
+});
+
+AnimatedCounter.displayName = 'AnimatedCounter';

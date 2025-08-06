@@ -184,11 +184,11 @@ export const generateTrackingEntry = (student: Student, daysAgo: number, scenari
         const progressFactor = dayIndex / 120;
         
         // Astrid shows steady emotional improvement
-        const emotionTypes = progressFactor > 0.7 ? 
+const emotionTypes = progressFactor > 0.7 ? 
           ['happy', 'content', 'excited'] : 
           progressFactor > 0.4 ? 
-            ['calm', 'content', 'happy'] : 
-            ['anxious', 'sad', 'frustrated'];
+            ['calm', 'content', 'anxious'] : 
+            ['anxious', 'frustrated', 'frustrated'];
             
         const selectedEmotion = emotionTypes[Math.floor(Math.random() * emotionTypes.length)];
         entry.emotions.push(generateEmotionEntry(student.id, timestamp, selectedEmotion));

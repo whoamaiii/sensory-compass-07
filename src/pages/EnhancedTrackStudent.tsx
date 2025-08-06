@@ -14,7 +14,7 @@ import { analyticsManager } from "@/lib/analyticsManager";
 import { format } from "date-fns";
 import { logger } from "@/lib/logger";
 
-export const EnhancedTrackStudent = () => {
+const EnhancedTrackStudent = () => {
   const { studentId } = useParams();
   const navigate = useNavigate();
   const { tStudent, tCommon } = useTranslation();
@@ -354,3 +354,5 @@ export const EnhancedTrackStudent = () => {
     </div>
   );
 };
+
+export { EnhancedTrackStudent };

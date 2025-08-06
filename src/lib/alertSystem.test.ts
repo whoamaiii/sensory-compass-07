@@ -92,12 +92,12 @@ describe('AlertSystem', () => {
     };
     localStorage.setItem('sensoryTracker_alerts', JSON.stringify([alert]));
 
-    const setItemSpy = vi.spyOn(globalThis.localStorage, 'setItem');
-
     alertSystem.resolveAlert('a1', 'user-1');
 
-    const savedAlerts = setItemSpy.mock.calls[0][1] as string;
-    const parsedAlerts = JSON.parse(savedAlerts);
+    // Get the alerts directly from localStorage to verify
+    const savedData = localStorage.getItem('sensoryTracker_alerts');
+    expect(savedData).toBeTruthy();
+    const parsedAlerts = JSON.parse(savedData!);
 
     expect(parsedAlerts[0].resolved).toBe(true);
     expect(parsedAlerts[0].resolvedBy).toBe('user-1');

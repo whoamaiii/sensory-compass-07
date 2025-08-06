@@ -45,6 +45,11 @@ export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps)
   const [selectedType, setSelectedType] = useState<string>('');
   const [selectedResponse, setSelectedResponse] = useState<string>('');
   const [intensity, setIntensity] = useState<number>(3);
+  // Intensity range: 1-5 only, capped
+  const handleIntensity = (value: number) => {
+    const clamped = Math.max(1, Math.min(5, value));
+    setIntensity(clamped);
+  };
   const [notes, setNotes] = useState('');
   const [environment, setEnvironment] = useState('');
   const [location, setLocation] = useState('');
@@ -108,6 +113,8 @@ export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps)
                       : 'hover:scale-105 animate-fade-in hover:shadow-soft'
                   }`}
                   onClick={() => setSelectedType(type.type)}
+                  aria-label={`Select sensory type: ${String(tTracking(`sensory.types.${type.type}`))}`}
+                  aria-pressed={selectedType === type.type}
                 >
                   <Icon className="h-5 w-5 transform transition-transform duration-200 hover:scale-110" />
                   <div className="text-left">
@@ -134,6 +141,8 @@ export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps)
                       : 'hover:scale-105 animate-fade-in hover:shadow-soft'
                   }`}
                   onClick={() => setSelectedResponse(response.type)}
+                  aria-label={`Select response: ${String(tTracking(`sensory.responses.${response.type}`))}`}
+                  aria-pressed={selectedResponse === response.type}
                 >
                   <span className="font-medium">{String(tTracking(`sensory.responses.${response.type}`))}</span>
                 </Button>
@@ -143,7 +152,7 @@ export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps)
         )}
 
         {/* Intensity Scale */}
-        {selectedResponse && (
+{selectedResponse && (
           <div>
             <h3 className="text-sm font-medium text-foreground mb-3">
               {String(tTracking('sensory.intensity'))}: {intensity}/5
@@ -157,13 +166,24 @@ export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps)
                   className={`w-12 h-12 rounded-full font-dyslexia ${
                     intensity === level ? 'bg-gradient-primary' : ''
                   }`}
-                  onClick={() => setIntensity(level)}
+                  onClick={() => handleIntensity(level)}
                   title={String(tTracking(`sensory.intensityLevels.${level}`))}
+                  aria-label={`Intensity level ${level}`}
+                  aria-pressed={intensity === level}
                 >
                   {level}
                 </Button>
               ))}
             </div>
+            <input
+              type="number"
+              value={intensity}
+              min={1}
+              max={5}
+              onChange={e => handleIntensity(Number(e.target.value))}
+              className="w-16 px-2 py-1 mt-2 rounded border"
+              aria-label="Manual intensity input"
+            />
           </div>
         )}
 
@@ -178,6 +198,16 @@ export const SensoryTracker = ({ onSensoryAdd, studentId }: SensoryTrackerProps)
                   variant={location === loc ? "default" : "outline"}
                   className="cursor-pointer font-dyslexia hover-lift transition-all duration-200"
                   onClick={() => setLocation(location === loc ? '' : loc)}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={location === loc}
+                  aria-label={`Select body location: ${loc}`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setLocation(location === loc ? '' : loc);
+                    }
+                  }}
                 >
                   {loc}
                 </Badge>

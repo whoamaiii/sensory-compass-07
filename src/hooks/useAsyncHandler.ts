@@ -1,16 +1,16 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 
-interface UseAsyncHandlerOptions {
-  onSuccess?: (result: any) => void;
+interface UseAsyncHandlerOptions<R = unknown> {
+  onSuccess?: (result: R) => void;
   onError?: (error: Error) => void;
   successMessage?: string;
   errorMessage?: string;
 }
 
-export function useAsyncHandler<T extends any[], R>(
+export function useAsyncHandler<T extends unknown[], R>(
   asyncFunction: (...args: T) => Promise<R>,
-  options: UseAsyncHandlerOptions = {}
+  options: UseAsyncHandlerOptions<R> = {}
 ) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);

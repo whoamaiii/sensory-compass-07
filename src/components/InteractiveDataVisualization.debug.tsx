@@ -1,9 +1,10 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 export const InteractiveDataVisualization = ({ emotions, sensoryInputs, trackingEntries, studentName }: any) => {
-  console.log('[DEBUG] InteractiveDataVisualization props:', {
+  logger.debug('[DEBUG] InteractiveDataVisualization props:', {
     emotions: emotions?.length,
     sensoryInputs: sensoryInputs?.length,
     trackingEntries: trackingEntries?.length,

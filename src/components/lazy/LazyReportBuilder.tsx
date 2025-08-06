@@ -1,4 +1,4 @@
-import { createLazyComponent } from '@/components/LazyLoadWrapper';
+import { createLazyComponent } from './LazyLoadWrapper';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText } from 'lucide-react';

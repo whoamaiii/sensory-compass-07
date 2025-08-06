@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, memo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import { useStudentData } from "@/hooks/useStudentData";
 import { Student, Goal, Insights } from "@/types/student";
 import { exportSystem } from "@/lib/exportSystem";
 import { downloadBlob } from "@/lib/utils";
-import { ArrowLeft, Download, Save, FileText, Calendar } from "lucide-react";
+import { ArrowLeft, Download, Save, FileText, Calendar, Loader } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSettings } from "@/components/LanguageSettings";
@@ -58,6 +59,11 @@ const StudentProfile = () => {
   const navigate = useNavigate();
   const { tCommon } = useTranslation();
 
+  // DIAGNOSTIC: Mount parameters
+  if (import.meta.env.DEV) {
+    logger.debug('[DIAGNOSTIC] StudentProfile mount', { studentId });
+  }
+
   const {
     student,
     trackingEntries,
@@ -69,6 +75,25 @@ const StudentProfile = () => {
     reloadGoals,
     reloadData,
   } = useStudentData(studentId);
+
+  // DIAGNOSTIC: After data hook
+  if (import.meta.env.DEV) {
+    try {
+      logger.debug('[DIAGNOSTIC] useStudentData snapshot', {
+        hasStudent: !!student,
+        studentId,
+        studentName: student?.name,
+        trackingEntriesCount: trackingEntries?.length ?? 0,
+        emotionsCount: allEmotions?.length ?? 0,
+        sensoryInputsCount: allSensoryInputs?.length ?? 0,
+        goalsCount: goals?.length ?? 0,
+        isLoadingStudent,
+        studentError
+      });
+    } catch (e) {
+      logger.debug('[DIAGNOSTIC] useStudentData snapshot logging failed', { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
 
   // State to control which profile section is currently visible.
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -111,7 +136,12 @@ const StudentProfile = () => {
     const { signal } = controller;
 
     const generateInsights = async () => {
-      if (!student || (filteredData.emotions.length === 0 && filteredData.sensoryInputs.length === 0 && filteredData.entries.length === 0)) {
+      if (
+        !student ||
+        (filteredData.emotions.length === 0 &&
+          filteredData.sensoryInputs.length === 0 &&
+          filteredData.entries.length === 0)
+      ) {
         setInsights(null);
         return;
       }
@@ -126,7 +156,7 @@ const StudentProfile = () => {
         if (!signal.aborted) {
           logger.error('Error generating insights', { error });
           setInsights(null);
-          toast.error("Failed to generate insights");
+          toast.error('Failed to generate insights');
         }
       } finally {
         if (!signal.aborted) {
@@ -136,16 +166,49 @@ const StudentProfile = () => {
     };
 
     generateInsights();
-    
-    // Analytics triggers
-    if (student) {
-        analyticsManager.triggerAnalyticsForStudent(student);
-    } else if (studentId) {
-        analyticsManager.initializeStudentAnalytics(studentId);
+
+    // Analytics triggers with diagnostics and isolation (fail-soft)
+    try {
+      if (student) {
+        if (import.meta.env.DEV) {
+          logger.debug('[DIAGNOSTIC] analyticsManager.triggerAnalyticsForStudent start', {
+            studentId: student.id,
+            name: student.name,
+          });
+        }
+        // Do not block UI if analytics fails
+        Promise.resolve(analyticsManager.triggerAnalyticsForStudent(student))
+          .then(() => {
+            if (import.meta.env.DEV) {
+              logger.debug('[DIAGNOSTIC] analyticsManager.triggerAnalyticsForStudent done');
+            }
+          })
+          .catch((err) => {
+            logger.error('[SAFE] analyticsManager.triggerAnalyticsForStudent failed', { error: err, studentId: student.id });
+          });
+      } else if (studentId) {
+        if (import.meta.env.DEV) {
+          logger.debug('[DIAGNOSTIC] analyticsManager.initializeStudentAnalytics start', { studentId });
+        }
+        try {
+          analyticsManager.initializeStudentAnalytics(studentId);
+          if (import.meta.env.DEV) {
+            logger.debug('[DIAGNOSTIC] analyticsManager.initializeStudentAnalytics done');
+          }
+        } catch (err) {
+          logger.error('[SAFE] analyticsManager.initializeStudentAnalytics failed', { error: err, studentId });
+        }
+      }
+    } catch (err) {
+      // Extra safety net; never rethrow from analytics side-effect
+      logger.error('[SAFE] analyticsManager outer try/catch caught error', { error: err });
     }
 
     return () => {
       // On cleanup, abort any pending operations to prevent memory leaks and state updates on unmounted components.
+      if (import.meta.env.DEV) {
+        logger.debug('[DIAGNOSTIC] StudentProfile cleanup: aborting controller and clearing timers if any');
+      }
       controller.abort();
     };
   }, [filteredData, getInsights, student, studentId]);
@@ -244,29 +307,43 @@ const StudentProfile = () => {
     }
   }, [reloadData]);
 
-  // Loading state for the initial student data fetch.
   if (isLoadingStudent) {
     return (
-      <div className="min-h-screen bg-background font-dyslexia flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">{String(tCommon('status.loading'))}</h1>
-          <div className="animate-pulse">Laster elevdata...</div>
+      <div className="h-screen w-full flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader className="h-5 w-5 animate-spin" />
+          <p className="text-muted-foreground">Loading student data...</p>
         </div>
       </div>
     );
   }
 
-  // State for when the student is not found.
   if (!student) {
-     return (
-      <div className="min-h-screen bg-background font-dyslexia flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4 text-destructive">Student Not Found</h1>
-          <p>The requested student could not be found.</p>
-          <Button onClick={() => navigate('/')} className="mt-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Return to Dashboard
-          </Button>
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <p className="text-destructive">Student not found.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoadingStudent) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader className="h-5 w-5 animate-spin" />
+          <p className="text-muted-foreground">Loading student data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!student) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <p className="text-destructive">Student not found.</p>
         </div>
       </div>
     );
@@ -285,7 +362,7 @@ const StudentProfile = () => {
             <div className="flex h-14 items-center justify-between px-6">
               <div className="flex items-center gap-3">
                 <SidebarTrigger />
-                <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/')} aria-label="Go back to dashboard">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   {String(tCommon('buttons.back'))}
                 </Button>
@@ -293,7 +370,7 @@ const StudentProfile = () => {
               <div className="flex items-center gap-3">
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex items-center justify-center group">
+                    <Button variant="outline" size="sm" className="flex items-center justify-center group" aria-label="Open mock data loader">
                       <FileText className="h-4 w-4 mr-2 transition-transform group-hover:rotate-12" />
                       Load Mock Data
                     </Button>
@@ -330,13 +407,15 @@ const StudentProfile = () => {
                 />
               )}
               {activeSection === 'analytics' && (
-                <MemoizedAnalyticsSection
-                  student={student}
-                  trackingEntries={trackingEntries}
-                  filteredData={filteredData}
-                  insights={insights}
-                  isLoadingInsights={isLoadingInsights}
-                />
+                <ErrorBoundary showToast={true}>
+                  <MemoizedAnalyticsSection
+                    student={student}
+                    trackingEntries={trackingEntries ?? []}
+                    filteredData={filteredData}
+                    insights={insights}
+                    isLoadingInsights={isLoadingInsights}
+                  />
+                </ErrorBoundary>
               )}
               {activeSection === 'goals' && (
                 <div className="space-y-6">
@@ -427,4 +506,4 @@ const StudentProfile = () => {
   );
 };
 
-export default StudentProfile;
+export { StudentProfile };

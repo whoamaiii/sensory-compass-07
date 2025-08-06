@@ -1,14 +1,15 @@
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { EmotionEntry, SensoryEntry } from '@/types/student';
+import { Sparkles, Zap, Brain, Clock, Sun, Moon, RefreshCw, Plus, X, Trash2, Edit, Star } from 'lucide-react';
+import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Zap, Clock, Plus, Trash2, Edit, Star } from "lucide-react";
-import { EmotionEntry, SensoryEntry } from "@/types/student";
-import { toast } from "sonner";
 
 interface QuickTemplate {
   id: string;
@@ -109,14 +110,63 @@ const defaultTemplates: QuickTemplate[] = [
   }
 ];
 
+/**
+ * QuickEntryTemplates Component
+ * 
+ * Provides pre-configured templates for quick emotion and sensory input entries.
+ * Templates are persisted per student in localStorage for convenience.
+ * 
+ * @component
+ * @param {QuickEntryTemplatesProps} props - Component props
+ * @param {string} props.studentId - ID of the current student
+ * @param {Function} props.onApplyTemplate - Callback when a template is applied
+ */
 export const QuickEntryTemplates: React.FC<QuickEntryTemplatesProps> = ({
   studentId,
   onApplyTemplate
 }) => {
+  /**
+   * Initialize templates from localStorage with error handling.
+   * Falls back to default templates if parsing fails or data is corrupted.
+   */
   const [templates, setTemplates] = useState<QuickTemplate[]>(() => {
-    // Load from localStorage or use defaults
-    const saved = localStorage.getItem(`quickTemplates_${studentId}`);
-    return saved ? JSON.parse(saved) : defaultTemplates;
+    try {
+      const saved = localStorage.getItem(`quickTemplates_${studentId}`);
+      if (!saved) return defaultTemplates;
+      
+      // Attempt to parse saved templates
+      const parsed = JSON.parse(saved);
+      
+      // Validate that parsed data is an array
+      if (!Array.isArray(parsed)) {
+        logger.warn('Invalid template data in localStorage, using defaults', { studentId });
+        return defaultTemplates;
+      }
+      
+      // Basic validation of template structure
+      const isValidTemplate = (t: any): t is QuickTemplate => {
+        return t && 
+               typeof t.id === 'string' && 
+               typeof t.name === 'string' &&
+               Array.isArray(t.emotions) &&
+               Array.isArray(t.sensoryInputs);
+      };
+      
+      // Filter out invalid templates
+      const validTemplates = parsed.filter(isValidTemplate);
+      
+      // If no valid templates found, return defaults
+      if (validTemplates.length === 0) {
+        logger.warn('No valid templates found in localStorage, using defaults', { studentId });
+        return defaultTemplates;
+      }
+      
+      return validTemplates;
+    } catch (error) {
+      // Log error and fall back to defaults
+      logger.error('Failed to parse saved templates, using defaults', error);
+      return defaultTemplates;
+    }
   });
   
   const [isCreating, setIsCreating] = useState(false);
@@ -131,10 +181,21 @@ export const QuickEntryTemplates: React.FC<QuickEntryTemplatesProps> = ({
     usageCount: 0
   });
 
-  // Save templates to localStorage
+  /**
+   * Save templates to localStorage with error handling.
+   * Logs errors but doesn't crash the application if saving fails.
+   * 
+   * @param {QuickTemplate[]} updatedTemplates - Templates to save
+   */
   const saveTemplates = (updatedTemplates: QuickTemplate[]) => {
     setTemplates(updatedTemplates);
-    localStorage.setItem(`quickTemplates_${studentId}`, JSON.stringify(updatedTemplates));
+    try {
+      localStorage.setItem(`quickTemplates_${studentId}`, JSON.stringify(updatedTemplates));
+    } catch (error) {
+      // Handle quota exceeded or other storage errors
+      logger.error('Failed to save templates to localStorage', error);
+      toast.error('Failed to save template changes. Storage may be full.');
+    }
   };
 
   const applyTemplate = (template: QuickTemplate) => {

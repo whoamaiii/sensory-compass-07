@@ -84,27 +84,46 @@ export class DataStorageManager implements IDataStorage {
     return versionData ? JSON.parse(versionData).version : 0;
   }
 
-  // Migrate data between versions
+  /**
+   * Migrates data between versions to ensure compatibility
+   * @param fromVersion - Current data version number
+   * @param toVersion - Target version number to migrate to
+   * @throws Never throws - logs errors internally to prevent data loss
+   * @sideEffects Updates localStorage with new version and migrated data
+   * @description Executes migration steps sequentially from fromVersion+1 to toVersion.
+   * Each migration step is isolated to prevent cascading failures.
+   * @example
+   * // Adding a new migration for version 2:
+   * migrationSteps[2] = () => {
+   *   // Add new required fields to existing data
+   *   this.addNewFieldsToStudents();
+   * };
+   */
   private migrateData(fromVersion: number, toVersion: number): void {
     const migrationSteps: Record<number, () => void> = {
       1: () => {
         // Migration to version 1: Add version field to existing data
         this.addVersionToExistingData();
       }
+      // Future migrations can be added here:
+      // 2: () => { this.addTrackingFeatures(); },
+      // 3: () => { this.updateDataStructure(); }
     };
 
+    // Execute migration steps sequentially
     for (let version = fromVersion + 1; version <= toVersion; version++) {
       if (migrationSteps[version]) {
         try {
           migrationSteps[version]();
-          // Data migration completed successfully
+          logger.info(`Successfully migrated to version ${version}`);
         } catch (error) {
-          // Log migration errors for debugging
+          // Log migration errors for debugging - never throw to prevent data loss
+          logger.error(`Migration to version ${version} failed:`, error);
         }
       }
     }
 
-    // Update version
+    // Update version after all migrations complete
     const versionData: DataVersion = {
       version: toVersion,
       timestamp: new Date(),
@@ -135,12 +154,36 @@ export class DataStorageManager implements IDataStorage {
     this.saveAll(STORAGE_KEYS.TRACKING_ENTRIES, entries);
   }
 
-  // Load or create storage index
+  /**
+   * Loads the storage index from localStorage or creates a new one
+   * @returns {StorageIndex} The loaded or newly created storage index
+   * @description The storage index maintains a mapping of entity IDs to their last update timestamps,
+   * enabling quick lookups and efficient data synchronization. This index acts as a metadata
+   * layer that tracks when each piece of data was last modified without needing to load
+   * and parse all data from localStorage.
+   * 
+   * Performance benefits:
+   * - O(1) lookup time for checking if an entity exists
+   * - Efficient dirty checking for sync operations
+   * - Reduced parsing overhead for large datasets
+   * - Quick identification of recently modified data
+   * 
+   * @example
+   * // Index structure:
+   * {
+   *   students: { "student_123": Date(2024-01-15T14:30:00) },
+   *   trackingEntries: { "entry_456": Date(2024-01-16T09:00:00) },
+   *   goals: { "goal_789": Date(2024-01-14T11:00:00) },
+   *   interventions: {},
+   *   alerts: {},
+   *   lastUpdated: Date(2024-01-16T10:00:00)
+   * }
+   */
   private loadStorageIndex(): StorageIndex {
     const indexData = localStorage.getItem(STORAGE_KEYS.STORAGE_INDEX);
     if (indexData) {
       const parsed = JSON.parse(indexData);
-      // Convert date strings back to Date objects
+      // Convert date strings back to Date objects for accurate timestamp comparison
       Object.keys(parsed.students || {}).forEach(key => {
         parsed.students[key] = new Date(parsed.students[key]);
       });
@@ -160,6 +203,7 @@ export class DataStorageManager implements IDataStorage {
       return parsed;
     }
 
+    // Create new index if none exists
     return {
       students: {},
       trackingEntries: {},
@@ -170,7 +214,25 @@ export class DataStorageManager implements IDataStorage {
     };
   }
 
-  // Save storage index
+  /**
+   * Saves the storage index to localStorage
+   * @sideEffects Updates localStorage with the current index state
+   * @description Persists the in-memory index to localStorage, updating the lastUpdated timestamp.
+   * This method is called after any data modification to keep the index synchronized with
+   * the actual data. The index enables efficient data operations without loading full datasets.
+   * 
+   * Relationship to data:
+   * - Each save operation updates both the data and the corresponding index entry
+   * - Index timestamps match the actual data modification times
+   * - Index can be used to implement incremental sync or backup strategies
+   * - Missing index entries indicate data corruption or manual localStorage manipulation
+   * 
+   * @example
+   * // When saving a student:
+   * this.saveStudent(student); // Saves student data
+   * this.storageIndex.students[student.id] = new Date(); // Updates index
+   * this.saveStorageIndex(); // Persists index changes
+   */
   private saveStorageIndex(): void {
     this.storageIndex.lastUpdated = new Date();
     storageUtils.safeSetItem(STORAGE_KEYS.STORAGE_INDEX, JSON.stringify(this.storageIndex));
@@ -211,18 +273,52 @@ export class DataStorageManager implements IDataStorage {
     }
   }
 
-  // Convert date strings to Date objects recursively
+  /**
+   * Converts ISO 8601 date strings to Date objects recursively
+   * @param obj - Object potentially containing date strings
+   * @returns Object with date strings converted to Date instances
+   * @description Matches strings in format: YYYY-MM-DDTHH:MM:SS (e.g., "2024-01-15T14:30:00")
+   * Handles nested objects and arrays recursively
+   * @regex /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/ - Matches ISO 8601 date format
+   * - ^ : Start of string
+   * - \d{4} : 4-digit year (e.g., 2024)
+   * - - : Literal hyphen separator
+   * - \d{2} : 2-digit month (01-12)
+   * - - : Literal hyphen separator
+   * - \d{2} : 2-digit day (01-31)
+   * - T : Literal 'T' separator between date and time
+   * - \d{2} : 2-digit hour (00-23)
+   * - : : Literal colon separator
+   * - \d{2} : 2-digit minute (00-59)
+   * - : : Literal colon separator
+   * - \d{2} : 2-digit second (00-59)
+   * @example
+   * // Single date string
+   * convertDates("2024-01-15T14:30:00") // Returns: Date Mon Jan 15 2024 14:30:00
+   * 
+   * // Nested object with dates
+   * convertDates({
+   *   created: "2024-01-15T14:30:00",
+   *   entries: [
+   *     { timestamp: "2024-01-16T09:00:00" }
+   *   ]
+   * })
+   * // Returns object with all date strings converted to Date objects
+   */
   private convertDates(obj: unknown): unknown {
     if (!obj) return obj;
     
+    // Check if string matches ISO 8601 date format
     if (typeof obj === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(obj)) {
       return new Date(obj);
     }
     
+    // Recursively process arrays
     if (Array.isArray(obj)) {
       return obj.map(item => this.convertDates(item));
     }
     
+    // Recursively process objects
     if (typeof obj === 'object' && obj !== null) {
       const converted: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(obj)) {

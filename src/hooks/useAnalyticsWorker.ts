@@ -1,3 +1,5 @@
+import { h64 } from 'xxhashjs';
+
 /**
  * @file src/hooks/useAnalyticsWorker.ts
  * 
@@ -7,17 +9,42 @@
  * Now enhanced with performance caching to avoid redundant calculations.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { AnalyticsData, AnalyticsResults } from '@/workers/analytics.worker';
+import { AnalyticsData, AnalyticsResults } from '@/types/analytics';
 import { usePerformanceCache } from './usePerformanceCache';
 import { analyticsConfig } from '@/lib/analyticsConfig';
 import { logger } from '@/lib/logger';
 import { diagnostics } from '@/lib/diagnostics';
 import { analyticsWorkerFallback } from '@/lib/analyticsWorkerFallback';
+import AnalyticsWorker from '@/workers/analytics.worker?worker';
+
+// Define CacheStats type if not imported from usePerformanceCache
+interface CacheStats {
+  hits: number;
+  misses: number;
+  sets: number;
+  evictions: number;
+  invalidations: number;
+  hitRate: number;
+  size: number;
+  memoryUsage?: number;
+}
 
 interface CachedAnalyticsWorkerOptions {
   cacheTTL?: number;
   enableCacheStats?: boolean;
   precomputeOnIdle?: boolean;
+}
+
+interface UseAnalyticsWorkerReturn {
+  results: AnalyticsResults | null;
+  isAnalyzing: boolean;
+  error: string | null;
+  runAnalysis: (data: AnalyticsData) => Promise<void>;
+  precomputeCommonAnalytics: (dataProvider: () => AnalyticsData[]) => void;
+  invalidateCacheForStudent: (studentId: string) => void;
+  clearCache: () => void;
+  cacheStats: CacheStats | null;
+  cacheSize: number;
 }
 
 /**
@@ -35,7 +62,7 @@ interface CachedAnalyticsWorkerOptions {
  *  - `clearCache`: Function to clear the analytics cache.
  *  - `invalidateCache`: Function to invalidate cache entries by tag or pattern.
  */
-export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}) => {
+export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): UseAnalyticsWorkerReturn => {
   const {
     cacheTTL = 5 * 60 * 1000, // 5 minutes default
     enableCacheStats = false,
@@ -58,13 +85,84 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}) =
   });
 
   useEffect(() => {
-    // Skip worker initialization - use fallback mode directly
-    // This ensures analytics work without worker complications
-    logger.info('[useAnalyticsWorker] Using fallback mode for analytics');
-    workerRef.current = null;
+    // Initialize the analytics web worker
+    try {
+      const worker = new AnalyticsWorker();
+      workerRef.current = worker;
 
-    // Cleanup function
+      // Set up message handler for receiving results from the worker
+      worker.onmessage = (event: MessageEvent<AnalyticsResults>) => {
+        const { data: workerResults } = event;
+
+        if (workerResults.error) {
+          logger.error('[useAnalyticsWorker] Worker error', workerResults.error);
+          setError(workerResults.error);
+          setResults(null);
+        } else {
+          const resultsWithDefaults: AnalyticsResults = {
+            ...workerResults,
+            environmentalCorrelations: workerResults.environmentalCorrelations || [],
+          };
+
+          const tags = extractTagsFromData(resultsWithDefaults);
+          if (resultsWithDefaults.cacheKey) {
+            cache.set(resultsWithDefaults.cacheKey, resultsWithDefaults, tags);
+          }
+
+          setResults(resultsWithDefaults);
+          setError(null);
+          logger.debug('[useAnalyticsWorker] Received results from worker', { 
+            cacheKey: resultsWithDefaults.cacheKey,
+            patternsCount: resultsWithDefaults.patterns?.length || 0,
+            insightsCount: resultsWithDefaults.insights?.length || 0
+          });
+        }
+
+        setIsAnalyzing(false);
+        if (watchdogRef.current) {
+          clearTimeout(watchdogRef.current);
+          watchdogRef.current = null;
+        }
+      };
+
+      // Set up error handler for worker failures
+      worker.onerror = async (error: ErrorEvent) => {
+        logger.error('[useAnalyticsWorker] Worker runtime error, switching to fallback', error);
+        
+        // Clear watchdog timer
+        if (watchdogRef.current) {
+          clearTimeout(watchdogRef.current);
+          watchdogRef.current = null;
+        }
+        
+        // Terminate the failed worker and set to null to trigger fallback
+        if (workerRef.current) {
+          workerRef.current.terminate();
+          workerRef.current = null;
+        }
+        
+        // If we have pending analysis, process with fallback
+        // This ensures we don't lose the current analysis request
+        setError('Analytics worker encountered an error. Switching to fallback mode.');
+        
+        // Note: The next call to runAnalysis will automatically use the fallback
+        // since workerRef.current is now null
+      };
+
+      logger.info('[useAnalyticsWorker] Analytics worker initialized successfully');
+    } catch (error) {
+      // If worker initialization fails, log and use fallback mode
+      logger.error('[useAnalyticsWorker] Failed to initialize worker', error);
+      workerRef.current = null;
+    }
+
+    // Cleanup function to properly terminate worker on unmount
     return () => {
+      if (workerRef.current) {
+        logger.debug('[useAnalyticsWorker] Terminating analytics worker');
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
       if (idleCallbackRef.current) {
         cancelIdleCallback(idleCallbackRef.current);
       }
@@ -73,7 +171,7 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}) =
         watchdogRef.current = null;
       }
     };
-  }, []);
+  }, [cache, extractTagsFromData]);
 
   /**
    * Creates a cache key based on the analytics data
@@ -87,17 +185,11 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}) =
     const latestSensoryDate = sensorySorted[0]?.timestamp ?? null;
 
     // Create a fingerprint of the data for cache key
-    const dataFingerprint = cache.getDataFingerprint({
-      emotionCount: data.emotions.length,
-      sensoryCount: data.sensoryInputs.length,
-      entryCount: data.entries.length,
-      // Include some data characteristics for better cache discrimination
-      latestEmotionDate,
-      latestSensoryDate,
-      emotionTypes: Array.from(new Set(data.emotions.map(e => e.emotion))).sort(),
-      sensoryTypes: Array.from(new Set(data.sensoryInputs.map(s => s.type))).sort(),
-      studentTags: Array.from(new Set(data.entries.map(e => e.studentId))).sort()
-    });
+    const dataFingerprint = h64(JSON.stringify({
+      emotions: emotionsSorted,
+      sensoryInputs: sensorySorted,
+      entries: data.entries,
+    }), 0xABCD).toString(16);
 
     return cache.createKey('analytics', {
       fingerprint: dataFingerprint,
@@ -134,10 +226,14 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}) =
     // Check cache first
     const cachedResult = cache.get(cacheKey);
     if (cachedResult) {
-      try {
-        logger.debug('[useAnalyticsWorker] cache hit', { cacheKey });
-      } catch (err) {
-        /* noop */
+      // Reduce logging verbosity - only log on first hit per key
+      if (!cache.get(`_logged_${cacheKey}`)) {
+        try {
+          logger.debug('[useAnalyticsWorker] cache hit', { cacheKey });
+          cache.set(`_logged_${cacheKey}`, true, ['logging'], 60000); // Log once per minute max
+        } catch (err) {
+          /* noop */
+        }
       }
       setResults(cachedResult);
       setError(null);
@@ -146,7 +242,11 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}) =
 
     // If no worker available, use fallback
     if (!workerRef.current) {
-      logger.warn('[useAnalyticsWorker] No worker available, using fallback');
+      // Only log fallback mode once per session
+      if (!cache.get('_logged_fallback_mode')) {
+        logger.debug('[useAnalyticsWorker] No worker available, using fallback');
+        cache.set('_logged_fallback_mode', true, ['logging'], 3600000); // Log once per hour
+      }
       setIsAnalyzing(true);
       setError(null);
       
@@ -163,6 +263,7 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}) =
         setResults({
           patterns: [],
           correlations: [],
+          environmentalCorrelations: [],
           predictiveInsights: [],
           anomalies: [],
           insights: ['Analytics temporarily unavailable.']
@@ -184,47 +285,95 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}) =
       watchdogRef.current = null;
     }
     // Determine timeout from config if available; fallback to 15s minimum 3s
-    const cfg = analyticsConfig.getConfig() as unknown as { timeouts?: { workerResponseMs?: number } };
-    const timeoutMs = Math.max(cfg?.timeouts?.workerResponseMs ?? 15000, 3000);
-    watchdogRef.current = setTimeout(() => {
+    const cfg = analyticsConfig.getConfig();
+    const timeoutMs = Math.max(15000, 3000); // Default to 15s, minimum 3s
+    watchdogRef.current = setTimeout(async () => {
       try {
-        logger.error('[useAnalyticsWorker] watchdog timeout: worker did not respond');
+        logger.error('[useAnalyticsWorker] watchdog timeout: worker did not respond, attempting fallback');
       } catch {
         /* noop */
       }
       diagnostics.logWorkerTimeout('analytics', timeoutMs);
-      setError('Analytics worker did not respond. Please try again.');
-      setIsAnalyzing(false);
+      
+      // Terminate unresponsive worker
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+      
+      // Attempt fallback processing
+      try {
+        const fallbackResults = await analyticsWorkerFallback.processAnalytics(data);
+        setResults(fallbackResults);
+        const tags = extractTagsFromData(data);
+        cache.set(cacheKey, fallbackResults, tags);
+        setError('Worker timeout - results computed using fallback mode.');
+      } catch (fallbackError) {
+        logger.error('[useAnalyticsWorker] Fallback failed after watchdog timeout', fallbackError);
+        setError('Analytics processing failed. Please try again.');
+        // Set minimal results to prevent UI crash
+        setResults({
+          patterns: [],
+          correlations: [],
+          environmentalCorrelations: [],
+          predictiveInsights: [],
+          anomalies: [],
+          insights: ['Analytics temporarily unavailable.']
+        });
+      } finally {
+        setIsAnalyzing(false);
+      }
     }, timeoutMs);
     
     // Get current configuration
     const config = analyticsConfig.getConfig();
 
-    try {
+    // Rate limit worker posting logs
+    const logKey = `_logged_worker_post_${new Date().getMinutes()}`;
+    if (!cache.get(logKey)) {
+      try {
         logger.debug('[useAnalyticsWorker] posting to worker (runAnalysis)', { hasConfig: !!config, cacheKey });
-    } catch {
-      /* noop */
+        cache.set(logKey, true, ['logging'], 60000); // Log at most once per minute
+      } catch {
+        /* noop */
+      }
     }
     
     // Send data to worker with cache key and configuration
     try {
       const messagePayload = { ...data, cacheKey, config };
-      logger.debug('[WORKER_MESSAGE] Sending message to analytics worker', { 
-        cacheKey, 
-        dataSize: JSON.stringify(messagePayload).length,
-        emotionsCount: data.emotions?.length || 0,
-        sensoryInputsCount: data.sensoryInputs?.length || 0,
-        entriesCount: data.entries?.length || 0
-      });
+      // Rate limit WORKER_MESSAGE logs
+      const workerLogKey = `_logged_worker_message_${cacheKey}_${new Date().getMinutes()}`;
+      if (!cache.get(workerLogKey)) {
+        logger.debug('[WORKER_MESSAGE] Sending message to analytics worker', {
+          cacheKey,
+          dataSize: JSON.stringify(messagePayload).length,
+          emotionsCount: data.emotions?.length || 0,
+          sensoryInputsCount: data.sensoryInputs?.length || 0,
+          entriesCount: data.entries?.length || 0
+        });
+        cache.set(workerLogKey, true, ['logging'], 60000); // Log once per minute per cache key
+      }
       workerRef.current.postMessage(messagePayload);
-      logger.debug('[WORKER_MESSAGE] Message sent successfully to analytics worker');
     } catch (postErr) {
-      logger.error('[WORKER_MESSAGE] Failed to send message to analytics worker', postErr);
-      setError('Failed to communicate with analytics worker.');
-      setIsAnalyzing(false);
+      logger.error('[WORKER_MESSAGE] Failed to post message to worker, falling back to sync', { error: postErr });
       if (watchdogRef.current) {
         clearTimeout(watchdogRef.current);
         watchdogRef.current = null;
+      }
+      
+      // Fallback to synchronous processing
+      try {
+        const fallbackResults = await analyticsWorkerFallback.processAnalytics(data);
+        setResults(fallbackResults);
+        const tags = extractTagsFromData(data);
+        cache.set(cacheKey, fallbackResults, tags);
+        setError(null);
+      } catch (fallbackError) {
+        logger.error('[useAnalyticsWorker] Fallback processing failed after worker post error', fallbackError);
+        setError('Analytics processing failed.');
+      } finally {
+        setIsAnalyzing(false);
       }
     }
   }, [cache, createCacheKey, extractTagsFromData]);

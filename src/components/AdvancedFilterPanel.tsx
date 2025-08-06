@@ -81,14 +81,14 @@ const FILTER_PRESETS: Array<{ name: string; description: string; criteria: Parti
     criteria: {
       emotions: {
         types: [],
-        intensityRange: [7, 10],
+        intensityRange: [4, 5], // Max app intensity is 5
         includeTriggers: [],
         excludeTriggers: []
       },
       sensory: {
         types: [],
         responses: [],
-        intensityRange: [7, 10]
+        intensityRange: [4, 5] // Max app intensity is 5
       }
     }
   },

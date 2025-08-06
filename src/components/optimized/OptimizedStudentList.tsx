@@ -1,6 +1,6 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useCallback } from 'react';
 import { VirtualScrollArea } from './VirtualScrollArea';
-import { PremiumStudentCard } from './PremiumStudentCard';
+import { PremiumStudentCard } from '../ui/PremiumStudentCard';
 import { Student } from '@/types/student';
 
 interface OptimizedStudentListProps {
@@ -22,7 +22,7 @@ export const OptimizedStudentList: React.FC<OptimizedStudentListProps> = memo(({
   containerHeight = 600,
   itemHeight = 180
 }) => {
-  const renderStudent = useMemo(() => 
+  const renderStudent = useCallback(
     (student: Student, index: number) => (
       <StudentCardMemo
         key={student.id}

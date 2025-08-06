@@ -21,6 +21,8 @@ import {
   Eye,
   AlertCircle
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 
 interface TimelineVisualizationProps {
   emotions: EmotionEntry[];
@@ -77,6 +79,8 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [hoveredEvent, setHoveredEvent] = useState<TimelineEvent | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartDateRef = useRef<Date | null>(null);
   
   // Data stream visibility
   const [streamVisibility, setStreamVisibility] = useState({
@@ -187,9 +191,14 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
         if (!sensoryByHour.has(hourKey)) {
           sensoryByHour.set(hourKey, { seeking: 0, avoiding: 0, neutral: 0 });
         }
-        const hourData = sensoryByHour.get(hourKey)!;
-        if (input.response.includes('seeking')) hourData.seeking++;
-        else if (input.response.includes('avoiding')) hourData.avoiding++;
+        const hourData = sensoryByHour.get(hourKey);
+        if (!hourData) {
+          // This shouldn't happen, but add safety check
+          logger.warn('Unexpected missing hour data', { hourKey });
+          return;
+        }
+        if (input.response?.includes('seeking')) hourData.seeking++;
+        else if (input.response?.includes('avoiding')) hourData.avoiding++;
         else hourData.neutral++;
       });
 
@@ -242,12 +251,23 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
   };
 
   // Handle brush selection
-  const handleMouseDown = (e: React.MouseEvent<SVGElement>) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent<SVGElement>) => {
     if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const startDate = inverseTimeScale(x);
     
+    dragStartDateRef.current = startDate;
+    setIsDragging(true);
+  }, [inverseTimeScale]);
+
+  // Handle mouse events for brush selection with proper cleanup
+  useEffect(() => {
+    if (!isDragging || !dragStartDateRef.current || !svgRef.current) return;
+
+    const rect = svgRef.current.getBoundingClientRect();
+    const startDate = dragStartDateRef.current;
+
     const handleMouseMove = (e: MouseEvent) => {
       const currentX = e.clientX - rect.left;
       const currentDate = inverseTimeScale(currentX);
@@ -261,18 +281,19 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
       if (brushSelection && onTimeRangeChange) {
         onTimeRangeChange(brushSelection[0], brushSelection[1]);
       }
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      setIsDragging(false);
+      dragStartDateRef.current = null;
     };
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
+    // Cleanup function to remove listeners
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  };
+  }, [isDragging, brushSelection, onTimeRangeChange, inverseTimeScale]);
 
   // Playback animation
   useEffect(() => {
@@ -486,7 +507,9 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
     );
   };
 
-  const { gridLines, labels } = renderGrid();
+  const { gridLines, labels } = useMemo(renderGrid, [timeScale, dimensions.width, dimensions.height]);
+
+  const renderedDataStreams = useMemo(renderDataStreams, [dataStreams, timeScale, dimensions.height]);
 
   return (
     <Card className="w-full">
@@ -641,7 +664,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
             {gridLines}
 
             {/* Data streams */}
-            {renderDataStreams()}
+            {renderedDataStreams}
 
             {/* Events */}
             {renderEvents()}
@@ -669,15 +692,17 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
           {/* Tooltip */}
           {hoveredEvent && (
             <div
-              className="absolute bg-background border rounded-lg shadow-lg p-3 pointer-events-none"
+              className={cn(
+                "absolute bg-background border rounded-lg shadow-lg p-3 pointer-events-none",
+                "top-5"
+              )}
               style={{
-                left: Math.min(timeScale(hoveredEvent.timestamp), dimensions.width - 200),
-                top: 20
+                left: `${Math.min(timeScale(hoveredEvent.timestamp), dimensions.width - 200)}px`
               }}
             >
               <div className="flex items-center gap-2 mb-1">
                 <div 
-                  className="w-3 h-3 rounded-full" 
+                  className={cn("w-3 h-3 rounded-full")}
                   style={{ backgroundColor: hoveredEvent.color }}
                 />
                 <span className="font-medium capitalize">{hoveredEvent.type}</span>
@@ -705,7 +730,7 @@ export const TimelineVisualization: React.FC<TimelineVisualizationProps> = ({
               {dataStreams.filter(s => s.visible).map(stream => (
                 <div key={stream.id} className="flex items-center gap-2">
                   <div 
-                    className="w-3 h-3 rounded-full" 
+                    className={cn("w-3 h-3 rounded-full")}
                     style={{ backgroundColor: stream.color }}
                   />
                   <span className="text-xs">{stream.label}</span>

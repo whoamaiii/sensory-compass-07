@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +41,14 @@ interface TestData {
   timestamp: number;
 }
 
-export const TestingDebugPanel = ({ className = "" }: TestingDebugPanelProps) => {
+type TestStatus = TestResult['status'];
+
+interface CacheOperations {
+  clearCache: () => void;
+  invalidateStudent: (studentId: string) => void;
+}
+
+export const TestingDebugPanel: React.FC<TestingDebugPanelProps> = ({ className = "" }) => {
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   
@@ -212,7 +219,7 @@ export const TestingDebugPanel = ({ className = "" }: TestingDebugPanelProps) =>
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = useCallback((status: TestStatus): React.ReactElement => {
     switch (status) {
       case 'pass': return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'fail': return <AlertTriangle className="h-4 w-4 text-red-600" />;
@@ -220,9 +227,9 @@ export const TestingDebugPanel = ({ className = "" }: TestingDebugPanelProps) =>
       case 'running': return <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />;
       default: return <TestTube className="h-4 w-4 text-muted-foreground" />;
     }
-  };
+  }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: TestStatus): 'default' | 'destructive' | 'secondary' | 'outline' => {
     switch (status) {
       case 'pass': return 'default';
       case 'fail': return 'destructive';
@@ -230,18 +237,18 @@ export const TestingDebugPanel = ({ className = "" }: TestingDebugPanelProps) =>
       case 'running': return 'outline';
       default: return 'secondary';
     }
-  };
+  }, []);
 
-  const handleClearCache = () => {
+  const handleClearCache = useCallback(() => {
     analyticsWorker.clearCache();
     uiCache.clear();
     toast.success("Analytics cache cleared successfully");
-  };
+  }, [analyticsWorker, uiCache]);
 
-  const handleInvalidateStudent = (studentId: string) => {
+  const handleInvalidateStudent = useCallback((studentId: string) => {
     analyticsWorker.invalidateCacheForStudent(studentId);
     toast.success(`Cache invalidated for student ${studentId}`);
-  };
+  }, [analyticsWorker]);
 
   return (
     <div className={`space-y-4 ${className}`}>

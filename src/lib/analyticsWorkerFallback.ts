@@ -5,6 +5,7 @@
 
 import { AnalyticsData, AnalyticsResults } from '@/workers/analytics.worker';
 import { patternAnalysis } from '@/lib/patternAnalysis';
+import { enhancedPatternAnalysis } from '@/lib/enhancedPatternAnalysis';
 import { logger } from '@/lib/logger';
 
 export class AnalyticsWorkerFallback {
@@ -35,6 +36,7 @@ export class AnalyticsWorkerFallback {
       const results: AnalyticsResults = {
         patterns: [],
         correlations: [],
+        environmentalCorrelations: [], // Initialize with empty array
         predictiveInsights: [],
         anomalies: [],
         insights: []
@@ -67,8 +69,39 @@ export class AnalyticsWorkerFallback {
         try {
           const correlations = patternAnalysis.analyzeEnvironmentalCorrelations(data.entries);
           results.correlations = correlations;
+          results.environmentalCorrelations = correlations; // Also populate environmentalCorrelations
         } catch (e) {
           logger.error('Fallback: Error analyzing correlations', e);
+        }
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 0)); // Yield to UI
+
+      // Enhanced analysis - predictive insights and anomaly detection
+      if (data.entries.length > 1) {
+        try {
+          const predictiveInsights = await enhancedPatternAnalysis.generatePredictiveInsights(
+            data.emotions,
+            data.sensoryInputs,
+            data.entries,
+            []
+          );
+          results.predictiveInsights = predictiveInsights;
+        } catch (e) {
+          logger.error('Fallback: Error generating predictive insights', e);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // Yield to UI
+
+        try {
+          const anomalies = enhancedPatternAnalysis.detectAnomalies(
+            data.emotions,
+            data.sensoryInputs,
+            data.entries
+          );
+          results.anomalies = anomalies;
+        } catch (e) {
+          logger.error('Fallback: Error detecting anomalies', e);
         }
       }
 

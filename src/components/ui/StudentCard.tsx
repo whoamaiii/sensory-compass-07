@@ -18,8 +18,8 @@ export const StudentCard = ({ student, onView, onTrack }: StudentCardProps) => {
   return (
     <Card className="font-dyslexia transition-all duration-300 hover:shadow-medium hover:scale-[1.02] bg-gradient-card border-0">
       <CardHeader className="pb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold text-lg">
+        <div className="flex items-center gap-3" role="presentation">
+          <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold text-lg" aria-hidden="true">
             {getInitials(student.name)}
           </div>
           <div className="flex-1">

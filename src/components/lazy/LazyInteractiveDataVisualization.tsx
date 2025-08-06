@@ -1,4 +1,4 @@
-import { createLazyComponent } from '@/components/LazyLoadWrapper';
+import { createLazyComponent } from './LazyLoadWrapper';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, AlertCircle } from 'lucide-react';
@@ -55,16 +55,19 @@ export const LazyInteractiveDataVisualization = createLazyComponent(
   () => {
     logger.debug('[LazyInteractiveDataVisualization] Starting to load component');
     
-    // First try diagnosis version to identify issues
-    return import('@/components/InteractiveDataVisualization.diagnosis')
+    // Try original version first
+    return import('@/components/InteractiveDataVisualization')
       .then(module => {
-        logger.debug('[LazyInteractiveDataVisualization] Loading diagnosis version');
+        logger.debug('[LazyInteractiveDataVisualization] Component loaded successfully');
+        if (!module.InteractiveDataVisualization) {
+          throw new Error('InteractiveDataVisualization export not found');
+        }
         return { default: module.InteractiveDataVisualization };
       })
-      .catch(diagError => {
-        logger.warn('[LazyInteractiveDataVisualization] Diagnosis failed, trying minimal version', diagError);
+      .catch(error => {
+        logger.warn('[LazyInteractiveDataVisualization] Original version failed, trying minimal', error);
         
-        // Try minimal version
+        // Try minimal version as fallback
         return import('@/components/InteractiveDataVisualization.minimal')
           .then(module => {
             logger.debug('[LazyInteractiveDataVisualization] Loading minimal version');
@@ -73,27 +76,15 @@ export const LazyInteractiveDataVisualization = createLazyComponent(
           .catch(minimalError => {
             logger.error('[LazyInteractiveDataVisualization] Minimal version failed', minimalError);
             
-            // Try original version
-            return import('@/components/InteractiveDataVisualization')
-              .then(module => {
-                logger.debug('[LazyInteractiveDataVisualization] Component loaded successfully');
-                if (!module.InteractiveDataVisualization) {
-                  throw new Error('InteractiveDataVisualization export not found');
-                }
-                return { default: module.InteractiveDataVisualization };
+            // Try debug version as last resort
+            return import('@/components/InteractiveDataVisualization.debug')
+              .then(debugModule => {
+                logger.warn('[LazyInteractiveDataVisualization] Using debug version');
+                return { default: debugModule.InteractiveDataVisualization };
               })
-              .catch(error => {
-                logger.error('[LazyInteractiveDataVisualization] Failed to load component', error);
-                // Try debug version as last resort
-                return import('@/components/InteractiveDataVisualization.debug')
-                  .then(debugModule => {
-                    logger.warn('[LazyInteractiveDataVisualization] Using debug version');
-                    return { default: debugModule.InteractiveDataVisualization };
-                  })
-                  .catch(debugError => {
-                    logger.error('[LazyInteractiveDataVisualization] All versions failed', debugError);
-                    throw error; // Re-throw original error
-                  });
+              .catch(debugError => {
+                logger.error('[LazyInteractiveDataVisualization] All versions failed', debugError);
+                throw error; // Re-throw original error
               });
           });
       });

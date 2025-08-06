@@ -82,7 +82,7 @@ export const InteractiveDataVisualizationDiagnosis = () => {
       }
     };
     runAllTests();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getStatusIcon = (status: string) => {
     switch (status) {

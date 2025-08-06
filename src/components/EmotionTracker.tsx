@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmotionEntry } from "@/types/student";
 import { Heart, Frown, Angry, Smile, Zap, Sun } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
+import { logger } from '@/lib/logger';
 
 interface EmotionTrackerProps {
   onEmotionAdd: (emotion: Omit<EmotionEntry, 'id' | 'timestamp'>) => void;
@@ -31,6 +32,17 @@ const subEmotions: Record<string, string[]> = {
   angry: ['frustrated', 'irritated', 'furious', 'annoyed', 'resentful']
 };
 
+/**
+ * EmotionTracker Component
+ * 
+ * Provides an accessible interface for tracking and recording student emotions
+ * with intensity levels, triggers, and contextual information.
+ * 
+ * @component
+ * @param {EmotionTrackerProps} props - Component props
+ * @param {Function} props.onEmotionAdd - Callback when emotion is added
+ * @param {string} props.studentId - ID of the student being tracked
+ */
 export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps) => {
   const { tTracking, tCommon } = useTranslation();
   const [selectedEmotion, setSelectedEmotion] = useState<string>('');
@@ -54,7 +66,10 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
   };
 
   const handleSubmit = () => {
-    if (!selectedEmotion) return;
+    if (!selectedEmotion) {
+      logger.warn('Attempted to submit emotion without selection');
+      return;
+    }
 
     onEmotionAdd({
       studentId,
@@ -99,6 +114,8 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
                       : 'hover:scale-105 animate-fade-in hover:shadow-soft'
                   }`}
                   onClick={() => setSelectedEmotion(emotion.type)}
+                  aria-label={`Select ${String(tTracking(`emotions.types.${emotion.type}`))}`}
+                  aria-pressed={selectedEmotion === emotion.type}
                 >
                   <Icon className="h-6 w-6 transform transition-transform duration-200 hover:scale-110" />
                   <span className="text-sm">{String(tTracking(`emotions.types.${emotion.type}`))}</span>
@@ -119,6 +136,16 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
                   variant={selectedSubEmotion === subEmotion ? "default" : "outline"}
                   className="cursor-pointer font-dyslexia hover-lift transition-all duration-200"
                   onClick={() => setSelectedSubEmotion(selectedSubEmotion === subEmotion ? '' : subEmotion)}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={selectedSubEmotion === subEmotion}
+                  aria-label={`Select ${subEmotion}`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedSubEmotion(selectedSubEmotion === subEmotion ? '' : subEmotion);
+                    }
+                  }}
                 >
                   {subEmotion}
                 </Badge>
@@ -144,6 +171,8 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
                   }`}
                   onClick={() => setIntensity(level)}
                   title={String(tTracking(`emotions.intensityLevels.${level}`))}
+                  aria-label={`Intensity level ${level}`}
+                  aria-pressed={intensity === level}
                 >
                   {level}
                 </Button>
@@ -160,10 +189,25 @@ export const EmotionTracker = ({ onEmotionAdd, studentId }: EmotionTrackerProps)
               <input
                 type="number"
                 value={duration}
-                onChange={(e) => setDuration(Math.max(0, parseInt(e.target.value) || 0))}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty string for better UX while typing
+                  if (value === '') {
+                    setDuration(0);
+                    return;
+                  }
+                  // Parse and validate the number
+                  const parsed = parseInt(value, 10);
+                  if (!isNaN(parsed)) {
+                    setDuration(Math.max(0, Math.min(999, parsed))); // Cap at 999 minutes
+                  }
+                }}
                 placeholder="How long did it last?"
                 className="w-32 px-3 py-2 border border-border rounded-lg font-dyslexia bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
                 min="0"
+                max="999"
+                aria-label="Duration in minutes"
+                aria-describedby="duration-help"
               />
               <div className="flex gap-1">
                 {[5, 15, 30, 60].map((minutes) => (

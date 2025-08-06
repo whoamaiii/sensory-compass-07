@@ -1,0 +1,142 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Insights - Heatmap</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="theme_graph_2.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <style>
+        body {
+            background-color: var(--background);
+            color: var(--foreground);
+            font-family: var(--font-sans);
+        }
+        .card {
+            background-color: var(--card);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+        }
+        .btn {
+            background-color: var(--secondary);
+            color: var(--secondary-foreground);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius);
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            background-color: var(--muted);
+        }
+        .btn.active {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+        }
+        .heatmap-cell {
+            transition: all 0.15s ease-out;
+        }
+        .heatmap-cell:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-md);
+        }
+        .emotion-row:hover {
+            background-color: var(--muted);
+        }
+    </style>
+</head>
+<body class="p-8">
+
+    <div class="card p-6">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-2xl font-bold">Data Insights for Emma Larsen</h2>
+                <p class="text-muted-foreground">Tracking 42 emotions and 32 sensory inputs</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <button id="show-emotions" class="btn active">Show Emotions</button>
+                    <button id="show-sensory" class="btn">Show Sensory Inputs</button>
+                </div>
+                <div>
+                    <select class="btn bg-secondary text-secondary-foreground">
+                        <option>Last 30 Days</option>
+                        <option>Last 90 Days</option>
+                        <option>Custom Range</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Heatmap -->
+        <div id="heatmap-container" class="overflow-x-auto">
+            <div class="grid gap-1" style="grid-template-columns: 120px repeat(30, minmax(0, 1fr));">
+                <!-- Header -->
+                <div class="font-bold text-muted-foreground">Emotion</div>
+                <script>
+                    for (let i = 1; i <= 30; i++) {
+                        document.write(`<div class="text-center text-sm text-muted-foreground">${String(i).padStart(2, '0')}</div>`);
+                    }
+                </script>
+
+                <!-- Rows -->
+                <script>
+                    const emotions = ["Happy", "Calm", "Sad", "Anxious", "Angry", "Excited", "Stressed", "Focused", "Tired", "Motivated"];
+                    emotions.forEach(emotion => {
+                        document.write(`
+                            <div class="emotion-row font-medium text-sm flex items-center p-1 cursor-pointer">${emotion}</div>
+                            ${Array.from({ length: 30 }).map(() => {
+                                const intensity = Math.random();
+                                const color = \`oklch(calc(0.5 + ${intensity} * 0.2) calc(0.12 + ${intensity} * 0.1) calc(280 + ${intensity} * 30))\`;
+                                return \`<div class="heatmap-cell h-8 w-full rounded" style="background-color: ${color};"></div>\`;
+                            }).join('')}
+                        `);
+                    });
+                </script>
+            </div>
+             <div class="flex justify-end items-center mt-4 gap-2 text-sm text-muted-foreground">
+                <span>Low</span>
+                <div class="w-8 h-4 rounded" style="background-color: oklch(0.5 0.12 280);"></div>
+                <div class="w-8 h-4 rounded" style="background-color: oklch(0.6 0.16 295);"></div>
+                <div class="w-8 h-4 rounded" style="background-color: oklch(0.7 0.2 310);"></div>
+                <span>High</span>
+            </div>
+        </div>
+
+        <!-- Detail Chart -->
+        <div class="mt-8 pt-6 border-t border-border">
+             <h3 class="text-lg font-semibold mb-4">
+                📈 Detail View: <span id="detail-emotion" class="text-primary">Calm</span>
+            </h3>
+            <div class="h-64 w-full bg-muted rounded p-4 flex items-center justify-center">
+                 <svg width="100%" height="100%" viewBox="0 0 400 150">
+                    <path d="M 0 130 C 40 10, 80 10, 120 80 S 200 150, 240 80 S 320 10, 360 130" stroke="var(--accent)" fill="none" stroke-width="2" style="stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: draw 1s ease-in-out forwards;"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const emotionRows = document.querySelectorAll('.emotion-row');
+        const detailEmotion = document.getElementById('detail-emotion');
+
+        emotionRows.forEach(row => {
+            row.addEventListener('click', () => {
+                detailEmotion.textContent = row.textContent;
+            });
+        });
+    </script>
+    <style>
+        @keyframes draw {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+    </style>
+</body>
+</html>
