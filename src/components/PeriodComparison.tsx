@@ -30,13 +30,15 @@ export const PeriodComparison = ({ emotions, sensoryInputs, currentRange, classN
   const [comparisonPeriod, setComparisonPeriod] = useState<"previous" | "same-last-month" | "same-last-year">("previous");
 
   const getComparisonRange = (): TimeRange => {
-    const duration = currentRange.end.getTime() - currentRange.start.getTime();
+    const startTime = currentRange.start.getTime();
+    const endTime = currentRange.end.getTime();
+    const duration = endTime - startTime;
     
     switch (comparisonPeriod) {
       case "previous":
         return {
-          start: new Date(currentRange.start.getTime() - duration),
-          end: new Date(currentRange.start.getTime() - 1),
+          start: new Date(startTime - duration),
+          end: new Date(startTime - 1),
           label: "Previous period"
         };
       case "same-last-month":

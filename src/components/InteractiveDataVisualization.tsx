@@ -1013,16 +1013,26 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
   const handleExport = async (format: ExportFormat) => {
     setIsExporting(true);
     try {
-      // Calculate date range from filtered data
+      // Calculate date range from filtered data - optimized
       const allTimestamps = [
         ...filteredData.emotions.map(e => e.timestamp),
         ...filteredData.sensoryInputs.map(s => s.timestamp),
         ...filteredData.trackingEntries.map(t => t.timestamp)
       ].filter(t => t);
 
+      // Optimize: Find min/max in single pass instead of mapping twice
+      let minTime = Number.MAX_SAFE_INTEGER;
+      let maxTime = Number.MIN_SAFE_INTEGER;
+      
+      for (const timestamp of allTimestamps) {
+        const time = timestamp.getTime();
+        if (time < minTime) minTime = time;
+        if (time > maxTime) maxTime = time;
+      }
+
       const dateRange = allTimestamps.length > 0 ? {
-        start: new Date(Math.min(...allTimestamps.map(t => t.getTime()))),
-        end: new Date(Math.max(...allTimestamps.map(t => t.getTime())))
+        start: new Date(minTime),
+        end: new Date(maxTime)
       } : {
         start: new Date(),
         end: new Date()

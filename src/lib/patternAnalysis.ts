@@ -96,8 +96,15 @@ class PatternAnalysisEngine {
       return acc;
     }, {} as Record<string, number>);
 
-    const dominantEmotion = Object.entries(emotionCounts)
-      .sort(([,a], [,b]) => b - a)[0];
+    // Optimized: Find max without sorting entire array
+    let dominantEmotion: [string, number] | undefined;
+    let maxCount = 0;
+    for (const [emotion, count] of Object.entries(emotionCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        dominantEmotion = [emotion, count];
+      }
+    }
 
     if (dominantEmotion && dominantEmotion[1] / recentEmotions.length > this.config.patternAnalysis.emotionConsistencyThreshold) {
       patterns.push({
