@@ -9,7 +9,7 @@
 import { PatternResult, CorrelationResult } from '@/lib/patternAnalysis';
 import { PredictiveInsight, AnomalyDetection } from '@/lib/enhancedPatternAnalysis';
 import { TrackingEntry, EmotionEntry, SensoryEntry } from '@/types/student';
-import { AnalyticsData, AnalyticsResults, AnalyticsConfiguration, WorkerCacheEntry } from '@/types/analytics';
+import { AnalyticsData, AnalyticsResults, AnalyticsConfiguration, WorkerCacheEntry, AnalyticsWorkerMessage } from '@/types/analytics';
 import { createCachedPatternAnalysis } from '@/lib/cachedPatternAnalysis';
 import { logger } from '@/lib/logger';
 
@@ -134,6 +134,26 @@ const getConfigHash = (cfg: AnalyticsConfiguration | null): string => {
   return Math.abs(hash).toString(36);
 };
 
+// Outgoing message queue to avoid flooding the main thread with messages
+const outgoingQueue: AnalyticsWorkerMessage[] = [];
+let flushScheduled = false;
+const enqueueMessage = (msg: AnalyticsWorkerMessage) => {
+  outgoingQueue.push(msg);
+  if (!flushScheduled) {
+    flushScheduled = true;
+    setTimeout(() => {
+      try {
+        while (outgoingQueue.length) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (postMessage as any)(outgoingQueue.shift());
+        }
+      } finally {
+        flushScheduled = false;
+      }
+    }, 30);
+  }
+};
+
 // Configuration passed from main thread
 let currentConfig: AnalyticsConfiguration | null = null;
 
@@ -236,25 +256,32 @@ export async function handleMessage(e: MessageEvent<AnalyticsData>) {
     }
   }
 
-  // Early exit if there is no data to analyze.
+// Early exit if there is no data to analyze.
   if (filteredData.emotions.length === 0 && filteredData.sensoryInputs.length === 0) {
-    postMessage({
+    enqueueMessage({
+      type: 'complete',
+      cacheKey: filteredData.cacheKey ?? undefined,
+      payload: {
         patterns: [],
         correlations: [],
         predictiveInsights: [],
         anomalies: [],
         insights: [],
         cacheKey: filteredData.cacheKey ?? undefined,
-      });
+        updatedCharts: ['insightList']
+      },
+      chartsUpdated: ['insightList']
+    });
     return;
   }
 
-  try {
+try {
     // Use configured time window or default to 30 days
     const timeWindow = currentConfig?.timeWindows?.defaultAnalysisDays || 30;
 
-    // Removed redundant logging of timeWindow
-    
+    // Progress heartbeat: start
+    enqueueMessage({ type: 'progress', cacheKey: filteredData.cacheKey, progress: { stage: 'start', percent: 5 } });
+
     const emotionPatterns = filteredData.emotions.length > 0
       ? cachedAnalysis.analyzeEmotionPatterns(filteredData.emotions, timeWindow)
       : [];
@@ -264,10 +291,37 @@ export async function handleMessage(e: MessageEvent<AnalyticsData>) {
     
     const patterns = [...emotionPatterns, ...sensoryPatterns];
 
+    // Send partial update for patterns
+    enqueueMessage({
+      type: 'partial',
+      cacheKey: filteredData.cacheKey,
+      payload: {
+        patterns,
+        cacheKey: filteredData.cacheKey,
+        updatedCharts: ['patternHighlights']
+      },
+      chartsUpdated: ['patternHighlights'],
+      progress: { stage: 'patterns', percent: 30 }
+    });
+
     let correlations: CorrelationResult[] = [];
     if (filteredData.entries.length > 2) {
       correlations = cachedAnalysis.analyzeEnvironmentalCorrelations(filteredData.entries);
     }
+
+    // Send partial update for correlations
+    enqueueMessage({
+      type: 'partial',
+      cacheKey: filteredData.cacheKey,
+      payload: {
+        correlations,
+        environmentalCorrelations: correlations,
+        cacheKey: filteredData.cacheKey,
+        updatedCharts: ['correlationMatrix']
+      },
+      chartsUpdated: ['correlationMatrix'],
+      progress: { stage: 'correlations', percent: 55 }
+    });
 
     let predictiveInsights: PredictiveInsight[] = [];
     let anomalies: AnomalyDetection[] = [];
@@ -279,11 +333,37 @@ export async function handleMessage(e: MessageEvent<AnalyticsData>) {
         []
       );
 
+      // Send partial update for predictive insights
+      enqueueMessage({
+        type: 'partial',
+        cacheKey: filteredData.cacheKey,
+        payload: {
+          predictiveInsights,
+          cacheKey: filteredData.cacheKey,
+          updatedCharts: ['predictiveTimeline']
+        },
+        chartsUpdated: ['predictiveTimeline'],
+        progress: { stage: 'predictiveInsights', percent: 75 }
+      });
+
       anomalies = cachedAnalysis.detectAnomalies(
         filteredData.emotions,
         filteredData.sensoryInputs,
         filteredData.entries
       );
+
+      // Send partial update for anomalies
+      enqueueMessage({
+        type: 'partial',
+        cacheKey: filteredData.cacheKey,
+        payload: {
+          anomalies,
+          cacheKey: filteredData.cacheKey,
+          updatedCharts: ['anomalyTimeline']
+        },
+        chartsUpdated: ['anomalyTimeline'],
+        progress: { stage: 'anomalies', percent: 85 }
+      });
     }
 
     const insights = generateInsights(emotionPatterns, sensoryPatterns, correlations, filteredData);
@@ -296,10 +376,11 @@ export async function handleMessage(e: MessageEvent<AnalyticsData>) {
       anomalies,
       insights,
       cacheKey: filteredData.cacheKey, // Include cache key if provided
+      updatedCharts: ['insightList']
     };
 
     // Post the final results back to the main thread.
-    postMessage(results);
+    enqueueMessage({ type: 'complete', cacheKey: filteredData.cacheKey, payload: results, chartsUpdated: ['insightList'], progress: { stage: 'complete', percent: 100 } });
 
   } catch (error) {
     try {
@@ -310,14 +391,20 @@ export async function handleMessage(e: MessageEvent<AnalyticsData>) {
     logger.error('Error in analytics worker:', error);
     // Post an error message back to the main thread for graceful error handling.
     // Include empty results to prevent UI errors
-    postMessage({ 
+    enqueueMessage({
+      type: 'error',
+      cacheKey: filteredData.cacheKey,
       error: 'Failed to analyze data.',
-      patterns: [],
-      correlations: [],
-      predictiveInsights: [],
-      anomalies: [],
-      insights: ['An error occurred during analysis. Please try again.'],
-      cacheKey: filteredData.cacheKey
+      payload: {
+        patterns: [],
+        correlations: [],
+        predictiveInsights: [],
+        anomalies: [],
+        insights: ['An error occurred during analysis. Please try again.'],
+        cacheKey: filteredData.cacheKey,
+        updatedCharts: ['insightList']
+      },
+      chartsUpdated: ['insightList']
     });
   }
 }

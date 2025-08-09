@@ -2,26 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleMessage } from './analytics.worker';
 import type { AnalyticsData } from '@/types/analytics';
 
-// Mock dependencies
-vi.mock('@/lib/patternAnalysis', () => ({
-  patternAnalysis: vi.fn().mockResolvedValue({
-    patterns: [{ id: '1', type: 'behavioral', description: 'Test pattern' }],
-    correlations: [{ id: '1', factor1: 'emotion', factor2: 'sensory' }],
-    insights: ['Test insight'],
-  }),
-}));
-
-vi.mock('@/lib/enhancedPatternAnalysis', () => ({
-  enhancedPatternAnalysisEngine: {
-    analyzeInteractions: vi.fn().mockResolvedValue({
-      interactions: [],
-      significance: 0.5,
-    }),
-    analyzeTrends: vi.fn().mockResolvedValue({
-      trends: [],
-      predictions: [],
-    }),
-  },
+// Mock cached analysis used by worker to deterministic outputs
+vi.mock('@/lib/cachedPatternAnalysis', () => ({
+  createCachedPatternAnalysis: () => ({
+    analyzeEmotionPatterns: vi.fn().mockReturnValue([]),
+    analyzeSensoryPatterns: vi.fn().mockReturnValue([]),
+    analyzeEnvironmentalCorrelations: vi.fn().mockReturnValue([
+      { factor1: 'emotion', factor2: 'sensory', correlation: 0.5, significance: 'high', description: 'test' }
+    ]),
+    generatePredictiveInsights: vi.fn().mockResolvedValue([]),
+    detectAnomalies: vi.fn().mockReturnValue([]),
+  })
 }));
 
 // Mock the global postMessage for worker context
@@ -35,6 +26,7 @@ const self = {
 describe('analytics.worker', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
   });
 
   it('should handle ANALYZE message', async () => {
@@ -44,13 +36,17 @@ const testData: AnalyticsData = {
       sensoryInputs: [],
     };
 
-    await handleMessage.call(self, new MessageEvent('message', { data: testData }));
+    await handleMessage.call(self, new MessageEvent('message', { data: testData as any }));
+    await vi.runAllTimersAsync();
 
     expect(self.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        patterns: expect.any(Array),
-        correlations: expect.any(Array),
-        insights: expect.any(Array),
+        type: 'complete',
+        payload: expect.objectContaining({
+          patterns: expect.any(Array),
+          correlations: expect.any(Array),
+          insights: expect.any(Array),
+        })
       })
     );
   });
@@ -62,13 +58,17 @@ const testData: AnalyticsData = {
       sensoryInputs: [],
     };
 
-    await handleMessage.call(self, new MessageEvent('message', { data: testData }));
+    await handleMessage.call(self, new MessageEvent('message', { data: testData as any }));
+    await vi.runAllTimersAsync();
 
     expect(self.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        patterns: [],
-        correlations: [],
-        insights: [],
+        type: 'complete',
+        payload: expect.objectContaining({
+          patterns: [],
+          correlations: [],
+          insights: [],
+        })
       })
     );
   });

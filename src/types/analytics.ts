@@ -17,6 +17,19 @@ export interface AnalyticsData {
 }
 
 /**
+ * Keys representing dashboard charts that can be updated by worker messages
+ */
+export type AnalyticsChartKey =
+  | 'emotionDistribution'
+  | 'sensoryResponses'
+  | 'emotionTrends'
+  | 'patternHighlights'
+  | 'correlationMatrix'
+  | 'predictiveTimeline'
+  | 'anomalyTimeline'
+  | 'insightList';
+
+/**
  * Analytics results structure
  */
 export interface AnalyticsResults {
@@ -28,6 +41,29 @@ export interface AnalyticsResults {
   insights: string[];
   cacheKey?: string;
   error?: string;
+  /** Optional metadata for downstream consumers describing which charts should update */
+  updatedCharts?: AnalyticsChartKey[];
+}
+
+/**
+ * Partial analytics results for incremental updates from the worker
+ */
+export type AnalyticsResultsPartial = Partial<AnalyticsResults> & { cacheKey?: string };
+
+/**
+ * Worker message envelope for incremental communication
+ */
+export type WorkerMessageType = 'progress' | 'partial' | 'complete' | 'error';
+
+export interface AnalyticsWorkerMessage {
+  type: WorkerMessageType;
+  cacheKey?: string;
+  payload?: AnalyticsResultsPartial;
+  error?: string;
+  /** Which charts should update in response to this message */
+  chartsUpdated?: AnalyticsChartKey[];
+  /** Optional progress metadata for UI feedback and watchdog heartbeats */
+  progress?: { stage: string; percent: number };
 }
 
 /**

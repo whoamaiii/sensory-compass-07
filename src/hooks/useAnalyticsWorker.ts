@@ -9,7 +9,7 @@ import { h64 } from 'xxhashjs';
  * Now enhanced with performance caching to avoid redundant calculations.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { AnalyticsData, AnalyticsResults } from '@/types/analytics';
+import { AnalyticsData, AnalyticsResults, AnalyticsWorkerMessage } from '@/types/analytics';
 import { usePerformanceCache } from './usePerformanceCache';
 import { analyticsConfig } from '@/lib/analyticsConfig';
 import { logger } from '@/lib/logger';
@@ -84,6 +84,25 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): 
     versioning: true // Enable versioning to invalidate on data structure changes
   });
 
+  /**
+   * Extracts tags from analytics data for cache invalidation
+   */
+  const extractTagsFromData = useCallback((data: AnalyticsData | AnalyticsResults): string[] => {
+    const tags: string[] = ['analytics'];
+    
+    // Add student-specific tags if available
+    if ('entries' in data && data.entries.length > 0) {
+      const studentIds = Array.from(new Set(data.entries.map(e => e.studentId)));
+      tags.push(...studentIds.map(id => `student-${id}`));
+    }
+
+    // Add date-based tags for time-sensitive invalidation
+    const now = new Date();
+    tags.push(`analytics-${now.getFullYear()}-${now.getMonth() + 1}`);
+    
+    return tags;
+  }, []);
+
   useEffect(() => {
     // Initialize the analytics web worker
     try {
@@ -91,18 +110,69 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): 
       workerRef.current = worker;
 
       // Set up message handler for receiving results from the worker
-      worker.onmessage = (event: MessageEvent<AnalyticsResults>) => {
-        const { data: workerResults } = event;
+      worker.onmessage = (event: MessageEvent<AnalyticsWorkerMessage>) => {
+        const { data: msg } = event;
 
-        if (workerResults.error) {
-          logger.error('[useAnalyticsWorker] Worker error', workerResults.error);
-          setError(workerResults.error);
-          setResults(null);
-        } else {
+        // Any message resets watchdog (heartbeat)
+        if (watchdogRef.current) {
+          clearTimeout(watchdogRef.current);
+          watchdogRef.current = null;
+        }
+
+        if (msg.type === 'progress') {
+          // Re-arm watchdog on heartbeat, keep analyzing true
+          setIsAnalyzing(true);
+          const timeoutMs = Math.max(15000, 3000);
+          watchdogRef.current = setTimeout(() => {
+            diagnostics.logWorkerTimeout('analytics', timeoutMs);
+            setError('Worker timeout during progress.');
+          }, timeoutMs);
+          return;
+        }
+
+        if (msg.type === 'error') {
+          logger.error('[useAnalyticsWorker] Worker error', msg.error);
+          setError(msg.error || 'Unknown worker error');
+          setIsAnalyzing(false);
+          return;
+        }
+
+        if (msg.type === 'partial' && msg.payload) {
+          // Merge partials into current results to enable incremental UI updates
+          setResults(prev => {
+            const base: AnalyticsResults = prev || {
+              patterns: [],
+              correlations: [],
+              environmentalCorrelations: [],
+              predictiveInsights: [],
+              anomalies: [],
+              insights: [],
+              cacheKey: msg.cacheKey,
+            };
+            const merged: AnalyticsResults = {
+              ...base,
+              ...msg.payload,
+              environmentalCorrelations: msg.payload.environmentalCorrelations || base.environmentalCorrelations || [],
+              cacheKey: msg.cacheKey || base.cacheKey,
+            };
+            return merged;
+          });
+          setError(null);
+          // Re-arm watchdog for next step
+          const timeoutMs = Math.max(15000, 3000);
+          watchdogRef.current = setTimeout(() => {
+            diagnostics.logWorkerTimeout('analytics', timeoutMs);
+            setError('Worker timeout after partial update.');
+            setIsAnalyzing(false);
+          }, timeoutMs);
+          return;
+        }
+
+        if (msg.type === 'complete' && msg.payload) {
           const resultsWithDefaults: AnalyticsResults = {
-            ...workerResults,
-            environmentalCorrelations: workerResults.environmentalCorrelations || [],
-          };
+            ...msg.payload,
+            environmentalCorrelations: msg.payload.environmentalCorrelations || [],
+          } as AnalyticsResults;
 
           const tags = extractTagsFromData(resultsWithDefaults);
           if (resultsWithDefaults.cacheKey) {
@@ -111,17 +181,14 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): 
 
           setResults(resultsWithDefaults);
           setError(null);
-          logger.debug('[useAnalyticsWorker] Received results from worker', { 
+          setIsAnalyzing(false);
+          logger.debug('[useAnalyticsWorker] Received complete results from worker', { 
             cacheKey: resultsWithDefaults.cacheKey,
             patternsCount: resultsWithDefaults.patterns?.length || 0,
-            insightsCount: resultsWithDefaults.insights?.length || 0
+            insightsCount: resultsWithDefaults.insights?.length || 0,
+            chartsUpdated: msg.chartsUpdated,
           });
-        }
-
-        setIsAnalyzing(false);
-        if (watchdogRef.current) {
-          clearTimeout(watchdogRef.current);
-          watchdogRef.current = null;
+          return;
         }
       };
 
@@ -198,25 +265,6 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): 
   }, [cache]);
 
   /**
-   * Extracts tags from analytics data for cache invalidation
-   */
-  const extractTagsFromData = useCallback((data: AnalyticsData | AnalyticsResults): string[] => {
-    const tags: string[] = ['analytics'];
-    
-    // Add student-specific tags if available
-    if ('entries' in data && data.entries.length > 0) {
-      const studentIds = Array.from(new Set(data.entries.map(e => e.studentId)));
-      tags.push(...studentIds.map(id => `student-${id}`));
-    }
-
-    // Add date-based tags for time-sensitive invalidation
-    const now = new Date();
-    tags.push(`analytics-${now.getFullYear()}-${now.getMonth() + 1}`);
-    
-    return tags;
-  }, []);
-
-  /**
    * Sends data to the worker to start a new analysis, checking cache first.
    * @param {AnalyticsData} data - The data to be analyzed.
    */
@@ -286,7 +334,10 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): 
     }
     // Determine timeout from config if available; fallback to 15s minimum 3s
     const cfg = analyticsConfig.getConfig();
-    const timeoutMs = Math.max(15000, 3000); // Default to 15s, minimum 3s
+    // Clamp watchdog timeout to a sane upper bound to avoid indefinite spinners.
+    // Use config ttl as a hint but never exceed 20s; keep a 5s lower bound.
+    const hint = cfg?.cache?.ttl ?? 15000;
+    const timeoutMs = Math.min(20000, Math.max(5000, hint));
     watchdogRef.current = setTimeout(async () => {
       try {
         logger.error('[useAnalyticsWorker] watchdog timeout: worker did not respond, attempting fallback');
