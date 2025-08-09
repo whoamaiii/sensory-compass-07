@@ -16,6 +16,19 @@ Builders in `src/components/charts/ChartKit.ts` also set the same no-dimming emp
 Rationale: Keep all series fully visible and avoid any hover-driven opacity changes.
 
 
+### Centralized presets for tooltips and legends
+
+We now use shared presets to ensure consistent tooltip/legend configuration across all charts:
+
+- Location: `src/components/charts/presets.ts`
+- Usage:
+  - Axis tooltips: `tooltipPresets.axis({ type: 'line' | 'shadow' })`
+  - Item tooltips: `tooltipPresets.item()`
+  - Legends: `legendPresets.scrollBottom()` or `legendPresets.top()`
+
+These presets apply `appendToBody`, `confine`, and `transitionDuration: 0` by default to avoid clipping and flicker. Builders in `src/components/charts/ChartKit.ts` and optimized sub-components import these presets, so behavior is uniform throughout the app.
+
+
 
 
 

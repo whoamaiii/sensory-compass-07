@@ -29,6 +29,7 @@ import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from "@/types/stud
 import { PatternResult, CorrelationResult } from "@/lib/patternAnalysis";
 import { EChartContainer } from "@/components/charts/EChartContainer";
 import { buildCorrelationHeatmapOption } from "@/components/charts/ChartKit";
+import { CorrelationInsights } from '@/components/CorrelationInsights';
 import { enhancedPatternAnalysis } from "@/lib/enhancedPatternAnalysis";
 import type { EChartsOption } from "echarts";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -270,62 +271,15 @@ export const AnalyticsDashboard = memo(({
         </CardHeader>
       </Card>
 
-      {/* Summary cards providing a quick overview of the data volume. */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
-                <p className="text-2xl font-bold">{filteredData.entries.length}</p>
-              </div>
-              <BarChart3 className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">{String(tStudent('interface.emotionsTracked'))}</p>
-                <p className="text-2xl font-bold">{filteredData.emotions.length}</p>
-              </div>
-              <Brain className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">{String(tStudent('interface.sensoryInputs'))}</p>
-                <p className="text-2xl font-bold">{filteredData.sensoryInputs.length}</p>
-              </div>
-              <Eye className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Patterns Found</p>
-                <p className="text-2xl font-bold">{patterns.length}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Summary cards moved below tabs to avoid visual crowding on first tab */}
 
       {/* Main tabbed interface for displaying detailed analysis results. */}
       <Tabs defaultValue="visualizations" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="visualizations">Charts</TabsTrigger>
           <TabsTrigger value="patterns">Patterns</TabsTrigger>
+          <TabsTrigger value="predictive">Predictive</TabsTrigger>
+          <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
           <TabsTrigger value="correlations" data-testid="dashboard-correlations-tab">Correlations</TabsTrigger>
           <TabsTrigger value="alerts">Alerts</TabsTrigger>
         </TabsList>
@@ -338,6 +292,57 @@ export const AnalyticsDashboard = memo(({
               trackingEntries={filteredData.entries}
               studentName={student.name}
             />
+          </div>
+
+          {/* Summary cards providing a quick overview of the data volume. */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
+                    <p className="text-2xl font-bold">{filteredData.entries.length}</p>
+                  </div>
+                  <BarChart3 className="h-8 w-8 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{String(tStudent('interface.emotionsTracked'))}</p>
+                    <p className="text-2xl font-bold">{filteredData.emotions.length}</p>
+                  </div>
+                  <Brain className="h-8 w-8 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{String(tStudent('interface.sensoryInputs'))}</p>
+                    <p className="text-2xl font-bold">{filteredData.sensoryInputs.length}</p>
+                  </div>
+                  <Eye className="h-8 w-8 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Patterns Found</p>
+                    <p className="text-2xl font-bold">{patterns.length}</p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
@@ -467,6 +472,112 @@ export const AnalyticsDashboard = memo(({
           </Card>
         </TabsContent>
 
+        <TabsContent value="predictive" className="space-y-6" forceMount>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Predictive Insights</CardTitle>
+              <Button 
+                variant="outline" 
+                onClick={() => runAnalysis(filteredData)}
+                disabled={isAnalyzing}
+              >
+                {isAnalyzing ? 'Analyzing...' : 'Refresh Analysis'}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {isAnalyzing && (
+                 <div className="text-center py-8 text-muted-foreground">
+                   <Clock className="h-12 w-12 mx-auto mb-4 animate-spin opacity-50" />
+                   <p>Analyzing data...</p>
+                 </div>
+              )}
+              {!isAnalyzing && error && (
+                <div className="text-center py-8 text-destructive">
+                  <p>{error}</p>
+                </div>
+              )}
+              {!isAnalyzing && !error && (results?.predictiveInsights?.length ?? 0) === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No predictive insights available yet.</p>
+                </div>
+              )}
+              {!isAnalyzing && !error && (results?.predictiveInsights?.length ?? 0) > 0 && (
+                <div className="space-y-4">
+                  {(results?.predictiveInsights ?? []).map((insight, index) => (
+                    <Card key={index} className="bg-gradient-card">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium">{insight.title}</h4>
+                              <Badge variant="outline">{Math.round((insight.confidence ?? 0) * 100)}% confidence</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">{insight.description}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="anomalies" className="space-y-6" forceMount>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Detected Anomalies</CardTitle>
+              <Button 
+                variant="outline" 
+                onClick={() => runAnalysis(filteredData)}
+                disabled={isAnalyzing}
+              >
+                {isAnalyzing ? 'Analyzing...' : 'Refresh Analysis'}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {isAnalyzing && (
+                 <div className="text-center py-8 text-muted-foreground">
+                   <Clock className="h-12 w-12 mx-auto mb-4 animate-spin opacity-50" />
+                   <p>Analyzing data...</p>
+                 </div>
+              )}
+              {!isAnalyzing && error && (
+                <div className="text-center py-8 text-destructive">
+                  <p>{error}</p>
+                </div>
+              )}
+              {!isAnalyzing && !error && (results?.anomalies?.length ?? 0) === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No anomalies detected.</p>
+                </div>
+              )}
+              {!isAnalyzing && !error && (results?.anomalies?.length ?? 0) > 0 && (
+                <div className="space-y-4">
+                  {(results?.anomalies ?? []).map((anomaly, index) => (
+                    <Card key={index} className="bg-gradient-card">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium capitalize">{anomaly.type} Anomaly</h4>
+                              <Badge variant="outline" className="capitalize">{anomaly.severity}</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{new Date(anomaly.timestamp as unknown as string).toDateString()}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="correlations" forceMount className="space-y-6">
           <Card className="bg-gradient-card border-0 shadow-soft">
             <CardHeader className="flex items-start justify-between gap-3">
@@ -512,6 +623,15 @@ export const AnalyticsDashboard = memo(({
                         <div className="rounded-xl border bg-card">
                           <EChartContainer option={option} height={420} />
                         </div>
+                        {matrix.significantPairs?.length > 0 && (
+                          <div className="mt-6">
+                            <CorrelationInsights
+                              pairs={matrix.significantPairs}
+                              maxItems={5}
+                              dataPoints={filteredData.entries.length}
+                            />
+                          </div>
+                        )}
                         <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
                           <span>Negativ</span>
                           <span className="h-3 w-3 rounded" style={{ backgroundColor: '#ef4444' }} />
@@ -589,34 +709,5 @@ export const AnalyticsDashboard = memo(({
       )}
       </div>
     </ErrorBoundary>
-  );
-}, (prevProps, nextProps) => {
-  // Custom comparison for React.memo to prevent unnecessary re-renders
-  return (
-    prevProps.student.id === nextProps.student.id &&
-    prevProps.student.name === nextProps.student.name &&
-    prevProps.filteredData.entries.length === nextProps.filteredData.entries.length &&
-    prevProps.filteredData.emotions.length === nextProps.filteredData.emotions.length &&
-    prevProps.filteredData.sensoryInputs.length === nextProps.filteredData.sensoryInputs.length &&
-    // Check timestamp of first entry to detect data changes
-    (prevProps.filteredData.entries.length === 0 || 
-     nextProps.filteredData.entries.length === 0 ||
-     (() => {
-       try {
-         const prevTimestamp = prevProps.filteredData.entries[0]?.timestamp;
-         const nextTimestamp = nextProps.filteredData.entries[0]?.timestamp;
-         
-         // Handle various timestamp formats
-         const prevTime = prevTimestamp instanceof Date ? prevTimestamp.getTime() : 
-                          typeof prevTimestamp === 'string' || typeof prevTimestamp === 'number' ? new Date(prevTimestamp).getTime() : 0;
-         const nextTime = nextTimestamp instanceof Date ? nextTimestamp.getTime() : 
-                          typeof nextTimestamp === 'string' || typeof nextTimestamp === 'number' ? new Date(nextTimestamp).getTime() : 0;
-         
-         return prevTime === nextTime;
-       } catch (error) {
-         logger.error('Error comparing timestamps in AnalyticsDashboard memo:', error);
-         return false;
-       }
-     })())
   );
 });

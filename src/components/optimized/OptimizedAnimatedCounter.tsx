@@ -62,13 +62,6 @@ export const OptimizedAnimatedCounter = memo(({ value, duration = 0.8, className
       {displayValue.toLocaleString()}
     </span>
   );
-}, (prevProps, nextProps) => {
-  // Only re-render if value, duration, or className changes
-  return (
-    prevProps.value === nextProps.value &&
-    prevProps.duration === nextProps.duration &&
-    prevProps.className === nextProps.className
-  );
 });
 
 OptimizedAnimatedCounter.displayName = 'OptimizedAnimatedCounter';

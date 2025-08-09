@@ -22,6 +22,7 @@ import { EmotionEntry, SensoryEntry, TrackingEntry, Student } from "@/types/stud
 import { enhancedPatternAnalysis, CorrelationMatrix, PredictiveInsight, AnomalyDetection } from "@/lib/enhancedPatternAnalysis";
 import { patternAnalysis, PatternResult } from "@/lib/patternAnalysis";
 import { ConfidenceIndicator } from '@/components/ConfidenceIndicator';
+import { CorrelationInsights } from '@/components/CorrelationInsights';
 import { DetailedConfidenceExplanation } from '@/components/DetailedConfidenceExplanation';
 import { differenceInDays } from 'date-fns';
 import {
@@ -66,6 +67,7 @@ import { Visualization3D } from './Visualization3D';
 import { TimelineVisualization } from './TimelineVisualization';
 import { AdvancedFilterPanel, FilterCriteria, applyFilters } from './AdvancedFilterPanel';
 import { useRealtimeData } from '@/hooks/useRealtimeData';
+import { ChartSkeleton, VisualizationSkeleton } from '@/components/ui/ChartSkeleton';
 
 interface InteractiveDataVisualizationProps {
   emotions: EmotionEntry[];
@@ -820,9 +822,12 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
   const renderPatternAnalysis = () => {
     if (isAnalyzing) {
       return (
-        <div aria-label="Loading chart data" className="h-[400px] w-full">
-          <div className="h-full w-full animate-pulse rounded-md border border-border/50 bg-muted/20" />
-        </div>
+        <VisualizationSkeleton 
+          type="heatmap"
+          height={400}
+          showMessage
+          message="Analyzing patterns..."
+        />
       );
     }
 
@@ -1012,6 +1017,197 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
             </div>
           </div>
         )}
+      </div>
+    );
+  };
+
+  // Dedicated renderers for individual analysis sections
+  const renderPatternsOnly = () => {
+    if (isAnalyzing) {
+      return (
+        <ChartSkeleton 
+          height={200}
+          variant="bordered"
+          ariaLabel="Loading patterns"
+        />
+      );
+    }
+    if (patterns.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-40 text-muted-foreground">
+          <div className="text-center">
+            <Target className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>No patterns detected yet</p>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {patterns.map((pattern, index) => (
+          <Card
+            key={index}
+            className={cn(
+              "bg-gradient-card cursor-pointer transition-all",
+              highlightState.type === 'emotion' && pattern.type === 'emotion' && "ring-2 ring-primary"
+            )}
+            onClick={() => handleHighlight('emotion', `pattern-${index}`)}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                {getPatternIcon(pattern.type)}
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium capitalize">{pattern.type} Pattern</h4>
+                    <Badge className={getConfidenceColor(pattern.confidence)}>
+                      {Math.round(pattern.confidence * 100)}% confident
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Frequency: {pattern.frequency} occurrences
+                  </p>
+                  {(pattern.recommendations?.length ?? 0) > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Recommendations:</p>
+                      {(pattern.recommendations ?? []).slice(0, 2).map((rec, i) => (
+                        <p key={i} className="text-xs text-muted-foreground flex items-start gap-1">
+                          <Lightbulb className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                          {rec}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  };
+
+  const renderPredictiveOnly = () => {
+    if (isAnalyzing) {
+      return (
+        <ChartSkeleton 
+          height={200}
+          variant="bordered"
+          ariaLabel="Loading predictive insights"
+        />
+      );
+    }
+    if (predictiveInsights.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-40 text-muted-foreground">
+          <div className="text-center">
+            <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>No predictive insights available yet</p>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-4">
+        {predictiveInsights.map((insight, index) => (
+          <Card key={index} className="bg-gradient-card">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  {insight.severity === 'high' ? (
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                  ) : insight.severity === 'medium' ? (
+                    <Clock className="h-5 w-5 text-yellow-500" />
+                  ) : (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium">{insight.title}</h4>
+                    <Badge variant="outline">
+                      {Math.round(insight.confidence * 100)}% confidence
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">{insight.description}</p>
+                  {insight.prediction && (
+                    <div className="mb-2">
+                      <p className="text-sm font-medium mb-1">Prediction:</p>
+                      <div className="flex items-center gap-2 text-sm">
+                        {insight.prediction.trend === 'increasing' ? (
+                          <TrendingUp className="h-4 w-4 text-green-500" />
+                        ) : insight.prediction.trend === 'decreasing' ? (
+                          <TrendingDown className="h-4 w-4 text-red-500" />
+                        ) : (
+                          <Activity className="h-4 w-4 text-blue-500" />
+                        )}
+                        <span className="capitalize">{insight.prediction.trend}</span>
+                        <ConfidenceIndicator
+                          confidence={insight.prediction.accuracy}
+                          dataPoints={filteredData.emotions.length + filteredData.sensoryInputs.length}
+                          timeSpanDays={filteredData.emotions.length > 0 && filteredData.emotions[0] ?
+                            Math.abs(differenceInDays(new Date(), filteredData.emotions[0].timestamp)) : 0}
+                          rSquared={insight.prediction.accuracy}
+                          className="ml-1"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  };
+
+  const renderAnomaliesOnly = () => {
+    if (isAnalyzing) {
+      return (
+        <ChartSkeleton 
+          height={200}
+          variant="bordered"
+          ariaLabel="Loading anomalies"
+        />
+      );
+    }
+    if (anomalies.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-40 text-muted-foreground">
+          <div className="text-center">
+            <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>No anomalies detected</p>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {anomalies.map((anomaly, index) => (
+          <Card
+            key={index}
+            className={cn(
+              "bg-gradient-card border-orange-200 cursor-pointer",
+              highlightState.type === 'anomaly' && highlightState.id === `anomaly-${index}` && "ring-2 ring-orange-500"
+            )}
+            onClick={() => handleHighlight('anomaly', `anomaly-${index}`)}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-medium mb-1">{anomaly.type} Anomaly</h4>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Severity: <span className="font-medium capitalize">{anomaly.severity}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(anomaly.timestamp, 'MMM dd, yyyy')}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   };
@@ -1444,7 +1640,7 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
       {layoutMode === 'dashboard' ? (
         // Dashboard Layout with Tabs
         <Tabs defaultValue="trends" className="w-full">
-          <TabsList className="grid w-full grid-cols-5" aria-label="Visualization tabs">
+          <TabsList className="grid w-full grid-cols-7" aria-label="Visualization tabs">
             <TabsTrigger
               value="trends"
               className="flex items-center gap-2"
@@ -1471,6 +1667,24 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
             >
               <Zap className="h-4 w-4" />
               Patterns
+            </TabsTrigger>
+            <TabsTrigger
+              value="predictive"
+              className="flex items-center gap-2"
+              aria-label="Open predictive insights"
+              title="Open predictive insights"
+            >
+              <TrendingUp className="h-4 w-4" />
+              Predictive
+            </TabsTrigger>
+            <TabsTrigger
+              value="anomalies"
+              className="flex items-center gap-2"
+              aria-label="Open anomalies"
+              title="Open anomalies"
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Anomalies
             </TabsTrigger>
             <TabsTrigger
               value="3d"
@@ -1559,31 +1773,11 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
             
             {/* Significant Correlations */}
             {correlationMatrix && correlationMatrix.significantPairs.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Significant Correlations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {correlationMatrix.significantPairs.slice(0, 5).map((pair, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium">
-                            {pair.factor1.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} ↔{' '}
-                            {pair.factor2.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {pair.correlation > 0 ? 'Positive' : 'Negative'} correlation (r = {pair.correlation.toFixed(3)})
-                          </p>
-                        </div>
-                        <Badge variant={pair.significance === 'high' ? 'default' : 'outline'}>
-                          {pair.significance}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <CorrelationInsights
+                pairs={correlationMatrix.significantPairs}
+                maxItems={5}
+                dataPoints={filteredData.trackingEntries.length}
+              />
             )}
           </TabsContent>
 
@@ -1599,8 +1793,36 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
                 predictiveInsights[0].prediction.accuracy : 
                 patterns.length > 0 ? patterns[0].confidence : 0.03}
             />
-            
-            {renderVisualization('patterns')}
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Pattern Recognition</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {renderPatternsOnly()}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="predictive" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Predictive Insights</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {renderPredictiveOnly()}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="anomalies" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Detected Anomalies</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {renderAnomaliesOnly()}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="3d">

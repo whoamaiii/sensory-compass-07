@@ -14,13 +14,14 @@ import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
+// import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Goal, Student } from "@/types/student";
 import type { EChartsOption } from "echarts";
 import { EChartContainer } from "@/components/charts/EChartContainer";
+import { tooltipPresets, legendPresets } from "@/components/charts/presets";
 import { TrendingUp, Crosshair, Award, Clock, CheckCircle } from "lucide-react";
-import { format, differenceInDays, startOfWeek, endOfWeek, eachWeekOfInterval, startOfMonth, endOfMonth } from "date-fns";
+import { format, differenceInDays, endOfWeek, eachWeekOfInterval, startOfMonth, endOfMonth } from "date-fns";
 import { OptimizedAnimatedCounter } from "@/components/optimized";
 
 interface ProgressDashboardProps {
@@ -45,7 +46,6 @@ interface ProgressDashboardProps {
  * ```
  */
 export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) => {
-  const [selectedTimeframe, setSelectedTimeframe] = useState<'week' | 'month' | 'quarter'>('month');
   const [isAnalyzingTrends, setIsAnalyzingTrends] = useState(false);
 
   /**
@@ -106,7 +106,7 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
     }> = [];
 
     goals.forEach(goal => {
-      goal.dataPoints.forEach(point => {
+      (goal.dataPoints ?? []).forEach(point => {
         allDataPoints.push({
           date: point.timestamp,
           goalId: goal.id,
@@ -185,7 +185,7 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
     }).filter(item => item.count > 0);
   }, [goals]);
 
-  const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', '#8884d8', '#82ca9d'];
+  
 
   const getStatusColor = (status: Goal['status']) => {
     switch (status) {
@@ -300,8 +300,7 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
                   xAxis: { type: "category", name: "Week", nameGap: 24 },
                   yAxis: { type: "value", name: "Progress (%)", nameGap: 28, min: 0, max: 100 },
                   tooltip: {
-                    trigger: "axis",
-                    axisPointer: { type: "line" },
+                    ...tooltipPresets.axis({ type: "line" }),
                     valueFormatter: (val) => (typeof val === "number" ? `${Math.round(val)}%` : String(val)),
                   },
                   legend: { show: false },
@@ -330,21 +329,23 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
             <CardContent>
               <div className="space-y-3">
                 {goals
-                  .filter(goal => goal.dataPoints.length > 1)
+                  .filter(goal => (goal.dataPoints?.length ?? 0) > 1)
                   .sort((a, b) => {
-                    const aLatest = Math.max(...a.dataPoints.map(dp => dp.timestamp.getTime()));
-                    const bLatest = Math.max(...b.dataPoints.map(dp => dp.timestamp.getTime()));
+                    const aTimes = (a.dataPoints ?? []).map(dp => dp.timestamp.getTime());
+                    const bTimes = (b.dataPoints ?? []).map(dp => dp.timestamp.getTime());
+                    const aLatest = aTimes.length > 0 ? Math.max(...aTimes) : 0;
+                    const bLatest = bTimes.length > 0 ? Math.max(...bTimes) : 0;
                     return bLatest - aLatest;
                   })
                   .slice(0, 5)
                   .map(goal => {
-                    const latestPoint = goal.dataPoints.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+                    const latestPoint = [...(goal.dataPoints ?? [])].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
                     return (
                       <div key={goal.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                         <div className="flex-1">
                           <p className="font-medium">{goal.title}</p>
                           <p className="text-sm text-muted-foreground">
-                            Updated {format(latestPoint.timestamp, 'MMM dd, yyyy')}
+                            {latestPoint ? `Updated ${format(latestPoint.timestamp, 'MMM dd, yyyy')}` : 'No recent updates'}
                           </p>
                         </div>
                         <div className="text-right">
@@ -373,8 +374,7 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
                   xAxis: { type: "category", name: "Category", nameGap: 24 },
                   yAxis: { type: "value", name: "Progress (%)", nameGap: 28, min: 0, max: 100 },
                   tooltip: {
-                    trigger: "axis",
-                    axisPointer: { type: "shadow" },
+                    ...tooltipPresets.axis({ type: "shadow" }),
                     valueFormatter: (val) => (typeof val === "number" ? `${Math.round(val)}%` : String(val)),
                   },
                   legend: { show: false },
@@ -406,10 +406,10 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
                       source: categoryData.map((d) => ({ name: d.category, value: d.progress })),
                     },
                     tooltip: {
-                      trigger: "item",
+                      ...tooltipPresets.item(),
                       valueFormatter: (val) => (typeof val === "number" ? `${Math.round(val)}%` : String(val)),
                     },
-                    legend: { bottom: 0, type: "scroll" },
+                    legend: legendPresets.scrollBottom(),
                     series: [
                       {
                         type: "pie",
@@ -434,7 +434,7 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {categoryData.map((category, index) => (
+                  {categoryData.map((category, _index) => (
                     <div key={category.category} className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="font-medium">{category.category}</span>
@@ -460,7 +460,7 @@ export const ProgressDashboard = ({ student, goals }: ProgressDashboardProps) =>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {getPriorityGoals().map((goal, index) => (
+                {getPriorityGoals().map((goal, _index) => (
                   <div key={goal.id} className="p-4 border border-border rounded-lg space-y-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">

@@ -1,5 +1,6 @@
 import type { EChartsOption, SeriesOption } from 'echarts';
 import type { CorrelationMatrix } from '@/lib/enhancedPatternAnalysis';
+import { tooltipPresets } from '@/components/charts/presets';
 
 /**
  * ChartKit – option builders
@@ -178,7 +179,7 @@ export function buildEmotionTrendsOption(rows: TrendRow[], config: EmotionTrends
         'Sensory Inputs': false,
       },
     },
-    tooltip: { trigger: 'axis', confine: true },
+    tooltip: tooltipPresets.axis(),
     toolbox: {
       show: true,
       right: 16,
@@ -218,7 +219,7 @@ export function buildEmotionTrendsOption(rows: TrendRow[], config: EmotionTrends
 export function buildAreaOption(rows: TrendRow[]): EChartsOption {
   const dates = rows.map(r => r.date);
   return {
-    tooltip: { trigger: 'axis' },
+    tooltip: tooltipPresets.axis(),
     legend: {},
     xAxis: { type: 'category', data: dates },
     yAxis: [{ type: 'value' }],
@@ -250,7 +251,7 @@ export function buildAreaOption(rows: TrendRow[]): EChartsOption {
 /** Scatter option with numeric axes for correlation-like view. */
 export function buildScatterOption(rows: TrendRow[]): EChartsOption {
   return {
-    tooltip: { trigger: 'item' },
+    tooltip: tooltipPresets.item(),
     legend: {},
     xAxis: { type: 'value', name: 'Avg Emotion Intensity' },
     yAxis: { type: 'value', name: 'Sensory Inputs' },
@@ -270,7 +271,7 @@ export function buildScatterOption(rows: TrendRow[]): EChartsOption {
 export function buildComposedOption(rows: TrendRow[]): EChartsOption {
   const dates = rows.map(r => r.date);
   return {
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    tooltip: tooltipPresets.axis({ type: 'shadow' } as any),
     legend: {},
     xAxis: { type: 'category', data: dates },
     yAxis: [{ type: 'value' }, { type: 'value' }],
@@ -338,9 +339,7 @@ export function buildCorrelationHeatmapOption(matrix: CorrelationMatrix): EChart
       axisLabel: { margin: 12 },
     },
     tooltip: {
-      trigger: 'item',
-      confine: true,
-      appendToBody: true,
+      ...tooltipPresets.item(),
       formatter: (p: any) => {
         const i = p?.value?.[1];
         const j = p?.value?.[0];

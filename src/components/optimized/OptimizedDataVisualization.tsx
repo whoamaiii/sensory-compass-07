@@ -1,12 +1,27 @@
+/**
+ * OptimizedDataVisualization
+ *
+ * Composes three focused chart components with shared presets/constants:
+ * - EmotionTrendsChart: time-series of emotions and sensory inputs
+ * - EmotionDistributionChart: donut distribution of emotions
+ * - SensoryResponsePatternsChart: stacked bars for sensory responses
+ *
+ * Responsibilities:
+ * - Fetch progressive chart data via useProgressiveChartData
+ * - Handle loading/empty states and layout
+ * - Pass data/flags to sub-components; avoid inline IIFEs and large inline options
+ *
+ * This structure improves readability, reusability, and testability while keeping
+ * visual behavior consistent across the app using shared tooltip/legend presets.
+ */
 import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { EChartsOption } from "echarts";
-import { EChartContainer } from "@/components/charts/EChartContainer";
 import { EmotionEntry, SensoryEntry } from "@/types/student";
 import { TrendingUp, BarChart3, PieChart as PieChartIcon } from "lucide-react";
 import { useProgressiveChartData } from '@/hooks/useProgressiveChartData';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { buildEmotionTrendsOption, TrendRow } from '@/components/charts/ChartKit';
+import { EmotionTrendsChart } from '@/components/optimized/charts/EmotionTrendsChart';
+import { EmotionDistributionChart } from '@/components/optimized/charts/EmotionDistributionChart';
+import { SensoryResponsePatternsChart } from '@/components/optimized/charts/SensoryResponsePatternsChart';
 
 interface DataVisualizationProps {
   emotions: EmotionEntry[];
@@ -15,15 +30,6 @@ interface DataVisualizationProps {
   showTimeFilter?: boolean;
   selectedRange?: string;
 }
-
-const emotionColors = {
-  happy: '#10B981',
-  calm: '#06B6D4',
-  excited: '#8B5CF6',
-  sad: '#3B82F6',
-  anxious: '#F59E0B',
-  angry: '#EF4444',
-} as const;
 
 /**
  * Optimized DataVisualization component with React.memo and useMemo for expensive computations
@@ -80,67 +86,13 @@ export const OptimizedDataVisualization = memo(({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ErrorBoundary>
-              {state.isLoading && !state.steps.emotionTrends ? (
-                <div aria-label="Loading emotion trends" className="h-[300px] w-full">
-                  <div className="h-full w-full animate-pulse rounded-md border border-border/50 bg-muted/20" />
-                </div>
-              ) : (() => {
-                // Aggregate daily rows compatible with ChartKit TrendRow
-                const byDate = new Map<string, TrendRow & { count: number }>();
-                for (const e of emotions) {
-                  const d = e.timestamp instanceof Date ? e.timestamp : new Date(e.timestamp);
-                  if (Number.isNaN(d.getTime())) continue;
-                  const key = d.toISOString().slice(0, 10);
-                  if (!byDate.has(key)) {
-                    byDate.set(key, {
-                      date: key,
-                      avgEmotionIntensity: 0,
-                      positiveEmotions: 0,
-                      negativeEmotions: 0,
-                      totalSensoryInputs: 0,
-                      count: 0,
-                    });
-                  }
-                  const row = byDate.get(key)!;
-                  const intensity = typeof e.intensity === 'number' ? e.intensity : Number(e.intensity) || 0;
-                  row.avgEmotionIntensity = (row.avgEmotionIntensity * row.count + intensity) / (row.count + 1);
-                  row.count += 1;
-                  const name = String(e.emotion || '').toLowerCase();
-                  if (["happy","calm","focused","excited","proud"].includes(name)) row.positiveEmotions += 1;
-                  if (["sad","angry","anxious","frustrated","overwhelmed"].includes(name)) row.negativeEmotions += 1;
-                }
-                for (const s of sensoryInputs) {
-                  const d = s.timestamp instanceof Date ? s.timestamp : new Date(s.timestamp);
-                  if (Number.isNaN(d.getTime())) continue;
-                  const key = d.toISOString().slice(0, 10);
-                  if (!byDate.has(key)) {
-                    byDate.set(key, {
-                      date: key,
-                      avgEmotionIntensity: 0,
-                      positiveEmotions: 0,
-                      negativeEmotions: 0,
-                      totalSensoryInputs: 0,
-                      count: 0,
-                    });
-                  }
-                  const row = byDate.get(key)!;
-                  row.totalSensoryInputs += 1;
-                }
-                const rows = Array.from(byDate.values())
-                  .sort((a, b) => a.date.localeCompare(b.date))
-                  .map(({ count, ...r }) => r);
-
-                const option: EChartsOption = buildEmotionTrendsOption(rows, {
-                  title: undefined,
-                  showMovingAverage: true,
-                  movingAverageWindow: 7,
-                  useDualYAxis: true,
-                  thresholds: { emotion: 7, sensory: 5 },
-                });
-                return <EChartContainer option={option} height={300} aria-label="Emotion trends line chart" />;
-              })()}
-            </ErrorBoundary>
+            <EmotionTrendsChart
+              emotions={emotions}
+              sensoryInputs={sensoryInputs}
+              isLoading={state.isLoading}
+              stepReady={!!state.steps.emotionTrends}
+              height={300}
+            />
           </CardContent>
         </Card>
       )}
@@ -156,35 +108,12 @@ export const OptimizedDataVisualization = memo(({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ErrorBoundary>
-                {state.isLoading && !state.steps.emotionDistribution ? (
-                  <div aria-label="Loading emotion distribution" className="h-[250px] w-full">
-                    <div className="h-full w-full animate-pulse rounded-md border border-border/50 bg-muted/20" />
-                  </div>
-                ) : (() => {
-                  type PieItemCallbackParam = { name?: string };
-                  const option: EChartsOption = {
-                    dataset: { source: data.emotionDistribution.map((d) => ({ name: d.name, value: d.value })) },
-                    tooltip: { trigger: "item" },
-                    legend: { bottom: 0, type: "scroll" },
-                    series: [
-                      {
-                        type: "pie",
-                        radius: ["45%", "70%"],
-                        label: { formatter: "{b}: {@value} ({d}%)" },
-                        encode: { itemName: "name", value: "value" },
-                        itemStyle: {
-                          color: (params: PieItemCallbackParam) => {
-                            const key = (params?.name || "") as keyof typeof emotionColors;
-                            return emotionColors[key] || "#8884d8";
-                          },
-                        },
-                      },
-                    ],
-                  };
-                  return <EChartContainer option={option} height={250} aria-label="Emotion distribution donut chart" />;
-                })()}
-              </ErrorBoundary>
+              <EmotionDistributionChart
+                distribution={data.emotionDistribution}
+                isLoading={state.isLoading}
+                stepReady={!!state.steps.emotionDistribution}
+                height={250}
+              />
             </CardContent>
           </Card>
         )}
@@ -199,48 +128,17 @@ export const OptimizedDataVisualization = memo(({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ErrorBoundary>
-                {state.isLoading && !state.steps.sensoryResponses ? (
-                  <div aria-label="Loading sensory responses" className="h-[250px] w-full">
-                    <div className="h-full w-full animate-pulse rounded-md border border-border/50 bg-muted/20" />
-                  </div>
-                ) : (() => {
-                  const option: EChartsOption = {
-                    dataset: { source: data.sensoryResponses },
-                    grid: { top: 24, right: 16, bottom: 32, left: 40 },
-                    xAxis: { type: "category", name: "Type", nameGap: 24 },
-                    yAxis: { type: "value", name: "Count", nameGap: 28, minInterval: 1 },
-                    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-                    legend: { top: 0 },
-                    series: [
-                      { type: "bar", name: "Seeking", encode: { x: "type", y: "seeking" }, itemStyle: { color: "#10B981" } },
-                      { type: "bar", name: "Avoiding", encode: { x: "type", y: "avoiding" }, itemStyle: { color: "#EF4444" } },
-                      { type: "bar", name: "Neutral", encode: { x: "type", y: "neutral" }, itemStyle: { color: "#6B7280" } },
-                    ],
-                  };
-                  return <EChartContainer option={option} height={250} aria-label="Sensory response patterns stacked bars" />;
-                })()}
-              </ErrorBoundary>
+              <SensoryResponsePatternsChart
+                responses={data.sensoryResponses}
+                isLoading={state.isLoading}
+                stepReady={!!state.steps.sensoryResponses}
+                height={250}
+              />
             </CardContent>
           </Card>
         )}
       </div>
     </div>
-  );
-}, (prevProps, nextProps) => {
-  // Custom comparison for better performance
-  // Re-render only if data actually changed
-  return (
-    prevProps.studentName === nextProps.studentName &&
-    prevProps.selectedRange === nextProps.selectedRange &&
-    prevProps.showTimeFilter === nextProps.showTimeFilter &&
-    prevProps.emotions.length === nextProps.emotions.length &&
-    prevProps.sensoryInputs.length === nextProps.sensoryInputs.length &&
-    // Deep check only if lengths are same
-    (prevProps.emotions.length === 0 || 
-      prevProps.emotions[0]?.timestamp === nextProps.emotions[0]?.timestamp) &&
-    (prevProps.sensoryInputs.length === 0 || 
-      prevProps.sensoryInputs[0]?.timestamp === nextProps.sensoryInputs[0]?.timestamp)
   );
 });
 

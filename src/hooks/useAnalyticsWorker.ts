@@ -38,7 +38,7 @@ interface CachedAnalyticsWorkerOptions {
 interface UseAnalyticsWorkerReturn {
   results: AnalyticsResults | null;
   isAnalyzing: boolean;
-  error: string | null;
+  error: unknown | null;
   runAnalysis: (data: AnalyticsData) => Promise<void>;
   precomputeCommonAnalytics: (dataProvider: () => AnalyticsData[]) => void;
   invalidateCacheForStudent: (studentId: string) => void;
@@ -71,9 +71,11 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): 
 
   const workerRef = useRef<Worker | null>(null);
   const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overallTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const analysisStartRef = useRef<number | null>(null);
   const [results, setResults] = useState<AnalyticsResults | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
   const idleCallbackRef = useRef<number | null>(null);
 
   // Initialize performance cache with appropriate settings
@@ -126,14 +128,32 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): 
           watchdogRef.current = setTimeout(() => {
             diagnostics.logWorkerTimeout('analytics', timeoutMs);
             setError('Worker timeout during progress.');
+            // Ensure UI does not remain stuck in analyzing state
+            setIsAnalyzing(false);
+            // Terminate unresponsive worker so next analysis uses fallback
+            try {
+              if (workerRef.current) {
+                workerRef.current.terminate();
+                workerRef.current = null;
+              }
+            } catch {
+              /* noop */
+            }
           }, timeoutMs);
           return;
         }
 
         if (msg.type === 'error') {
           logger.error('[useAnalyticsWorker] Worker error', msg.error);
+          // Clear any active watchdog timers to avoid subsequent state flips
+          if (watchdogRef.current) {
+            clearTimeout(watchdogRef.current);
+            watchdogRef.current = null;
+          }
           setError(msg.error || 'Unknown worker error');
           setIsAnalyzing(false);
+          // Do not keep stale partial results on error
+          setResults(prev => (prev ? prev : null));
           return;
         }
 
@@ -211,6 +231,7 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): 
         // If we have pending analysis, process with fallback
         // This ensures we don't lose the current analysis request
         setError('Analytics worker encountered an error. Switching to fallback mode.');
+        setIsAnalyzing(false);
         
         // Note: The next call to runAnalysis will automatically use the fallback
         // since workerRef.current is now null
@@ -332,6 +353,12 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): 
       clearTimeout(watchdogRef.current);
       watchdogRef.current = null;
     }
+    // Set overall analysis time cap (wall clock), independent of heartbeats
+    if (overallTimeoutRef.current) {
+      clearTimeout(overallTimeoutRef.current);
+      overallTimeoutRef.current = null;
+    }
+    analysisStartRef.current = Date.now();
     // Determine timeout from config if available; fallback to 15s minimum 3s
     const cfg = analyticsConfig.getConfig();
     // Clamp watchdog timeout to a sane upper bound to avoid indefinite spinners.
@@ -375,6 +402,30 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): 
         setIsAnalyzing(false);
       }
     }, timeoutMs);
+
+    // Overall timeout: even if progress messages keep arriving, enforce an upper bound
+    const overallCapMs = 25000; // 25s hard cap
+    overallTimeoutRef.current = setTimeout(async () => {
+      try {
+        logger.error('[useAnalyticsWorker] overall timeout exceeded, forcing fallback');
+      } catch {/* noop */}
+      if (workerRef.current) {
+        try { workerRef.current.terminate(); } catch {/* noop */}
+        workerRef.current = null;
+      }
+      try {
+        const fallbackResults = await analyticsWorkerFallback.processAnalytics(data);
+        setResults(fallbackResults);
+        const tags = extractTagsFromData(data);
+        cache.set(cacheKey, fallbackResults, tags);
+        setError('Analysis took too long. Results computed using fallback mode.');
+      } catch (fallbackError) {
+        logger.error('[useAnalyticsWorker] Fallback failed after overall timeout', fallbackError);
+        setError('Analytics processing failed. Please try again.');
+      } finally {
+        setIsAnalyzing(false);
+      }
+    }, overallCapMs);
     
     // Get current configuration
     const config = analyticsConfig.getConfig();

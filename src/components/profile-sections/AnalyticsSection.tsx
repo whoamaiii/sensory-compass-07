@@ -158,25 +158,7 @@ export function AnalyticsSection({
       </Card>
 
 
-      {/* Interactive Data Visualization */}
-      <Card className="bg-gradient-card border-0 shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Interaktiv datavisualisering
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ErrorBoundary showToast={false}>
-            <LazyInteractiveDataVisualization 
-              emotions={safeFilteredData.emotions}
-              sensoryInputs={safeFilteredData.sensoryInputs}
-              trackingEntries={safeFilteredData.entries}
-              studentName={student.name}
-            />
-          </ErrorBoundary>
-        </CardContent>
-      </Card>
+      {/* Inline visualization removed to avoid duplication with dashboard tabs */}
 
       {/* Detailed Insights */}
       {isLoadingInsights ? (

@@ -81,3 +81,72 @@ export function computeIntensityBins(entries: (EmotionEntry | SensoryEntry)[]) {
   }));
 }
 
+/**
+ * Prepare rows for the Emotion Trends chart by aggregating daily stats from
+ * emotion events and sensory inputs. Pure and deterministic for unit testing.
+ */
+export function prepareEmotionTrendsData(
+  emotions: EmotionEntry[],
+  sensoryInputs: SensoryEntry[],
+): Array<{
+  date: string;
+  avgEmotionIntensity: number;
+  positiveEmotions: number;
+  negativeEmotions: number;
+  totalSensoryInputs: number;
+}> {
+  const byDate = new Map<
+    string,
+    { date: string; avgEmotionIntensity: number; positiveEmotions: number; negativeEmotions: number; totalSensoryInputs: number; count: number }
+  >();
+
+  const positiveSet = new Set(['happy', 'calm', 'focused', 'excited', 'proud']);
+  const negativeSet = new Set(['sad', 'angry', 'anxious', 'frustrated', 'overwhelmed']);
+
+  for (const emotion of emotions) {
+    const dateObj = emotion.timestamp instanceof Date ? emotion.timestamp : new Date(emotion.timestamp as any);
+    if (Number.isNaN(dateObj.getTime())) continue;
+    const key = dateObj.toISOString().slice(0, 10);
+    if (!byDate.has(key)) {
+      byDate.set(key, {
+        date: key,
+        avgEmotionIntensity: 0,
+        positiveEmotions: 0,
+        negativeEmotions: 0,
+        totalSensoryInputs: 0,
+        count: 0,
+      });
+    }
+    const row = byDate.get(key)!;
+    const intensityRaw = (emotion as any).intensity;
+    const intensity = typeof intensityRaw === 'number' ? intensityRaw : Number(intensityRaw) || 0;
+    row.avgEmotionIntensity = (row.avgEmotionIntensity * row.count + intensity) / (row.count + 1);
+    row.count += 1;
+    const name = String((emotion as any).emotion || '').toLowerCase();
+    if (positiveSet.has(name)) row.positiveEmotions += 1;
+    if (negativeSet.has(name)) row.negativeEmotions += 1;
+  }
+
+  for (const sensory of sensoryInputs) {
+    const dateObj = sensory.timestamp instanceof Date ? sensory.timestamp : new Date(sensory.timestamp as any);
+    if (Number.isNaN(dateObj.getTime())) continue;
+    const key = dateObj.toISOString().slice(0, 10);
+    if (!byDate.has(key)) {
+      byDate.set(key, {
+        date: key,
+        avgEmotionIntensity: 0,
+        positiveEmotions: 0,
+        negativeEmotions: 0,
+        totalSensoryInputs: 0,
+        count: 0,
+      });
+    }
+    const row = byDate.get(key)!;
+    row.totalSensoryInputs += 1;
+  }
+
+  return Array.from(byDate.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(({ count, ...rest }) => rest);
+}
+

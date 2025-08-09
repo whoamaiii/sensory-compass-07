@@ -61,16 +61,6 @@ export const OptimizedStudentCard = memo(({ student, onView, onTrack }: StudentC
       </CardContent>
     </Card>
   );
-}, (prevProps, nextProps) => {
-  // Custom comparison function for better performance
-  // Only re-render if student data actually changed
-  return (
-    prevProps.student.id === nextProps.student.id &&
-    prevProps.student.name === nextProps.student.name &&
-    prevProps.student.grade === nextProps.student.grade &&
-    prevProps.onView === nextProps.onView &&
-    prevProps.onTrack === nextProps.onTrack
-  );
 });
 
 OptimizedStudentCard.displayName = 'OptimizedStudentCard';
