@@ -1,9 +1,9 @@
 // Alternative worker implementation using inline worker for better compatibility
+import { logger } from './logger.js';
 import { AnalyticsData, AnalyticsResults } from '@/workers/analytics.worker';
 import { logger } from './logger';
 
 const workerCode = `
-  import { logger } from './logger.js';
   
   self.onmessage = async (e) => {
     const data = e.data;

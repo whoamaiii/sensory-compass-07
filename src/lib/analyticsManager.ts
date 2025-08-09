@@ -505,7 +505,7 @@ class AnalyticsManagerService {
     this.initializeStudentAnalytics(student.id);
 
     const cached = this.analyticsCache.get(student.id);
-    if (cached && (Date.now() - cached.timestamp.getTime()) < (ANALYTICS_CONFIG.analytics as any).CACHE_TTL) {
+    if (cached && (Date.now() - cached.timestamp.getTime()) < ANALYTICS_CONFIG.cache.ttl) {
       return cached.results;
     }
 
@@ -696,7 +696,7 @@ class AnalyticsManagerService {
    * This is useful for displaying a high-level dashboard of the system's state.
    * @returns {Array<object>} An array of status objects for each student.
    */
-  public getAnalyticsStatus() {
+  public getAnalyticsStatus(): AnalyticsStatus[] {
     const students = this.storage.getStudents();
     return students.map(student => {
       const profile = this.analyticsProfiles.get(student.id);
@@ -712,6 +712,7 @@ class AnalyticsManagerService {
       };
     });
   }
+
 
   /**
    * Clears the analytics cache.

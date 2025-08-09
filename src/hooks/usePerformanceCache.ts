@@ -108,16 +108,7 @@ export function usePerformanceCache<T>(options: CacheOptions = {}) {
       }
     });
 
-    if (lruKey) {
-      const entry = cache.current.get(lruKey);
-      if (entry?.tags) {
-        removeFromTagIndex(lruKey, entry.tags);
-      }
-      cache.current.delete(lruKey);
-      updateStats('evictions');
-      bumpMutation();
-    }
-  }, [updateStats, bumpMutation]);
+    }, [updateStats, bumpMutation, removeFromTagIndex]);
 
   const removeFromTagIndex = useCallback((key: string, tags: string[]) => {
     tags.forEach(tag => {

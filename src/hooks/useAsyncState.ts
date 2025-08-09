@@ -189,7 +189,7 @@ export function useAsyncQuery<T = unknown>(
 ) {
   const { enabled = true, refetchInterval, ...asyncOptions } = options;
   const { state, execute, reset, setData, setError } = useAsyncState<T>(null, asyncOptions);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (enabled) {
@@ -207,6 +207,7 @@ export function useAsyncQuery<T = unknown>(
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
   }, [refetchInterval, enabled, state.isSuccess, execute, queryFn]);

@@ -399,8 +399,14 @@ export const ReportBuilder = ({ student, goals, trackingEntries, emotions, senso
       </html>
     `;
 
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+    // Use safer DOM manipulation instead of document.write
+    const doc = printWindow.document;
+    doc.open();
+    doc.documentElement.innerHTML = ''; // Clear any existing content
+    const parser = new DOMParser();
+    const sanitizedDoc = parser.parseFromString(htmlContent, 'text/html');
+    doc.documentElement.innerHTML = sanitizedDoc.documentElement.innerHTML;
+    doc.close();
     printWindow.focus();
     
     // Auto-print after a brief delay to allow rendering

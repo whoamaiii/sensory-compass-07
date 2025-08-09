@@ -244,22 +244,7 @@ export const useAnalyticsWorker = (options: CachedAnalyticsWorkerOptions = {}): 
       workerRef.current = null;
     }
 
-    // Cleanup function to properly terminate worker on unmount
-    return () => {
-      if (workerRef.current) {
-        logger.debug('[useAnalyticsWorker] Terminating analytics worker');
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
-      if (idleCallbackRef.current) {
-        cancelIdleCallback(idleCallbackRef.current);
-      }
-      if (watchdogRef.current) {
-        clearTimeout(watchdogRef.current);
-        watchdogRef.current = null;
-      }
-    };
-  }, [cache, extractTagsFromData]);
+    }, [cache, extractTagsFromData]);
 
   /**
    * Creates a cache key based on the analytics data

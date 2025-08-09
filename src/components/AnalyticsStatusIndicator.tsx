@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { AnalyticsStatus } from "@/types/analytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,8 +61,11 @@ export const AnalyticsStatusIndicator = ({
    * Memoized to prevent recreation on every render.
    * Filters by studentId if provided.
    */
+
+// ... (rest of the file)
+
   const loadAnalyticsStatus = useCallback(() => {
-    const status = analyticsManager.getAnalyticsStatus() as AnalyticsStatus[];
+    const status = analyticsManager.getAnalyticsStatus();
     if (studentId) {
       setAnalyticsStatus(status.filter(s => s.studentId === studentId));
     } else {

@@ -1,4 +1,4 @@
-import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { useTranslation as useI18nTranslation, TOptions } from 'react-i18next';
 import { useCallback, useMemo } from 'react';
 
 // Type-safe translation hook with Norwegian context
@@ -13,12 +13,12 @@ export const useTranslation = (namespace?: string) => {
   const currentLanguage = i18n.language as 'nb' | 'en';
   
   // Helper functions for common translations
-  const tCommon = useCallback((key: string, options?: any) => t(key, { ns: 'common', ...options }), [t]);
-  const tDashboard = useCallback((key: string, options?: any) => t(key, { ns: 'dashboard', ...options }), [t]);
-  const tStudent = useCallback((key: string, options?: any) => t(key, { ns: 'student', ...options }), [t]);
-  const tTracking = useCallback((key: string, options?: any) => t(key, { ns: 'tracking', ...options }), [t]);
-  const tAnalytics = useCallback((key: string, options?: any) => t(key, { ns: 'analytics', ...options }), [t]);
-  const tSettings = useCallback((key: string, options?: any) => t(key, { ns: 'settings', ...options }), [t]);
+  const tCommon = useCallback((key: string, options?: TOptions) => t(key, { ns: 'common', ...options }), [t]);
+  const tDashboard = useCallback((key: string, options?: TOptions) => t(key, { ns: 'dashboard', ...options }), [t]);
+  const tStudent = useCallback((key: string, options?: TOptions) => t(key, { ns: 'student', ...options }), [t]);
+  const tTracking = useCallback((key: string, options?: TOptions) => t(key, { ns: 'tracking', ...options }), [t]);
+  const tAnalytics = useCallback((key: string, options?: TOptions) => t(key, { ns: 'analytics', ...options }), [t]);
+  const tSettings = useCallback((key: string, options?: TOptions) => t(key, { ns: 'settings', ...options }), [t]);
   
   // Norwegian-specific date formatting
   const formatDate = useCallback((date: Date) => {

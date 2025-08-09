@@ -16,7 +16,7 @@ interface DiagnosticInfo {
   activeListeners?: number;
   componentName?: string;
   action?: string;
-  data?: any;
+  data?: unknown;
 }
 
 class DiagnosticLogger {
@@ -42,7 +42,7 @@ class DiagnosticLogger {
   private startPerformanceMonitoring() {
     // Monitor memory usage every 5 seconds
     setInterval(() => {
-      if (this.diagnosticMode && (performance as any).memory) {
+      if (this.diagnosticMode && performance.memory) {
         const memInfo = (performance as any).memory;
         const usedMB = (memInfo.usedJSHeapSize / 1048576).toFixed(2);
         const totalMB = (memInfo.totalJSHeapSize / 1048576).toFixed(2);
@@ -102,7 +102,7 @@ class DiagnosticLogger {
     }
   }
 
-  logWorkerMessage(workerName: string, messageType: string, data?: any) {
+  logWorkerMessage(workerName: string, messageType: string, data?: unknown) {
     if (!this.diagnosticMode) return;
     
     logger.debug('[DIAGNOSTIC] Worker Message', {
@@ -215,9 +215,9 @@ if (typeof window !== 'undefined') {
   const originalSetTimeout = window.setTimeout;
   const originalClearTimeout = window.clearTimeout;
 
-  window.setTimeout = function(...args: any[]) {
-    const timerId = originalSetTimeout.apply(window, args as any);
-    diagnostics.trackTimer(timerId as any);
+  window.setTimeout = function(handler: TimerHandler, timeout?: number, ...args: any[]): number {
+    const timerId = originalSetTimeout.apply(window, [handler, timeout, ...args]);
+    diagnostics.trackTimer(timerId as number);
     return timerId;
   };
 

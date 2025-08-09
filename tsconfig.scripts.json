@@ -1,5 +1,4 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "CommonJS",
     "target": "ES2022",
@@ -9,13 +8,22 @@
     "strict": true,
     "noImplicitAny": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "esModuleInterop": true,
+    "moduleResolution": "node"
   },
   "include": [
     "scripts/**/*.ts",
     "tailwind.config.ts",
     "vite.config.ts",
     "vitest.config.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "postcss.config.js",
+    "eslint.config.js"
   ]
 }

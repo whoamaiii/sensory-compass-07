@@ -52,7 +52,7 @@ export const useDataFiltering = (
       emotions: filteredEmotions,
       sensoryInputs: filteredSensoryInputs
     };
-  }, [trackingEntries, allEmotions, allSensoryInputs, selectedRange.start, selectedRange.end]);
+  }, [trackingEntries, allEmotions, allSensoryInputs, selectedRange]);
 
   const handleRangeChange = useCallback((newRange: TimeRange) => {
     setSelectedRange(newRange);
