@@ -188,7 +188,20 @@ export const SmartDataEntry: React.FC<SmartDataEntryProps> = ({
     setSensoryContext('');
   }, [selectedSensoryType, selectedSensoryInput, sensoryResponse, sensoryContext, onSensoryAdd]);
 
-  const applyQuickTemplate = useCallback((template: any) => {
+  interface QuickTemplate {
+    type: 'emotion' | 'sensory';
+    label: string;
+    data: {
+      emotion?: string;
+      intensity?: number;
+      context?: string;
+      type?: string;
+      input?: string;
+      response?: string;
+    };
+  }
+
+  const applyQuickTemplate = useCallback((template: QuickTemplate) => {
     if (template.type === 'emotion') {
       setActiveTab('emotion');
       setSelectedEmotion(template.data.emotion);

@@ -45,7 +45,7 @@ export const DataQualityFeedback = memo(({
   sensoryInputs, 
   entries, 
   className 
-}: DataQualityFeedbackProps) = {
+}: DataQualityFeedbackProps) => {
   const { tAnalytics, formatDate } = useTranslation();
 
   // Calculate comprehensive data quality metrics
@@ -91,7 +91,7 @@ export const DataQualityFeedback = memo(({
     const sensoryRatio = totalDataPoints === 0 ? 0 : sensoryInputs.length / totalDataPoints;
     const diversityBalance = 1 - Math.abs(emotionRatio - sensoryRatio);
     const diversityScore = diversityBalance * 100;
-    const diversityStatus = diversityScore = 80 ? 'excellent' : diversityScore = 60 ? 'good' : diversityScore = 40 ? 'fair' : 'poor';
+    const diversityStatus = diversityScore >= 80 ? 'excellent' : diversityScore >= 60 ? 'good' : diversityScore >= 40 ? 'fair' : 'poor';
 
     // 4. Recent Activity Quality (data freshness)
     const recentData = [...emotions, ...sensoryInputs].filter(item => 
@@ -101,11 +101,11 @@ export const DataQualityFeedback = memo(({
     const recentActivityStatus = recentActivityScore >= 80 ? 'excellent' : recentActivityScore >= 60 ? 'good' : recentActivityScore >= 40 ? 'fair' : 'poor';
 
     // 5. Session Completeness (emotions + sensory in same sessions)
-    const completeSessions = entries.filter(entry = 
-      Array.isArray(entry.emotions) && Array.isArray(entry.sensoryInputs) && entry.emotions.length  0 && entry.sensoryInputs.length  0
+    const completeSessions = entries.filter(entry => 
+      Array.isArray(entry.emotions) && Array.isArray(entry.sensoryInputs) && entry.emotions.length > 0 && entry.sensoryInputs.length > 0
     );
-    const completenessScore = totalEntries  0 ? (completeSessions.length / totalEntries) * 100 : 0;
-    const completenessStatus = completenessScore = 80 ? 'excellent' : completenessScore = 60 ? 'good' : completenessScore = 40 ? 'fair' : 'poor';
+    const completenessScore = totalEntries > 0 ? (completeSessions.length / totalEntries) * 100 : 0;
+    const completenessStatus = completenessScore >= 80 ? 'excellent' : completenessScore >= 60 ? 'good' : completenessScore >= 40 ? 'fair' : 'poor';
 
     const metrics: QualityMetric[] = [
       {

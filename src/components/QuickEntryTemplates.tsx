@@ -144,7 +144,7 @@ export const QuickEntryTemplates: React.FC<QuickEntryTemplatesProps> = ({
       }
       
       // Basic validation of template structure
-      const isValidTemplate = (t: any): t is QuickTemplate => {
+      const isValidTemplate = (t: unknown): t is QuickTemplate => {
         return t && 
                typeof t.id === 'string' && 
                typeof t.name === 'string' &&

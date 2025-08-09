@@ -34,15 +34,15 @@ export const AlertManager = ({ studentId, showOnlyUnresolved = false }: AlertMan
       alertList = alertList.filter(alert => !alert.resolved);
     }
 
-    // Sort by severity and timestamp
-    alertList.sort((a, b) => {
+    // Sort a copy to avoid mutating the original array
+    const sortedAlerts = [...alertList].sort((a, b) => {
       const severityOrder = { high: 3, medium: 2, low: 1 };
       const severityDiff = severityOrder[b.alert.severity] - severityOrder[a.alert.severity];
       if (severityDiff !== 0) return severityDiff;
       return b.alert.timestamp.getTime() - a.alert.timestamp.getTime();
     });
 
-    setAlerts(alertList);
+    setAlerts(sortedAlerts);
   }, [studentId, showOnlyUnresolved]);
 
   useEffect(() => {
