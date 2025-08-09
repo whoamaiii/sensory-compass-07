@@ -54,40 +54,82 @@ const ErrorFallback = () => (
 export const LazyInteractiveDataVisualization = createLazyComponent(
   () => {
     logger.debug('[LazyInteractiveDataVisualization] Starting to load component');
-    
-    // Try original version first
-    return import('@/components/InteractiveDataVisualization')
-      .then(module => {
-        logger.debug('[LazyInteractiveDataVisualization] Component loaded successfully');
-        if (!module.InteractiveDataVisualization) {
-          throw new Error('InteractiveDataVisualization export not found');
+
+    // Helper: load the primary component with a timeout, then fall back.
+    const loadPrimary = async () => {
+      const mod = await import('@/components/InteractiveDataVisualization');
+      if (!mod.InteractiveDataVisualization) {
+        throw new Error('InteractiveDataVisualization export not found');
+      }
+      return { default: mod.InteractiveDataVisualization };
+    };
+
+    const loadMinimal = async () => {
+      const mod = await import('@/components/InteractiveDataVisualization.minimal');
+      return { default: mod.InteractiveDataVisualization };
+    };
+
+    const loadDebug = async () => {
+      const mod = await import('@/components/InteractiveDataVisualization.debug');
+      return { default: mod.InteractiveDataVisualization };
+    };
+
+    // Race primary import against a timeout to avoid indefinite Suspense
+    return new Promise<{ default: React.ComponentType<any> }>((resolve, reject) => {
+      let settled = false;
+      const timeoutMs = 4000; // 4s safety timeout
+      const timer = setTimeout(async () => {
+        if (settled) return;
+        logger.warn('[LazyInteractiveDataVisualization] Primary import timed out, attempting minimal fallback');
+        try {
+          const res = await loadMinimal();
+          settled = true;
+          resolve(res);
+        } catch (e1) {
+          logger.error('[LazyInteractiveDataVisualization] Minimal fallback failed, attempting debug', e1);
+          try {
+            const res = await loadDebug();
+            settled = true;
+            resolve(res);
+          } catch (e2) {
+            settled = true;
+            reject(e2);
+          }
         }
-        return { default: module.InteractiveDataVisualization };
-      })
-      .catch(error => {
-        logger.warn('[LazyInteractiveDataVisualization] Original version failed, trying minimal', error);
-        
-        // Try minimal version as fallback
-        return import('@/components/InteractiveDataVisualization.minimal')
-          .then(module => {
-            logger.debug('[LazyInteractiveDataVisualization] Loading minimal version');
-            return { default: module.InteractiveDataVisualization };
-          })
-          .catch(minimalError => {
-            logger.error('[LazyInteractiveDataVisualization] Minimal version failed', minimalError);
-            
-            // Try debug version as last resort
-            return import('@/components/InteractiveDataVisualization.debug')
-              .then(debugModule => {
-                logger.warn('[LazyInteractiveDataVisualization] Using debug version');
-                return { default: debugModule.InteractiveDataVisualization };
-              })
-              .catch(debugError => {
-                logger.error('[LazyInteractiveDataVisualization] All versions failed', debugError);
-                throw error; // Re-throw original error
-              });
-          });
-      });
+      }, timeoutMs);
+
+      loadPrimary()
+        .then(res => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          logger.debug('[LazyInteractiveDataVisualization] Component loaded successfully');
+          resolve(res);
+        })
+        .catch(async (error) => {
+          if (settled) return;
+          logger.warn('[LazyInteractiveDataVisualization] Primary import failed, trying minimal', error);
+          try {
+            const res = await loadMinimal();
+            settled = true;
+            clearTimeout(timer);
+            resolve(res);
+          } catch (e1) {
+            logger.error('[LazyInteractiveDataVisualization] Minimal version failed', e1);
+            try {
+              const res = await loadDebug();
+              settled = true;
+              clearTimeout(timer);
+              resolve(res);
+            } catch (e2) {
+              settled = true;
+              clearTimeout(timer);
+              logger.error('[LazyInteractiveDataVisualization] All versions failed', e2);
+              reject(error);
+            }
+          }
+        });
+    });
   },
   <LoadingFallback />,
   <ErrorFallback />

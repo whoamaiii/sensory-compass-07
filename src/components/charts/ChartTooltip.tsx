@@ -1,9 +1,17 @@
 import { FC, memo } from 'react';
 import { EmotionType, EMOTION_EMOJIS } from '@/lib/chartUtils';
 
+interface TooltipPayloadItem {
+  name: string;
+  value: number;
+  color?: string;
+  dataKey?: string;
+  payload?: Record<string, unknown>;
+}
+
 interface TooltipProps {
   active?: boolean;
-  payload?: any[];
+  payload?: TooltipPayloadItem[];
   label?: string;
 }
 

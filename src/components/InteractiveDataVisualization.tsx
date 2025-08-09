@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Toggle } from "@/components/ui/toggle";
-import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,13 +16,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { EChartsOption } from "echarts";
 import { EChartContainer } from "@/components/charts/EChartContainer";
+import { buildEmotionTrendsOption, buildAreaOption, buildScatterOption, buildComposedOption, buildCorrelationHeatmapOption, TrendRow as ChartKitTrendRow } from '@/components/charts/ChartKit';
+// (removed unused tooltip types)
 import { EmotionEntry, SensoryEntry, TrackingEntry, Student } from "@/types/student";
 import { enhancedPatternAnalysis, CorrelationMatrix, PredictiveInsight, AnomalyDetection } from "@/lib/enhancedPatternAnalysis";
 import { patternAnalysis, PatternResult } from "@/lib/patternAnalysis";
 import { ConfidenceIndicator } from '@/components/ConfidenceIndicator';
 import { DetailedConfidenceExplanation } from '@/components/DetailedConfidenceExplanation';
 import { differenceInDays } from 'date-fns';
-import { 
+import {
   TrendingUp, 
   BarChart3, 
   Activity, 
@@ -32,7 +33,6 @@ import {
   Eye,
   Brain,
   Thermometer,
-  Volume2,
   AlertTriangle,
   CheckCircle,
   TrendingDown,
@@ -54,11 +54,10 @@ import {
   Wifi,
   WifiOff
 } from "lucide-react";
-import { format, subDays, isWithinInterval } from "date-fns";
+import { format, subDays } from "date-fns";
 import { analyticsExport, ExportFormat, AnalyticsExportData } from "@/lib/analyticsExport";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ChartTooltip } from "./charts/ChartTooltip";
 import { logger } from "@/lib/logger";
 import { ErrorBoundary } from "./ErrorBoundary";
 
@@ -66,7 +65,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { Visualization3D } from './Visualization3D';
 import { TimelineVisualization } from './TimelineVisualization';
 import { AdvancedFilterPanel, FilterCriteria, applyFilters } from './AdvancedFilterPanel';
-import { useRealtimeData, RealtimeDataReturn } from '@/hooks/useRealtimeData';
+import { useRealtimeData } from '@/hooks/useRealtimeData';
 
 interface InteractiveDataVisualizationProps {
   emotions: EmotionEntry[];
@@ -85,6 +84,8 @@ interface HighlightState {
   id: string | null;
   relatedIds: string[];
 }
+
+// (removed unused TooltipParam type)
 
 const parseTimestamp = (entry: { timestamp: string | Date }): Date | null => {
   if (entry.timestamp instanceof Date) {
@@ -193,30 +194,50 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
         return timestamp && timestamp >= cutoff;
       }) : trackingEntries) : [];
   
+      // Helper to support both array-returning and object-returning mocks
+      const normalizeFilterResult = <T,>(
+        original: T[],
+        result: unknown,
+        key: 'emotions' | 'sensoryInputs' | 'trackingEntries'
+      ): T[] => {
+        if (Array.isArray(result)) return result as T[];
+        if (
+          result &&
+          typeof result === 'object' &&
+          Array.isArray((result as Record<'emotions' | 'sensoryInputs' | 'trackingEntries', unknown[]>)[key])
+        ) {
+          return (result as Record<'emotions' | 'sensoryInputs' | 'trackingEntries', T[]>)[key];
+        }
+        return original;
+      };
+
       // Apply advanced filters
-      filteredEmotions = applyFilters(
+      const emoRes = applyFilters(
         filteredEmotions,
         filterCriteria,
         (e) => e,
-        null,
-        null
-      ) || [];
+        undefined,
+        undefined
+      );
+      filteredEmotions = normalizeFilterResult(filteredEmotions, emoRes, 'emotions');
   
-      filteredSensory = applyFilters(
+      const senRes = applyFilters(
         filteredSensory,
         filterCriteria,
-        null,
+        undefined,
         (s) => s,
-        null
-      ) || [];
+        undefined
+      );
+      filteredSensory = normalizeFilterResult(filteredSensory, senRes, 'sensoryInputs');
   
-      filteredTracking = applyFilters(
+      const trkRes = applyFilters(
         filteredTracking,
         filterCriteria,
         (t) => t?.emotions?.[0] || null,
         (t) => t?.sensoryInputs?.[0] || null,
         (t) => t?.environmentalData || null
-      ) || [];
+      );
+      filteredTracking = normalizeFilterResult(filteredTracking, trkRes, 'trackingEntries');
   
       // Apply highlight filter if active
       if (highlightState.type && highlightState.id) {
@@ -226,10 +247,31 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
         filteredTracking = filteredTracking.filter(t => t?.id === highlightState.id || related.has(t?.id));
       }
   
+      const parsedEmotions = filteredEmotions
+        .map(e => {
+          const ts = parseTimestamp(e);
+          return ts ? { ...e, timestamp: ts } : null;
+        })
+        .filter((e): e is EmotionEntry => e !== null);
+
+      const parsedSensory = filteredSensory
+        .map(s => {
+          const ts = parseTimestamp(s);
+          return ts ? { ...s, timestamp: ts } : null;
+        })
+        .filter((s): s is SensoryEntry => s !== null);
+
+      const parsedTracking = filteredTracking
+        .map(t => {
+          const ts = parseTimestamp(t);
+          return ts ? { ...t, timestamp: ts } : null;
+        })
+        .filter((t): t is TrackingEntry => t !== null);
+
       return {
-        emotions: filteredEmotions.map(e => ({...e, timestamp: parseTimestamp(e)})),
-        sensoryInputs: filteredSensory.map(s => ({...s, timestamp: parseTimestamp(s)})),
-        trackingEntries: filteredTracking.map(t => ({...t, timestamp: parseTimestamp(t)}))
+        emotions: parsedEmotions,
+        sensoryInputs: parsedSensory,
+        trackingEntries: parsedTracking
       };
     } catch (error) {
       logger.error("InteractiveDataVisualization.filteredData failed", { error });
@@ -272,17 +314,19 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
         
         const data = dataMap.get(date)!;
         data.emotionCount++;
-        const intensity = typeof (emotion as any).intensity === "number" ? (emotion as any).intensity : 0;
+        const intensity = typeof emotion.intensity === "number" ? emotion.intensity : 0;
         data.avgEmotionIntensity = ((data.avgEmotionIntensity * (data.emotionCount - 1)) + intensity) / data.emotionCount;
         
-        const name = String((emotion as any).emotion || "").toLowerCase();
+        const name = String(emotion.emotion || "").toLowerCase();
         if (['happy', 'calm', 'focused', 'excited', 'proud'].includes(name)) {
           data.positiveEmotions++;
         } else if (['sad', 'angry', 'anxious', 'frustrated', 'overwhelmed'].includes(name)) {
           data.negativeEmotions++;
         }
         
-        data[(emotion as any).emotion] = (typeof data[(emotion as any).emotion] === "number" ? (data[(emotion as any).emotion] as number) : 0) + intensity;
+        const key = emotion.emotion as keyof ChartDataPoint;
+        const existing = typeof data[key] === "number" ? (data[key] as number) : 0;
+        data[key] = existing + intensity;
       });
     } catch (err) {
       logger.error("InteractiveDataVisualization.chartData emotion aggregation failed", { error: err });
@@ -309,7 +353,7 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
         const data = dataMap.get(date)!;
         data.totalSensoryInputs++;
         
-        const response = String((sensory as any).response || "").toLowerCase();
+        const response = String(sensory.response || "").toLowerCase();
         if (response.includes('seeking')) {
           data.sensorySeekingCount++;
         } else if (response.includes('avoiding')) {
@@ -469,140 +513,45 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
         );
       }
   
-      const commonProps = {
-        dataset: {
-          source: chartData
-        },
-        legend: {
-          type: "scroll",
-          data: availableEmotions
-        },
-        margin: { top: 5, right: 30, left: 20, bottom: 5 }
-      };
+      // Intentionally removed unused commonProps
   
-      const enhancedTooltip = (params: any) => {
-      const p = Array.isArray(params) ? params : [params];
-      if (p.length === 0) return "";
-      const x = String(p[0].axisValue);
-      const dateStr = format(new Date(x), "MMM dd, yyyy");
-      const lines = p
-        .map((item: any) => {
-          const seriesName = String(item.seriesName || "");
-          const marker = String(item.marker || "");
-          const val = item.value ? item.value : "N/A";
-          return `${marker} ${seriesName}: ${val}`;
-        })
-        .join("\n");
-      return `${dateStr}\n${lines}`;
-    };
+      // custom tooltip formatter moved to base theme to avoid type mismatches
 
     switch (selectedChartType) {
       case 'area':
         {
-          const areaOption: EChartsOption = {
-            dataset: { source: chartData },
-            legend: {},
-            tooltip: {
-              trigger: "axis",
-              axisPointer: { type: "line" },
-              formatter: enhancedTooltip
-            },
-            xAxis: {
-              type: "category",
-              axisLabel: {
-                formatter: (v: string) => format(new Date(v), "MMM dd"),
-              }
-            },
-            yAxis: [{ type: "value" }],
-            series: [
-              {
-                type: "line",
-                name: "Avg Emotion Intensity",
-                smooth: true,
-                encode: { x: "date", y: "avgEmotionIntensity" },
-                areaStyle: {},
-                lineStyle: { width: 3 },
-                symbol: "none"
-              },
-              {
-                type: "line",
-                name: "Positive Emotions",
-                smooth: true,
-                encode: { x: "date", y: "positiveEmotions" },
-                areaStyle: {},
-                lineStyle: { width: 2 },
-                symbol: "none",
-                itemStyle: { color: "hsl(142 76% 36%)" }
-              }
-            ]
-          };
-          return <EChartContainer option={areaOption} height={400} />;
+          const rows: ChartKitTrendRow[] = chartData.map(d => ({
+            date: d.date,
+            avgEmotionIntensity: Number(d.avgEmotionIntensity) || 0,
+            positiveEmotions: Number(d.positiveEmotions) || 0,
+            negativeEmotions: Number(d.negativeEmotions) || 0,
+            totalSensoryInputs: Number(d.totalSensoryInputs) || 0,
+          }));
+          return <EChartContainer option={buildAreaOption(rows)} height={400} />;
         }
 
       case 'scatter':
         {
-          // Build scatter source with numeric axes: x=avgEmotionIntensity, y=totalSensoryInputs
-          const scatterOption: EChartsOption = {
-            dataset: { source: chartData },
-            legend: {},
-            tooltip: {
-              trigger: "item"
-            },
-            xAxis: { type: "value", name: "Avg Emotion Intensity" },
-            yAxis: { type: "value", name: "Sensory Inputs" },
-            series: [
-              {
-                name: "Daily Data Points",
-                type: "scatter",
-                encode: { x: "avgEmotionIntensity", y: "totalSensoryInputs" },
-                symbolSize: 8,
-              }
-            ]
-          };
-          return <EChartContainer option={scatterOption} height={400} />;
+          const rows: ChartKitTrendRow[] = chartData.map(d => ({
+            date: d.date,
+            avgEmotionIntensity: Number(d.avgEmotionIntensity) || 0,
+            positiveEmotions: Number(d.positiveEmotions) || 0,
+            negativeEmotions: Number(d.negativeEmotions) || 0,
+            totalSensoryInputs: Number(d.totalSensoryInputs) || 0,
+          }));
+          return <EChartContainer option={buildScatterOption(rows)} height={400} />;
         }
 
       case 'composed':
         {
-          const composedOption: EChartsOption = {
-            dataset: { source: chartData },
-            legend: {},
-            tooltip: {
-              trigger: "axis",
-              axisPointer: { type: "shadow" },
-              formatter: enhancedTooltip
-            },
-            xAxis: {
-              type: "category",
-              axisLabel: { formatter: (v: string) => format(new Date(v), "MMM dd") }
-            },
-            yAxis: [{ type: "value" }, { type: "value" }],
-            series: [
-              {
-                type: "bar",
-                name: "Positive Emotions",
-                encode: { x: "date", y: "positiveEmotions" },
-                yAxisIndex: 0,
-                itemStyle: { color: "hsl(142 76% 36%)" }
-              },
-              {
-                type: "bar",
-                name: "Negative Emotions",
-                encode: { x: "date", y: "negativeEmotions" },
-                yAxisIndex: 0,
-                itemStyle: { color: "hsl(0 72% 51%)" }
-              },
-              {
-                type: "line",
-                name: "Avg Intensity",
-                encode: { x: "date", y: "avgEmotionIntensity" },
-                yAxisIndex: 1,
-                smooth: true,
-                lineStyle: { width: 3 }
-              }
-            ]
-          };
-          return <EChartContainer option={composedOption} height={400} />;
+          const rows: ChartKitTrendRow[] = chartData.map(d => ({
+            date: d.date,
+            avgEmotionIntensity: Number(d.avgEmotionIntensity) || 0,
+            positiveEmotions: Number(d.positiveEmotions) || 0,
+            negativeEmotions: Number(d.negativeEmotions) || 0,
+            totalSensoryInputs: Number(d.totalSensoryInputs) || 0,
+          }));
+          return <EChartContainer option={buildComposedOption(rows)} height={400} />;
         }
 
       default: // line fallback
@@ -610,230 +559,28 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
           // Teacher-friendly thresholds
           const emotionThreshold = 7; // Can be configured by teachers
           const sensoryThreshold = 5;
-          const trendsOption: EChartsOption = {
-            dataset: { source: chartData },
-            title: {
-              left: 'center',
-              top: 0,
-              text: `Emotion Trends Over Time`,
-              textStyle: {
-                fontSize: 16,
-                fontWeight: 600,
-                color: "hsl(var(--foreground))"
-              }
-            },
-            legend: {
-              bottom: 0,
-              data: ['Avg Emotion Intensity', 'Positive Emotions', 'Negative Emotions', 'Sensory Inputs'],
-              selected: {
-                'Avg Emotion Intensity': true,
-                'Positive Emotions': true,
-                'Negative Emotions': true,
-                'Sensory Inputs': false // Default hidden, toggle available
-              }
-            },
-            tooltip: {
-              trigger: "axis",
-              confine: true,
-              formatter: (params: any) => {
-                const p = Array.isArray(params) ? params : [params];
-                if (p.length === 0) return "";
-                
-                const date = p[0].axisValue;
-                const dateStr = format(new Date(date), "EEEE, MMM dd, yyyy");
-                
-                const violations = p.filter((item: any) => {
-                  const value = item.value || item.data?.[item.encode?.y?.[0]];
-                  return (item.seriesName === 'Avg Emotion Intensity' && value > emotionThreshold) ||
-                         (item.seriesName === 'Sensory Inputs' && value > sensoryThreshold);
-                });
-                
-                let content = `<div style="font-weight: 600; margin-bottom: 8px;">${dateStr}</div>`;
-                if (violations.length > 0) {
-                  content += `
-                    <div style="background: rgba(239, 68, 68, 0.1); 
-                                border: 1px solid rgba(239, 68, 68, 0.3); 
-                                padding: 4px 8px; 
-                                border-radius: 4px; 
-                                margin-bottom: 8px;
-                                font-size: 12px;
-                                color: #ef4444;">
-                      ⚠️ Threshold exceeded
-                    </div>
-                  `;
-                }
-                
-                p.forEach((item: any) => {
-                  const value = item.value || item.data?.[item.encode?.y?.[0]];
-                  const formattedValue = typeof value === 'number' ? value.toFixed(1) : value;
-                  const isOverThreshold = violations.includes(item);
-                  
-                  content += `
-                    <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0;">
-                      ${item.marker}
-                      <span style="color: ${item.color}; font-weight: 500;">${item.seriesName}:</span>
-                      <span style="font-weight: 600; ${isOverThreshold ? 'color: #ef4444;' : ''}">
-                        ${formattedValue}
-                      </span>
-                    </div>
-                  `;
-                });
-                
-                content += `
-                  <div style="margin-top: 8px; 
-                              padding-top: 8px; 
-                              border-top: 1px solid rgba(255,255,255,0.1);
-                              font-size: 11px;
-                              color: hsl(var(--muted-foreground));">
-                    💡 Click to add a note
-                  </div>
-                `;
-                
-                return content;
-              }
-            },
-            toolbox: {
-              show: true,
-              right: 16,
-              top: 16,
-              feature: {
-                dataZoom: {
-                  yAxisIndex: 'none',
-                  title: { zoom: 'Zoom', back: 'Reset' }
-                },
-                restore: { title: 'Reset' },
-                saveAsImage: { 
-                  title: 'Save',
-                  pixelRatio: 2
-                }
-              }
-            },
-            dataZoom: [
-              {
-                type: 'inside',
-                start: 0,
-                end: 100,
-                minValueSpan: 7 
-              },
-              {
-                show: true,
-                type: 'slider',
-                bottom: 50,
-                start: 0,
-                end: 100,
-                height: 20,
-                borderColor: 'hsl(var(--border))',
-                fillerColor: 'hsl(var(--primary) / 0.3)',
-                handleStyle: {
-                  color: 'hsl(var(--primary))'
-                }
-              }
-            ],
-            xAxis: {
-              type: "category",
-              axisLabel: {
-                formatter: (v: string) => format(new Date(v), "MMM dd"),
-                interval: 'auto'
-              },
-              boundaryGap: false
-            },
-            yAxis: [{ 
-              type: "value",
-              max: 10,
-              min: 0,
-              interval: 2
-            }],
-            series: [
-              {
-                type: "line",
-                name: "Avg Emotion Intensity",
-                smooth: true,
-                encode: { x: "date", y: "avgEmotionIntensity" },
-                lineStyle: { width: 3, color: 'hsl(var(--primary))' },
-                showSymbol: false,
-                emphasis: {
-                  focus: 'series',
-                  lineStyle: { width: 4 }
-                },
-                markLine: {
-                  silent: true,
-                  data: [
-                    {
-                      yAxis: emotionThreshold,
-                      label: {
-                        position: 'end',
-                        formatter: 'Emotion Threshold',
-                        color: 'hsl(var(--destructive))'
-                      },
-                      lineStyle: {
-                        color: 'hsl(var(--destructive))',
-                        type: 'dashed',
-                        width: 2
-                      }
-                    }
-                  ]
-                }
-              },
-              {
-                type: "line",
-                name: "Positive Emotions",
-                smooth: true,
-                encode: { x: "date", y: "positiveEmotions" },
-                lineStyle: { width: 2, color: "hsl(142 76% 36%)" },
-                showSymbol: false,
-                itemStyle: { color: "hsl(142 76% 36%)" },
-                emphasis: {
-                  focus: 'series'
-                }
-              },
-              {
-                type: "line",
-                name: "Negative Emotions",
-                smooth: true,
-                encode: { x: "date", y: "negativeEmotions" },
-                lineStyle: { width: 2, color: "hsl(0 72% 51%)" },
-                showSymbol: false,
-                itemStyle: { color: "hsl(0 72% 51%)" },
-                emphasis: {
-                  focus: 'series'
-                }
-              },
-              {
-                type: "line",
-                name: "Sensory Inputs",
-                smooth: true,
-                encode: { x: "date", y: "totalSensoryInputs" },
-                lineStyle: { width: 2, type: "dashed", color: "hsl(199 89% 48%)" },
-                showSymbol: false,
-                itemStyle: { color: "hsl(199 89% 48%)" },
-                emphasis: {
-                  focus: 'series'
-                },
-                markLine: {
-                  silent: true,
-                  data: [
-                    {
-                      yAxis: sensoryThreshold,
-                      label: {
-                        position: 'end',
-                        formatter: 'Sensory Threshold',
-                        color: 'hsl(40 65% 70%)'
-                      },
-                      lineStyle: {
-                        color: 'hsl(40 65% 70%)',
-                        type: 'dashed',
-                        width: 2
-                      }
-                    }
-                  ]
-                }
-              }
-            ],
-            grid: {
-              backgroundColor: 'rgba(255, 255, 255, 0.02)'
-            }
-          };
-          return <EChartContainer option={trendsOption} height={400} />;
+          const rows: ChartKitTrendRow[] = chartData.map(d => ({
+            date: d.date,
+            avgEmotionIntensity: typeof d.avgEmotionIntensity === 'number' ? d.avgEmotionIntensity : Number(d.avgEmotionIntensity) || 0,
+            positiveEmotions: typeof d.positiveEmotions === 'number' ? d.positiveEmotions : Number(d.positiveEmotions) || 0,
+            negativeEmotions: typeof d.negativeEmotions === 'number' ? d.negativeEmotions : Number(d.negativeEmotions) || 0,
+            totalSensoryInputs: typeof d.totalSensoryInputs === 'number' ? d.totalSensoryInputs : Number(d.totalSensoryInputs) || 0,
+          }));
+
+          const trendsOption: EChartsOption = buildEmotionTrendsOption(rows, {
+            title: 'Emotion Trends Over Time',
+            showMovingAverage: true,
+            movingAverageWindow: 7,
+            useDualYAxis: true,
+            thresholds: { emotion: emotionThreshold, sensory: sensoryThreshold },
+          });
+
+          return (
+            <EChartContainer
+              option={trendsOption}
+              height={400}
+            />
+          );
         }
     }
   } catch (error) {
@@ -918,80 +665,8 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
       );
     }
 
-    const cellSize = 40;
-    const padding = 100;
-
-    return (
-      <div className="overflow-x-auto">
-        <svg 
-          width={correlationMatrix.factors.length * cellSize + padding * 2} 
-          height={correlationMatrix.factors.length * cellSize + padding * 2}
-          className="font-dyslexia"
-        >
-          {/* Factor labels - Y axis */}
-          {correlationMatrix.factors.map((factor, i) => (
-            <text
-              key={`y-${factor}`}
-              x={padding - 10}
-              y={padding + i * cellSize + cellSize / 2}
-              textAnchor="end"
-              dominantBaseline="middle"
-              className="text-xs fill-foreground"
-            >
-              {factor.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-            </text>
-          ))}
-
-          {/* Factor labels - X axis */}
-          {correlationMatrix.factors.map((factor, i) => (
-            <text
-              key={`x-${factor}`}
-              x={padding + i * cellSize + cellSize / 2}
-              y={padding - 10}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="text-xs fill-foreground"
-              transform={`rotate(-45 ${padding + i * cellSize + cellSize / 2} ${padding - 10})`}
-            >
-              {factor.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-            </text>
-          ))}
-
-          {/* Correlation cells */}
-          {correlationMatrix.matrix.map((row, i) =>
-            row.map((correlation, j) => {
-              const intensity = Math.abs(correlation);
-              const isPositive = correlation > 0;
-              const opacity = intensity;
-              
-              return (
-                <g key={`cell-${i}-${j}`}>
-                  <rect
-                    x={padding + j * cellSize}
-                    y={padding + i * cellSize}
-                    width={cellSize}
-                    height={cellSize}
-                    fill={isPositive ? 'hsl(142 76% 36%)' : 'hsl(0 72% 51%)'}
-                    fillOpacity={opacity}
-                    stroke="hsl(var(--border))"
-                    strokeWidth={1}
-                  />
-                  <text
-                    x={padding + j * cellSize + cellSize / 2}
-                    y={padding + i * cellSize + cellSize / 2}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className="text-xs fill-foreground font-medium"
-                  >
-                    {correlation.toFixed(2)}
-                  </text>
-                </g>
-              );
-            })
-          )}
-        </svg>
-      </div>
-    );
+    const option: EChartsOption = buildCorrelationHeatmapOption(correlationMatrix);
+    return <EChartContainer option={option} height={420} />;
   };
 
   const getPatternIcon = (type: string) => {
@@ -1195,10 +870,10 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
                         <p className="text-sm text-muted-foreground mb-2">
                           Frequency: {pattern.frequency} occurrences
                         </p>
-                        {pattern.recommendations.length > 0 && (
+                        {(pattern.recommendations?.length ?? 0) > 0 && (
                           <div className="space-y-1">
                             <p className="text-sm font-medium">Recommendations:</p>
-                            {pattern.recommendations.slice(0, 2).map((rec, i) => (
+                            {(pattern.recommendations ?? []).slice(0, 2).map((rec, i) => (
                               <p key={i} className="text-xs text-muted-foreground flex items-start gap-1">
                                 <Lightbulb className="h-3 w-3 mt-0.5 flex-shrink-0" />
                                 {rec}
@@ -1598,19 +1273,29 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
               </Select>
             </div>
 
-            {/* Emotion Selection */}
+            {/* Emotion Selection (multi-select via checkboxes) */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Select Emotions</label>
-              <Select value={selectedEmotions} onValueChange={(value: string[]) => setSelectedEmotions(value)} multiple>
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Pick emotions..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableEmotions.map(emotion => (
-                    <SelectItem key={emotion} value={emotion}>{emotion}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-2 gap-2 w-64 p-2 border rounded-md">
+                {availableEmotions.map(emotion => {
+                  const checked = selectedEmotions.includes(emotion);
+                  return (
+                    <label key={emotion} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          const isChecked = Boolean(v);
+                          setSelectedEmotions(prev =>
+                            isChecked ? [...prev, emotion] : prev.filter(e => e !== emotion)
+                          );
+                        }}
+                        aria-label={`Toggle ${emotion}`}
+                      />
+                      <span className="capitalize">{emotion}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -1856,7 +1541,7 @@ const [selectedEmotions, setSelectedEmotions] = useState<string[]>(availableEmot
                       <p className="text-2xl font-bold">
                         {filteredData.sensoryInputs.length > 0 
                           ? Math.round((filteredData.sensoryInputs.filter(s => 
-                              s.response.toLowerCase().includes('seeking')
+                              s.response?.toLowerCase().includes('seeking')
                             ).length / filteredData.sensoryInputs.length) * 100)
                           : 0
                         }%
