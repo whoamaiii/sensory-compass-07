@@ -159,7 +159,7 @@ export const useRealtimeData = (
 
   const [state, dispatch] = useReducer(realtimeDataReducer, initialState);
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const newDataTimestamps = useRef<Set<number>>(new Set());
 
@@ -231,7 +231,7 @@ export const useRealtimeData = (
   }, [smoothInsertData]);
 
   // Track connection timeout to ensure proper cleanup
-  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Start the real-time stream
   const startStream = useCallback(() => {
@@ -289,7 +289,7 @@ export const useRealtimeData = (
   }, []);
 
   // Track historical data timeout to ensure proper cleanup
-  const historicalDataTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const historicalDataTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Get historical data (simulate API call)
   const getHistoricalData = useCallback((minutes: number) => {
@@ -373,7 +373,7 @@ export const useRealtimeData = (
 
   // Handle connection errors (simulated)
   useEffect(() => {
-    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     
     if (state.connectionStatus === 'connected' && Math.random() < 0.01) { // 1% chance of error
       dispatch({ type: 'SET_CONNECTION_STATUS', payload: 'error' });
@@ -441,7 +441,7 @@ export const useRealtimeVisualization = (
   updateInterval: number = 100
 ) => {
   const [animatedData, setAnimatedData] = useState(data);
-  const animationRef = useRef<NodeJS.Timeout | null>(null);
+  const animationRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!data.isLive) {

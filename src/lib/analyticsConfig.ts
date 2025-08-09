@@ -291,6 +291,10 @@ export class AnalyticsConfigManager {
 
   private loadConfig(): AnalyticsConfiguration {
     try {
+      if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+        // Non-browser environment (SSR/tests/workers)
+        return { ...DEFAULT_ANALYTICS_CONFIG };
+      }
       const stored = localStorage.getItem(this.storageKey);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -306,7 +310,9 @@ export class AnalyticsConfigManager {
 
   private saveConfig(): void {
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(this.config));
+      if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+        localStorage.setItem(this.storageKey, JSON.stringify(this.config));
+      }
     } catch (error) {
       logger.error('Failed to save analytics configuration:', error);
     }

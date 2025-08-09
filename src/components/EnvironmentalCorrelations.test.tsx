@@ -117,11 +117,11 @@ describe('EnvironmentalCorrelations', () => {
     const mockData = generateMockData(20, 0.8);
     render(<AnalyticsDashboard student={{...mockStudent, trackingEntries: mockData}} />);
 
-    // Click on the 'Correlations' tab
-    fireEvent.click(screen.getByText('Correlations'));
+    // Click on the 'Correlations' tab (disambiguate using test id)
+    fireEvent.click(screen.getByTestId('dashboard-correlations-tab'));
 
     await waitFor(() => {
-        expect(screen.getByText('Environmental Correlations')).toBeInTheDocument();
+        expect(screen.getByTestId('environmental-correlations-title')).toBeInTheDocument();
     });
 
     await waitFor(() => {
@@ -161,9 +161,9 @@ describe('EnvironmentalCorrelations', () => {
     const largeMockData = generateMockData(500, 0.8);
     const startTime = performance.now();
     render(<AnalyticsDashboard student={{...mockStudent, trackingEntries: largeMockData}} />);
-    fireEvent.click(screen.getByText('Correlations'));
+    fireEvent.click(screen.getByTestId('dashboard-correlations-tab'));
     await waitFor(() => {
-        expect(screen.getByText('Environmental Correlations')).toBeInTheDocument();
+        expect(screen.getByTestId('environmental-correlations-title')).toBeInTheDocument();
     });
     const endTime = performance.now();
     const duration = endTime - startTime;
