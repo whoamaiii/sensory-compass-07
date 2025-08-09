@@ -254,17 +254,24 @@ export function VirtualScrollArea<T>({
     };
   }, []);
 
+  // Generate dynamic classes for container height
+  const containerHeightClass = containerHeight ? `h-[${containerHeight}px]` : 'h-full';
+  
   return (
-    <ScrollArea className={cn(className, "relative")} style={{ height: containerHeight }}>
+    <ScrollArea className={cn(className, "relative", containerHeightClass)}>
       <div 
         ref={scrollElementRef}
         onScroll={handleScroll}
-        className="overflow-auto"
-        style={{ height: containerHeight }}
+        className={cn("overflow-auto", containerHeightClass)}
       >
-        <div className="relative" style={{ height: totalHeight }}>
+        <div 
+          className="relative"
+          // Dynamic height must be inline as it changes with item count
+          style={{ height: `${totalHeight}px` }}
+        >
           <div
             className="relative"
+            // Transform must be inline as it changes with scroll position
             style={{
               transform: `translateY(${visibleRange.start * itemHeight}px)`
             }}
@@ -272,7 +279,9 @@ export function VirtualScrollArea<T>({
             {visibleItems.map((item, index) => (
               <div
                 key={visibleRange.start + index}
-                style={{ height: itemHeight }}
+                className="relative"
+                // Item height must be inline as it's configurable
+                style={{ height: `${itemHeight}px` }}
               >
                 {renderItem(item, visibleRange.start + index)}
               </div>
