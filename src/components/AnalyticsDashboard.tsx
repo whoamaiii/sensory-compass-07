@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertManager } from "@/components/AlertManager";
-import { LazyInteractiveDataVisualization as DataVisualization } from "@/components/lazy/LazyInteractiveDataVisualization";
+import { InteractiveDataVisualization as DataVisualization } from "@/components/InteractiveDataVisualization";
 import { AnalyticsSettings } from "@/components/AnalyticsSettings";
 import {
   TrendingUp,
@@ -22,10 +22,16 @@ import {
   FileText,
   FileSpreadsheet,
   FileJson,
-  Settings
+  Settings,
+  Info
 } from "lucide-react";
 import { Student, TrackingEntry, EmotionEntry, SensoryEntry } from "@/types/student";
 import { PatternResult, CorrelationResult } from "@/lib/patternAnalysis";
+import { EChartContainer } from "@/components/charts/EChartContainer";
+import { buildCorrelationHeatmapOption } from "@/components/charts/ChartKit";
+import { enhancedPatternAnalysis } from "@/lib/enhancedPatternAnalysis";
+import type { EChartsOption } from "echarts";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useAnalyticsWorker } from "@/hooks/useAnalyticsWorker";
 import { analyticsManager } from "@/lib/analyticsManager";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -71,30 +77,12 @@ export const AnalyticsDashboard = memo(({
   const [isExporting, setIsExporting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const visualizationRef = useRef<HTMLDivElement>(null);
-  const [vizReady, setVizReady] = useState(false);
   
   // Always call hook at top level - hooks cannot be inside try-catch
   const { results, isAnalyzing, error, runAnalysis, invalidateCacheForStudent } = useAnalyticsWorker();
 
   // Effect to trigger the analysis in the worker whenever the filtered data changes.
   useEffect(() => {
-    // Log the props to check if they're being passed correctly
-    logger.debug('[AnalyticsDashboard] Props received:', {
-      studentId: student?.id,
-      studentName: student?.name,
-      hasFilteredData: !!filteredData,
-      entriesCount: filteredData?.entries?.length,
-      emotionsCount: filteredData?.emotions?.length,
-      sensoryInputsCount: filteredData?.sensoryInputs?.length
-    });
-    logger.debug('[AnalyticsDashboard] Component mounting');
-    logger.debug('[AnalyticsDashboard] useAnalyticsWorker result:', {
-      hasResults: !!results,
-      isAnalyzing,
-      error,
-      runAnalysisType: typeof runAnalysis
-    });
-    diagnostics.logComponentMount('AnalyticsDashboard');
     // Normalize incoming filteredData timestamps to Date instances for charts/UI safety
     const normalize = (d: typeof filteredData) => {
       const coerce = (v: unknown): Date => {
@@ -134,11 +122,10 @@ export const AnalyticsDashboard = memo(({
     analyticsManager.initializeStudentAnalytics(student.id);
   }, [student.id, filteredData, runAnalysis]);
 
-  // Track component unmount and check for leaks
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      diagnostics.logComponentUnmount('AnalyticsDashboard');
-      diagnostics.checkForLeaks();
+      // Component cleanup
     };
   }, []);
 
@@ -148,17 +135,8 @@ export const AnalyticsDashboard = memo(({
   const environmentalCorrelations = useMemo(() => results?.environmentalCorrelations || results?.correlations || [], [results]);
   const insights = useMemo(() => results?.insights || [], [results]);
 
-  // Mark visualization as ready on any terminal condition: results | error | not analyzing with data known
-  useEffect(() => {
-    if (error) {
-      setVizReady(true);
-      return;
-    }
-    if (!isAnalyzing) {
-      // If we have results or empty states, visualization should render (even if "no data" message)
-      setVizReady(true);
-    }
-  }, [isAnalyzing, error, results]);
+  // Decouple visualization rendering from worker readiness to avoid spinners.
+  // Charts render immediately using filteredData while analysis updates other tabs.
 
   // Export handler with useCallback for performance
   const handleExport = useCallback(async (format: ExportFormat) => {
@@ -348,28 +326,22 @@ export const AnalyticsDashboard = memo(({
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="visualizations">Charts</TabsTrigger>
           <TabsTrigger value="patterns">Patterns</TabsTrigger>
-          <TabsTrigger value="correlations">Correlations</TabsTrigger>
+          <TabsTrigger value="correlations" data-testid="dashboard-correlations-tab">Correlations</TabsTrigger>
           <TabsTrigger value="alerts">Alerts</TabsTrigger>
         </TabsList>
 
         <TabsContent value="visualizations" className="space-y-6">
           <div ref={visualizationRef}>
-            {!vizReady ? (
-              <div className="p-6 text-muted-foreground">
-                Loading Interactive Visualization...
-              </div>
-            ) : (
-              <DataVisualization
-                emotions={filteredData.emotions}
-                sensoryInputs={filteredData.sensoryInputs}
-                trackingEntries={filteredData.entries}
-                studentName={student.name}
-              />
-            )}
+            <DataVisualization
+              emotions={filteredData.emotions}
+              sensoryInputs={filteredData.sensoryInputs}
+              trackingEntries={filteredData.entries}
+              studentName={student.name}
+            />
           </div>
         </TabsContent>
 
-        <TabsContent value="patterns" className="space-y-6">
+        <TabsContent value="patterns" className="space-y-6" forceMount>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Behavioral Patterns</CardTitle>
@@ -410,11 +382,35 @@ export const AnalyticsDashboard = memo(({
                           <div className="flex items-start gap-3">
                             {getPatternIcon(pattern.type)}
                             <div className="flex-1">
+                            <div className="flex items-center gap-2">
                               <h4 className="font-medium text-foreground">
-                                {pattern.pattern.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                {String((pattern as PatternResult & {pattern?: string; name?: string}).pattern ?? (pattern as PatternResult & {pattern?: string; name?: string}).name ?? 'Pattern')
+                                  .replace('-', ' ')
+                                  .replace(/\b\w/g, (l: string) => l.toUpperCase())}
                               </h4>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {pattern.description}
+                              <HoverCard openDelay={100} closeDelay={80}>
+                                <HoverCardTrigger asChild>
+                                  <button
+                                    aria-label="Vis forklaringen"
+                                    className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] leading-none text-muted-foreground hover:bg-accent/40"
+                                  >
+                                    <Info className="h-3 w-3" />
+                                    Vis forklaringen
+                                  </button>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-80 text-sm leading-relaxed">
+                                  <p className="mb-1 font-medium">Hva betyr dette mønsteret?</p>
+                                  <p className="text-muted-foreground">
+                                    {String((pattern as PatternResult & {description?: string}).description ?? 'Systemet har funnet et gjentakende mønster i dataene for denne perioden.')} 
+                                  </p>
+                                  <p className="mt-2 text-xs text-muted-foreground/80">
+                                    Tolk alltid sammen med kontekst og pedagogisk vurdering.
+                                  </p>
+                                </HoverCardContent>
+                              </HoverCard>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {String((pattern as PatternResult & {description?: string}).description ?? '')}
                               </p>
                               {pattern.recommendations && (
                                 <div className="mt-3">
@@ -471,10 +467,27 @@ export const AnalyticsDashboard = memo(({
           </Card>
         </TabsContent>
 
-        <TabsContent value="correlations" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Environmental Correlations</CardTitle>
+        <TabsContent value="correlations" forceMount className="space-y-6">
+          <Card className="bg-gradient-card border-0 shadow-soft">
+            <CardHeader className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle data-testid="environmental-correlations-title">Correlation Heatmap</CardTitle>
+                <p className="text-sm text-muted-foreground">Strength of relationships between tracked factors (−1 to 1)</p>
+              </div>
+              <HoverCard openDelay={150} closeDelay={100}>
+                <HoverCardTrigger asChild>
+                  <button aria-label="Hvordan lese varmekartet" className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs hover:bg-accent/30">
+                    <Info className="h-4 w-4" />
+                    Hvordan lese varmekartet
+                  </button>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80 text-sm leading-relaxed">
+                  <p>
+                    Farger viser korrelasjon: grønn = positiv sammenheng, rød = negativ. Tall nær 1 eller −1 betyr sterkere samband.
+                    Akser viser faktorer. Hold musepekeren over en celle for detaljer og signifikans.
+                  </p>
+                </HoverCardContent>
+              </HoverCard>
             </CardHeader>
             <CardContent>
               {isAnalyzing && (
@@ -488,56 +501,71 @@ export const AnalyticsDashboard = memo(({
                   <p>{error}</p>
                 </div>
               )}
-              {!isAnalyzing && !error && environmentalCorrelations.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No significant correlations found.</p>
-                  <p className="text-sm">Environmental data may be needed for correlation analysis.</p>
-                </div>
-              )}
-              {!isAnalyzing && !error && environmentalCorrelations.length > 0 && (
-                <div className="space-y-4">
-                  {environmentalCorrelations.map((correlation: CorrelationResult, index) => (
-                    <Card key={index} className="border-l-4 border-l-blue-500">
-                      <CardContent className="pt-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-foreground">
-                              {correlation.factor1} ↔ {correlation.factor2}
-                            </h4>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {correlation.description}
-                            </p>
-                            {correlation.recommendations && (
-                              <div className="mt-3">
-                                <h5 className="text-sm font-medium mb-2">Recommendations:</h5>
-                                <ul className="text-sm text-muted-foreground space-y-1">
-                                  {correlation.recommendations.map((rec, recIndex) => (
-                                    <li key={recIndex} className="flex items-start gap-2">
-                                      <span className="text-primary">•</span>
-                                      <span>{rec}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <Badge 
-                              variant={correlation.significance === 'high' ? 'default' : 'outline'}
-                            >
-                              {correlation.significance} significance
-                            </Badge>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              r = {correlation.correlation.toFixed(3)}
-                            </p>
-                          </div>
+              {(() => {
+                const hasEnoughData = (filteredData.entries?.length ?? 0) >= 10;
+                if (hasEnoughData) {
+                  try {
+                    const matrix = enhancedPatternAnalysis.generateCorrelationMatrix(filteredData.entries);
+                    const option: EChartsOption = buildCorrelationHeatmapOption(matrix);
+                    return (
+                      <>
+                        <div className="rounded-xl border bg-card">
+                          <EChartContainer option={option} height={420} />
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                        <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>Negativ</span>
+                          <span className="h-3 w-3 rounded" style={{ backgroundColor: '#ef4444' }} />
+                          <span>0</span>
+                          <span className="h-3 w-3 rounded border" style={{ backgroundColor: '#f3f4f6' }} />
+                          <span>Positiv</span>
+                          <span className="h-3 w-3 rounded" style={{ backgroundColor: '#10b981' }} />
+                        </div>
+                      </>
+                    );
+                  } catch {
+                    /* fall through to list */
+                  }
+                }
+                if (!isAnalyzing && !error && environmentalCorrelations.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No significant correlations found.</p>
+                      <p className="text-sm">More varied environmental data may be needed.</p>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-4">
+                    {environmentalCorrelations.map((correlation: CorrelationResult, index) => (
+                      <Card key={index} className="border-l-4 border-l-blue-500">
+                        <CardContent className="pt-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-foreground">
+                                {correlation.factor1} ↔ {correlation.factor2}
+                              </h4>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {correlation.description}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <Badge variant={correlation.significance === 'high' ? 'default' : 'outline'}>
+                                {correlation.significance} significance
+                              </Badge>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                r = {typeof (correlation as CorrelationResult & {correlation?: number}).correlation === 'number'
+                                  ? (correlation as CorrelationResult & {correlation?: number}).correlation.toFixed(3)
+                                  : '0.000'}
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>

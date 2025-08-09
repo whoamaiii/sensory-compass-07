@@ -97,6 +97,34 @@ export function AnalyticsSection({
         </p>
       </div>
 
+      {/* Systemforklaring (Norwegian explainer) */}
+      <Card className="bg-card/60 border border-border/60">
+        <CardHeader>
+          <CardTitle>Systemforklaring</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+          <p>
+            Denne siden sammenfatter elevens data for å gi et oversiktlig bilde av
+            emosjoner, sanseinntrykk og miljøfaktorer over tid. Systemet bruker
+            statistiske metoder for å finne mønstre, beregne korrelasjoner og gi
+            anbefalinger. Korrelasjonskartet (varmekart) viser styrken på
+            sammenhenger mellom faktorer fra −1 (sterk negativ) til 1 (sterk
+            positiv). Bare tydeligere sammenhenger merkes med tall for å holde
+            visningen ryddig.
+          </p>
+          <p>
+            Innsiktene genereres lokalt i nettleseren og tunge beregninger kjøres i en
+            web‑arbeider for å bevare ytelse. Ingen persondata sendes til en server.
+            Resultatene bør tolkes som støtte for faglig vurdering, ikke som fasit.
+          </p>
+          <p className="text-xs text-muted-foreground/80">
+            Tips: Hold musepekeren over celler i varmekartet for detaljer som
+            korrelasjonsverdi og signifikans. Bruk filtrene over diagrammene for
+            å justere tidsrom og se hvordan mønstrene endrer seg.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Main Analytics Dashboard */}
       <ErrorBoundary showToast={false}>
         <AnalyticsDashboard
