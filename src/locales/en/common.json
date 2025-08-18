@@ -67,5 +67,13 @@
   "error": {
     "title": "Something went wrong",
     "description": "An unexpected error occurred. You can try again or reload the page."
+  },
+  "devBanner": {
+    "title": "Developer Error Banner",
+    "errorCaptured": "Dev error captured ({{count}})",
+    "details": "Open console for details.",
+    "dismiss": "Dismiss",
+    "hidden": "Banner hidden until next error.",
+    "listening": "Listening for development errors..."
   }
 }

@@ -67,5 +67,13 @@
   "error": {
     "title": "Noe gikk galt",
     "description": "En uventet feil oppstod. Du kan prøve igjen eller laste siden på nytt."
+  },
+  "devBanner": {
+    "title": "Utvikler-feilbanner",
+    "errorCaptured": "Utviklerfeil fanget ({{count}})",
+    "details": "Åpne konsollen for detaljer.",
+    "dismiss": "Lukk",
+    "hidden": "Banner skjult til neste feil.",
+    "listening": "Lytter etter utviklerfeil..."
   }
 }
